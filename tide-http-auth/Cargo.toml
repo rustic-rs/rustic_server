@@ -1,0 +1,28 @@
+[package]
+name          = "tide-http-auth"
+description   = "Basic and Bearer auth support for Tide"
+version       = "0.3.0"
+authors       = ["Chris Dickinson <christopher.s.dickinson@gmail.com>"]
+edition       = "2018"
+license       = "Apache-2.0"
+documentation = "https://docs.rs/tide-http-auth"
+homepage      = "https://github.com/chrisdickinson/tide-http-auth"
+repository    = "https://github.com/chrisdickinson/tide-http-auth"
+keywords      = ["auth", "tide", "authentication", "bearer", "basic"]
+categories    = ["asynchronous", "authentication"]
+readme        = "README.md"
+
+[dependencies]
+http-types  = "2.7.0"
+tide        = "0.16.0"
+tracing     = "0.1.21"
+async-trait = "0.1.41"
+base64      = "0.13.0"
+
+[dev-dependencies]
+tide = "0.14.0"
+async-std = { version = "1.6.5", features = ["attributes"] }
+
+[[example]]
+name = "basic"
+path = "examples/basic-in-memory.rs"

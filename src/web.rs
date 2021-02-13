@@ -1,0 +1,390 @@
+// mod web
+//
+// implements a REST server as specified by 
+// https://restic.readthedocs.io/en/stable/REST_backend.html?highlight=Rest%20API
+// 
+// uses the modules 
+// storage - to access the file system
+// auth    - for user authentication
+// acl     - for access control
+
+use std::cell::RefCell;
+use std::convert::TryInto;
+use std::path::Path;
+
+use async_std::fs::File;
+use async_std::io;
+use async_std::io::SeekFrom::Start;
+use async_std::prelude::*;
+
+use tide::prelude::*;
+use tide::{Body, Request, Response, StatusCode};
+use tide_http_auth::{BasicAuthRequest, BasicAuthScheme};
+use tide_rustls::TlsListener;
+
+use http_range::HttpRange;
+use serde::Serializer;
+
+use super::acl::{AccessType, Acl};
+use super::auth::Auth;
+use super::storage::Storage;
+
+#[derive(Clone)]
+pub struct State {
+    auth: Auth,
+    acl: Acl,
+    storage: Storage,
+}
+
+#[async_trait::async_trait]
+impl tide_http_auth::Storage<String, BasicAuthRequest> for State {
+    async fn get_user(&self, request: BasicAuthRequest) -> tide::Result<Option<String>> {
+        let user = request.username;
+        match self.auth.verify(&user, &request.password) {
+            true => Ok(Some(user)),
+            false => Ok(None),
+        }
+    }
+}
+
+impl State {
+    pub fn new(auth: Auth, acl: Acl, storage: Storage) -> Self {
+        Self { storage, auth, acl }
+    }
+}
+
+const TYPES: [&'static str; 5] = ["data", "keys", "locks", "snapshots", "index"];
+const DEFAULT_PATH: &str = "";
+const CONFIG_TYPE: &str = "config";
+const CONFIG_NAME: &str = "";
+
+fn check_name(name: &str) -> Result<(), tide::Error> {
+    match name != CONFIG_TYPE {
+        true => Ok(()),
+        false => Err(tide::Error::from_str(
+            StatusCode::Forbidden,
+            "filename config not allowed",
+        )),
+    }
+}
+
+fn check_auth_and_acl(
+    req: &Request<State>,
+    path: &Path,
+    tpe: &str,
+    append: AccessType,
+) -> Result<(), tide::Error> {
+    let state = req.state();
+
+    // don't allow paths that includes any of the defined types
+    for part in path.iter() {
+        if let Some(part) = part.to_str() {
+            for tpe in TYPES.iter() {
+                if &part == tpe {
+                    return Err(tide::Error::from_str(StatusCode::Forbidden, "not allowed"));
+                }
+            }
+        }
+    }
+
+    let empty = String::new();
+    let user: &str = req.ext::<String>().unwrap_or(&empty);
+    let path = path.to_str().ok_or(tide::Error::from_str(
+        StatusCode::Forbidden,
+        "path is non-unicode",
+    ))?;
+    let allowed = state.acl.allowed(user, path, tpe, append);
+    tide::log::debug!("auth",  {
+    user: user,
+    path: path,
+    tpe: tpe,
+    allowed: allowed,
+    });
+
+    match allowed {
+        true => Ok(()),
+        false => Err(tide::Error::from_str(StatusCode::Forbidden, "not allowed")),
+    }
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct Create {
+    create: bool,
+}
+
+async fn create_dirs(path: &str, req: &Request<State>) -> tide::Result {
+    tide::log::debug!("create_dirs", {
+        path: path,
+    });
+
+    let path = Path::new(path);
+    check_auth_and_acl(&req, path, "", AccessType::Append)?;
+    let c: Create = req.query()?;
+    match c.create {
+        true => {
+            for tpe in TYPES.iter() {
+                req.state().storage.create_dir(path, tpe)?;
+            }
+            Ok(format!("Called create_files with path {:?}\n", path).into())
+        }
+        false => Ok(format!("Called create_files with path {:?}, create=false\n", path).into()),
+    }
+}
+
+const API_V1: &'static str = "application/vnd.x.restic.rest.v1";
+const API_V2: &'static str = "application/vnd.x.restic.rest.v2";
+
+// helper struct to make iterators serializable
+struct IteratorAdapter<I>(RefCell<I>);
+
+impl<I> IteratorAdapter<I> {
+    fn new(iterator: I) -> Self {
+        Self(RefCell::new(iterator))
+    }
+}
+
+impl<I> Serialize for IteratorAdapter<I>
+where
+    I: Iterator,
+    I::Item: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.0.borrow_mut().by_ref())
+    }
+}
+
+#[derive(Serialize)]
+struct RepoPathEntry {
+    name: String,
+    size: u64,
+}
+
+async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> tide::Result {
+    tide::log::debug!("list_files", {
+        path: path,
+        tpe: tpe,
+    });
+
+    let path = Path::new(path);
+    check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
+
+    let read_dir = req.state().storage.read_dir(path, tpe);
+    let mut res = Response::new(StatusCode::Ok);
+
+    // TODO: error handling
+    match req.header("Accept") {
+        Some(a) if a.as_str() == API_V2 => {
+            res.set_content_type(API_V2);
+            let read_dir_version = read_dir.map(|e| RepoPathEntry {
+                name: e.file_name().into_string().unwrap(),
+                size: e.metadata().unwrap().len(),
+            });
+            res.set_body(Body::from_json(&IteratorAdapter::new(read_dir_version))?);
+        }
+        _ => {
+            res.set_content_type(API_V1);
+            let read_dir_version = read_dir.map(|e| e.file_name().into_string().unwrap());
+            res.set_body(Body::from_json(&IteratorAdapter::new(read_dir_version))?);
+        }
+    };
+    Ok(res)
+}
+
+async fn length(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide::Result {
+    tide::log::debug!("length", {
+        path: path,
+        tpe: tpe,
+        name: name,
+    });
+
+    let path = Path::new(path);
+    check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
+
+    let _file = req.state().storage.filename(path, tpe, name);
+    Err(tide::Error::from_str(
+        StatusCode::NotImplemented,
+        "not yet implemented",
+    ))
+}
+
+async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide::Result {
+    tide::log::debug!("get_file", {
+        path: path,
+        tpe: tpe,
+        name: name,
+    });
+
+    let path = Path::new(path);
+    check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
+
+    let mut file = req.state().storage.open_file(path, tpe, name).await?;
+    let mut len = file.metadata().await?.len();
+
+    let mut res;
+    match req.header("Range") {
+        None => {
+            res = Response::new(StatusCode::Ok);
+        }
+        Some(r) => match HttpRange::parse(r.as_str(), len) {
+            Ok(range) if range.len() == 1 => {
+                file.seek(Start(range[0].start)).await?;
+                len = range[0].length;
+                res = Response::new(StatusCode::PartialContent);
+            }
+            Ok(_) => {
+                return Err(tide::Error::from_str(
+                    StatusCode::NotImplemented,
+                    "multipart range not implemented",
+                ))
+            }
+            Err(_) => {
+                return Err(tide::Error::from_str(
+                    StatusCode::InternalServerError,
+                    "range error",
+                ))
+            }
+        },
+    };
+
+    let file = io::BufReader::new(file);
+    res.set_body(Body::from_reader(file, Some(len.try_into()?)));
+    Ok(res)
+}
+
+async fn save_body(req: &mut Request<State>, file: File) -> tide::Result {
+    let bytes_written = io::copy(req, file).await?;
+    tide::log::debug!("file written", {
+        bytes: bytes_written,
+    });
+    Ok(Response::new(StatusCode::Ok))
+}
+
+async fn get_save_file(
+    path: &str,
+    tpe: &str,
+    name: &str,
+    req: &Request<State>,
+) -> Result<File, tide::Error> {
+    tide::log::debug!("get_save_file", {
+        path: path,
+        tpe: tpe,
+        name: name,
+    });
+
+    check_name(name)?;
+    let path = Path::new(path);
+    check_auth_and_acl(&req, path, tpe, AccessType::Append)?;
+
+    Ok(req.state().storage.create_file(path, tpe, name).await?)
+}
+
+async fn delete_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide::Result {
+    let path = Path::new(path);
+    check_auth_and_acl(&req, path, tpe, AccessType::Modify)?;
+    req.state().storage.remove_file(path, tpe, name)?;
+    Ok(Response::new(StatusCode::Ok))
+}
+
+pub async fn main(
+    state: State,
+    addr: String,
+    tls: bool,
+    cert: Option<String>,
+    key: Option<String>,
+) -> tide::Result<()> {
+    let mid = tide_http_auth::Authentication::new(BasicAuthScheme::default());
+    let mut app = tide::with_state(state);
+    app.with(mid);
+
+    app.at("/:path/")
+        .post(|req: Request<State>| async move { create_dirs(req.param("path")?, &req).await });
+    app.at("/")
+        .post(|req| async move { create_dirs(DEFAULT_PATH, &req).await });
+
+    for tpe in TYPES.iter() {
+        let path = &("/".to_string() + tpe + "/");
+        tide::log::debug!("add path: {}", path);
+        app.at(path)
+            .get(move |req| async move { list_files(DEFAULT_PATH, tpe, &req).await });
+
+        let path = &("/".to_string() + tpe + "/:name");
+        tide::log::debug!("add path: {}", path);
+        app.at(path)
+            .head(move |req: Request<State>| async move {
+                length(DEFAULT_PATH, tpe, req.param("name")?, &req).await
+            })
+            .get(move |req: Request<State>| async move {
+                get_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await
+            })
+            .post(move |mut req: Request<State>| async move {
+                let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
+                save_body(&mut req, file).await
+            })
+            .delete(move |req: Request<State>| async move {
+                delete_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await
+            });
+
+        let path = &("/:path/".to_string() + tpe + "/");
+        tide::log::debug!("add path: {}", path);
+        app.at(path).get(move |req: Request<State>| async move {
+            list_files(req.param("path")?, tpe, &req).await
+        });
+
+        let path = &("/:path/".to_string() + tpe + "/:name");
+        tide::log::debug!("add path: {}", path);
+        app.at(path)
+            .head(move |req: Request<State>| async move {
+                length(req.param("path")?, tpe, req.param("name")?, &req).await
+            })
+            .get(move |req: Request<State>| async move {
+                get_file(req.param("path")?, tpe, req.param("name")?, &req).await
+            })
+            .post(move |mut req: Request<State>| async move {
+                let file = get_save_file(req.param("path")?, tpe, req.param("name")?, &req).await?;
+                save_body(&mut req, file).await
+            })
+            .delete(move |req: Request<State>| async move {
+                delete_file(req.param("path")?, tpe, req.param("name")?, &req).await
+            });
+    }
+
+    app.at("config")
+        .get(|req| async move { get_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await })
+        .post(|mut req| async move {
+            let file = get_save_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await?;
+            save_body(&mut req, file).await
+        })
+        .delete(
+            |req| async move { delete_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await },
+        );
+
+    app.at("/:path/config")
+        .get(|req: Request<State>| async move {
+            get_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await
+        })
+        .post(|mut req: Request<State>| async move {
+            let file = get_save_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await?;
+            save_body(&mut req, file).await
+        })
+        .delete(|req: Request<State>| async move {
+            delete_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await
+        });
+
+    match tls {
+        false => app.listen(addr).await?,
+        true => {
+            app.listen(
+                TlsListener::build()
+                    .addrs(addr)
+                    .cert(cert.expect("--cert not given"))
+                    .key(key.expect("--key not given")),
+            )
+            .await?
+        }
+    };
+    Ok(())
+}
