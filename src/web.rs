@@ -8,7 +8,6 @@
 // auth    - for user authentication
 // acl     - for access control
 
-use std::cell::RefCell;
 use std::convert::TryInto;
 use std::marker::Unpin;
 use std::path::Path;
@@ -23,10 +22,10 @@ use tide_http_auth::{BasicAuthRequest, BasicAuthScheme};
 use tide_rustls::TlsListener;
 
 use http_range::HttpRange;
-use serde::Serializer;
 
 use super::acl::{AccessType, Acl};
 use super::auth::Auth;
+use super::helpers::IteratorAdapter;
 use super::storage::Storage;
 
 #[derive(Clone)]
@@ -134,28 +133,6 @@ async fn create_dirs(path: &str, req: &Request<State>) -> tide::Result {
 
 const API_V1: &'static str = "application/vnd.x.restic.rest.v1";
 const API_V2: &'static str = "application/vnd.x.restic.rest.v2";
-
-// helper struct to make iterators serializable
-struct IteratorAdapter<I>(RefCell<I>);
-
-impl<I> IteratorAdapter<I> {
-    fn new(iterator: I) -> Self {
-        Self(RefCell::new(iterator))
-    }
-}
-
-impl<I> Serialize for IteratorAdapter<I>
-where
-    I: Iterator,
-    I::Item: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.0.borrow_mut().by_ref())
-    }
-}
 
 #[derive(Serialize)]
 struct RepoPathEntry {
