@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 pub mod acl;
 pub mod auth;
+pub mod helpers;
 pub mod storage;
 mod web;
 
@@ -39,7 +40,6 @@ struct Opts {
     /// logging level (Off/Error/Warn/Info/Debug/Trace)
     #[clap(long, default_value = "Info")]
     log: tide::log::LevelFilter,
-    
 }
 
 #[async_std::main]

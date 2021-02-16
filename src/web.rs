@@ -1,18 +1,18 @@
 // mod web
 //
-// implements a REST server as specified by 
+// implements a REST server as specified by
 // https://restic.readthedocs.io/en/stable/REST_backend.html?highlight=Rest%20API
-// 
-// uses the modules 
+//
+// uses the modules
 // storage - to access the file system
 // auth    - for user authentication
 // acl     - for access control
 
 use std::cell::RefCell;
 use std::convert::TryInto;
+use std::marker::Unpin;
 use std::path::Path;
 
-use async_std::fs::File;
 use async_std::io;
 use async_std::io::SeekFrom::Start;
 use async_std::prelude::*;
@@ -255,11 +255,20 @@ async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> ti
     Ok(res)
 }
 
-async fn save_body(req: &mut Request<State>, file: File) -> tide::Result {
-    let bytes_written = io::copy(req, file).await?;
+#[async_trait::async_trait]
+pub trait Finalizer {
+    async fn finalize(&mut self) -> Result<(), io::Error>;
+}
+
+async fn save_body(
+    req: &mut Request<State>,
+    mut file: impl io::Write + Unpin + Finalizer,
+) -> tide::Result {
+    let bytes_written = io::copy(req, &mut file).await?;
     tide::log::debug!("file written", {
         bytes: bytes_written,
     });
+    file.finalize().await?;
     Ok(Response::new(StatusCode::Ok))
 }
 
@@ -268,7 +277,7 @@ async fn get_save_file(
     tpe: &str,
     name: &str,
     req: &Request<State>,
-) -> Result<File, tide::Error> {
+) -> Result<impl io::Write + Unpin + Finalizer, tide::Error> {
     tide::log::debug!("get_save_file", {
         path: path,
         tpe: tpe,

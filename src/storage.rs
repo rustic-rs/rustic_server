@@ -1,13 +1,9 @@
-// TODO: error handling in saving files!
-
-//use std::sync::Arc;
-//use parking_lot::RwLock;
-//use tempfile::TempDir;
-
-use async_std::fs::{File, OpenOptions};
 use std::fs;
-use std::io::Error as IoError;
 use std::path::{Path, PathBuf};
+
+use crate::helpers::WriteOrDeleteFile;
+use async_std::fs::File;
+use async_std::io::Result;
 
 #[derive(Clone)]
 pub struct Storage {
@@ -15,7 +11,7 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn try_new(path: &PathBuf) -> Result<Self, IoError> {
+    pub fn try_new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             path: path.to_path_buf(),
         })
@@ -52,22 +48,22 @@ impl Storage {
         }
     }
 
-    pub async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File, IoError> {
+    pub async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File> {
         let file_path = self.filename(path, tpe, name);
         Ok(File::open(file_path).await?)
     }
 
-    pub async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File, IoError> {
+    pub async fn create_file(
+        &self,
+        path: &Path,
+        tpe: &str,
+        name: &str,
+    ) -> Result<WriteOrDeleteFile> {
         let file_path = self.filename(path, tpe, name);
-
-        Ok(OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(&file_path)
-            .await?)
+        WriteOrDeleteFile::new(file_path).await
     }
 
-    pub fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<(), IoError> {
+    pub fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()> {
         let file_path = self.filename(path, tpe, name);
         Ok(fs::remove_file(&file_path)?)
     }
