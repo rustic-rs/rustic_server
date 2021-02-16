@@ -41,7 +41,11 @@ impl Finalizer for WriteOrDeleteFile {
 }
 
 impl Write for WriteOrDeleteFile {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         Pin::new(&mut self.get_mut().file).poll_write(cx, buf)
     }
 
@@ -64,9 +68,8 @@ impl Drop for WriteOrDeleteFile {
 }
 
 // used by IteratorAdapter
-use std::cell::RefCell;
 use serde::{Serialize, Serializer};
-
+use std::cell::RefCell;
 
 // helper struct to make iterators serializable
 pub struct IteratorAdapter<I>(RefCell<I>);
