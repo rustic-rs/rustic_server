@@ -29,15 +29,14 @@ impl Storage {
         }
     }
 
-    pub fn read_dir(&self, path: &Path, tpe: &str) -> impl Iterator<Item = fs::DirEntry> {
+    pub fn read_dir(&self, path: &Path, tpe: &str) -> Result<impl Iterator<Item = fs::DirEntry>> {
         // TODO: error handling
-        self.path
+        Ok(self.path
             .join(path)
             .join(tpe)
-            .read_dir()
-            .unwrap()
+            .read_dir()?
             .filter(|e| e.as_ref().unwrap().file_type().unwrap().is_file())
-            .map(|e| e.unwrap())
+            .filter_map(Result::ok))
     }
 
     pub fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf {
