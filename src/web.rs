@@ -149,7 +149,7 @@ async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> tide::Result
     let path = Path::new(path);
     check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
 
-    let read_dir = req.state().storage.read_dir(path, tpe)?;
+    let read_dir = req.state().storage.read_dir(path, tpe);
     let mut res = Response::new(StatusCode::Ok);
 
     // TODO: error handling
@@ -157,14 +157,14 @@ async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> tide::Result
         Some(a) if a.as_str() == API_V2 => {
             res.set_content_type(API_V2);
             let read_dir_version = read_dir.map(|e| RepoPathEntry {
-                name: e.file_name().into_string().unwrap(),
+                name: e.file_name().to_str().unwrap().to_string(),
                 size: e.metadata().unwrap().len(),
             });
             res.set_body(Body::from_json(&IteratorAdapter::new(read_dir_version))?);
         }
         _ => {
             res.set_content_type(API_V1);
-            let read_dir_version = read_dir.map(|e| e.file_name().into_string().unwrap());
+            let read_dir_version = read_dir.map(|e| e.file_name().to_str().unwrap().to_string());
             res.set_body(Body::from_json(&IteratorAdapter::new(read_dir_version))?);
         }
     };

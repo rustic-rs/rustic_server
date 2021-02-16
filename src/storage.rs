@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use crate::helpers::WriteOrDeleteFile;
 use async_std::fs::File;
 use async_std::io::Result;
+use walkdir::WalkDir;
 
 #[derive(Clone)]
 pub struct Storage {
@@ -29,14 +30,11 @@ impl Storage {
         }
     }
 
-    pub fn read_dir(&self, path: &Path, tpe: &str) -> Result<impl Iterator<Item = fs::DirEntry>> {
-        // TODO: error handling
-        Ok(self.path
-            .join(path)
-            .join(tpe)
-            .read_dir()?
-            .filter(|e| e.as_ref().unwrap().file_type().unwrap().is_file())
-            .filter_map(Result::ok))
+    pub fn read_dir(&self, path: &Path, tpe: &str) -> impl Iterator<Item = walkdir::DirEntry> {
+        WalkDir::new(self.path.join(path).join(tpe))
+            .into_iter()
+            .filter_map(walkdir::Result::ok)
+            .filter(|e| e.file_type().is_file())
     }
 
     pub fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf {
