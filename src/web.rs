@@ -57,12 +57,25 @@ const DEFAULT_PATH: &str = "";
 const CONFIG_TYPE: &str = "config";
 const CONFIG_NAME: &str = "";
 
-fn check_name(name: &str) -> Result<(), tide::Error> {
-    match name != CONFIG_TYPE {
-        true => Ok(()),
-        false => Err(tide::Error::from_str(
+fn check_string_sha256(name: &str) -> bool {
+    if name.len() != 64 {
+        return false;
+    }
+    for c in name.chars() {
+        if !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f') {
+            return false;
+        }
+    }
+    return true;
+}
+
+fn check_name(tpe: &str, name: &str) -> Result<(), tide::Error> {
+    match tpe {
+        "config" => Ok(()),
+        _ if check_string_sha256(name) => Ok(()),
+        _ => Err(tide::Error::from_str(
             StatusCode::Forbidden,
-            "filename config not allowed",
+            format!("filename {} not allowed", name),
         )),
     }
 }
@@ -178,6 +191,7 @@ async fn length(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide
         name: name,
     });
 
+    check_name(tpe, name)?;
     let path = Path::new(path);
     check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
 
@@ -195,6 +209,7 @@ async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> ti
         name: name,
     });
 
+    check_name(tpe, name)?;
     let path = Path::new(path);
     check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
 
@@ -261,7 +276,7 @@ async fn get_save_file(
         name: name,
     });
 
-    check_name(name)?;
+    check_name(tpe, name)?;
     let path = Path::new(path);
     check_auth_and_acl(&req, path, tpe, AccessType::Append)?;
 
@@ -269,6 +284,7 @@ async fn get_save_file(
 }
 
 async fn delete_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide::Result {
+    check_name(tpe, name)?;
     let path = Path::new(path);
     check_auth_and_acl(&req, path, tpe, AccessType::Modify)?;
     req.state().storage.remove_file(path, tpe, name)?;
