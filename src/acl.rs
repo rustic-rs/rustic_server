@@ -78,3 +78,88 @@ impl Acl {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::AccessType::*;
+    use super::*;
+
+    #[test]
+    fn allowed_flags() {
+        let mut acl = Acl {
+            repos: HashMap::new(),
+            append_only: true,
+            private_repo: true,
+        };
+        assert_eq!(acl.allowed("bob", "sam", "keys", Read), false);
+        assert_eq!(acl.allowed("bob", "sam", "data", Read), false);
+        assert_eq!(acl.allowed("bob", "sam", "data", Append), false);
+        assert_eq!(acl.allowed("bob", "sam", "data", Modify), false);
+        assert_eq!(acl.allowed("bob", "bob", "data", Modify), false);
+        assert_eq!(acl.allowed("bob", "bob", "locks", Modify), true);
+        assert_eq!(acl.allowed("bob", "bob", "keys", Append), true);
+        assert_eq!(acl.allowed("bob", "bob", "data", Append), true);
+        assert_eq!(acl.allowed("", "", "data", Append), true);
+        assert_eq!(acl.allowed("bob", "", "data", Read), false);
+
+        acl.append_only = false;
+        assert_eq!(acl.allowed("bob", "sam", "data", Modify), false);
+        assert_eq!(acl.allowed("bob", "bob", "data", Modify), true);
+
+        acl.private_repo = false;
+        assert_eq!(acl.allowed("bob", "sam", "data", Modify), true);
+        assert_eq!(acl.allowed("bob", "bob", "data", Modify), true);
+        assert_eq!(acl.allowed("bob", "", "data", Modify), true);
+    }
+
+    #[test]
+    fn repo_acl() {
+        let mut acl = Acl {
+            repos: HashMap::new(),
+            append_only: true,
+            private_repo: true,
+        };
+
+        let mut acl_all = HashMap::new();
+        acl_all.insert("bob".to_string(), Modify);
+        acl_all.insert("sam".to_string(), Append);
+        acl_all.insert("paul".to_string(), Read);
+        acl.repos.insert("all".to_string(), acl_all);
+
+        let mut acl_bob = HashMap::new();
+        acl_bob.insert("bob".to_string(), Modify);
+        acl.repos.insert("bob".to_string(), acl_bob);
+
+        let mut acl_sam = HashMap::new();
+        acl_sam.insert("sam".to_string(), Append);
+        acl_sam.insert("bob".to_string(), Read);
+        acl.repos.insert("sam".to_string(), acl_sam);
+
+        // test ACLs for repo all
+        assert_eq!(acl.allowed("bob", "all", "keys", Modify), true);
+        assert_eq!(acl.allowed("sam", "all", "keys", Modify), false);
+        assert_eq!(acl.allowed("sam", "all", "keys", Append), true);
+        assert_eq!(acl.allowed("sam", "all", "locks", Modify), true);
+        assert_eq!(acl.allowed("paul", "all", "data", Append), false);
+        assert_eq!(acl.allowed("paul", "all", "data", Read), true);
+        assert_eq!(acl.allowed("paul", "all", "locks", Modify), true);
+        assert_eq!(acl.allowed("attack", "all", "data", Modify), false);
+
+        // test ACLs for repo bob
+        assert_eq!(acl.allowed("bob", "bob", "data", Modify), true);
+        assert_eq!(acl.allowed("sam", "bob", "data", Read), false);
+        assert_eq!(acl.allowed("attack", "bob", "locks", Modify), false);
+
+        // test ACLs for repo sam
+        assert_eq!(acl.allowed("sam", "sam", "data", Modify), false);
+        assert_eq!(acl.allowed("sam", "sam", "data", Append), true);
+        assert_eq!(acl.allowed("bob", "sam", "keys", Append), false);
+        assert_eq!(acl.allowed("bob", "sam", "keys", Read), true);
+        assert_eq!(acl.allowed("attack", "sam", "locks", Read), false);
+
+        // test ACLs for repo paul => fall back to flags
+        assert_eq!(acl.allowed("paul", "paul", "data", Modify), false);
+        assert_eq!(acl.allowed("paul", "paul", "data", Append), true);
+        assert_eq!(acl.allowed("sam", "paul", "data", Read), false);
+    }
+}
