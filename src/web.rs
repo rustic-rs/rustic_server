@@ -11,6 +11,7 @@
 use std::convert::TryInto;
 use std::marker::Unpin;
 use std::path::Path;
+use std::sync::Arc;
 
 use async_std::io;
 use async_std::io::SeekFrom::Start;
@@ -23,7 +24,7 @@ use tide_rustls::TlsListener;
 
 use http_range::HttpRange;
 
-use super::acl::{AccessType, Acl};
+use super::acl::{AccessType, AclChecker};
 use super::auth::Auth;
 use super::helpers::IteratorAdapter;
 use super::storage::Storage;
@@ -31,7 +32,7 @@ use super::storage::Storage;
 #[derive(Clone)]
 pub struct State {
     auth: Auth,
-    acl: Acl,
+    acl: Arc<dyn AclChecker>,
     storage: Storage,
 }
 
@@ -47,8 +48,12 @@ impl tide_http_auth::Storage<String, BasicAuthRequest> for State {
 }
 
 impl State {
-    pub fn new(auth: Auth, acl: Acl, storage: Storage) -> Self {
-        Self { storage, auth, acl }
+    pub fn new(auth: Auth, acl: impl AclChecker, storage: Storage) -> Self {
+        Self {
+            storage,
+            auth,
+            acl: Arc::new(acl),
+        }
     }
 }
 

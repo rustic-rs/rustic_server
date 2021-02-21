@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{self, Read};
 use std::path::PathBuf;
+use std::{fs, io};
 
 // Access Types
 #[derive(Debug, Clone, PartialEq, PartialOrd, serde::Deserialize)]
@@ -12,28 +11,33 @@ pub enum AccessType {
     Modify,
 }
 
+pub trait AclChecker: Send + Sync + 'static {
+    fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool;
+}
+
 // ACL for a repo
-type RepoAcl = HashMap<String, AccessType>;
+type RepoAcl = HashMap<&'static str, AccessType>;
 
 // Acl holds ACLs for all repos
 #[derive(Clone)]
 pub struct Acl {
-    repos: HashMap<String, RepoAcl>,
+    repos: HashMap<&'static str, RepoAcl>,
     append_only: bool,
     private_repo: bool,
 }
 
 // read_toml  is a helper func that reads the given file in toml
 // into a Hashmap mapping each user to the whole passwd line
-fn read_toml(file_path: &PathBuf) -> io::Result<HashMap<String, RepoAcl>> {
-    let mut file = File::open(file_path)?;
-    let mut s = String::new();
-    file.read_to_string(&mut s)?;
-    let mut repos: HashMap<String, RepoAcl> = toml::from_str(&s)?;
+fn read_toml(file_path: &PathBuf) -> io::Result<HashMap<&'static str, RepoAcl>> {
+    let s = fs::read_to_string(file_path)?;
+    // make the contents static in memory
+    let s = Box::leak(s.into_boxed_str());
+
+    let mut repos: HashMap<&'static str, RepoAcl> = toml::from_str(s)?;
     // copy key "default" into ""
     if let Some(default) = repos.get("default") {
         let default = default.clone();
-        repos.insert("".to_string(), default);
+        repos.insert("", default);
     }
     Ok(repos)
 }
@@ -54,9 +58,11 @@ impl Acl {
             repos,
         })
     }
+}
 
+impl AclChecker for Acl {
     // allowed yields whether thes access to {path,tpe, access} is allowed by user
-    pub fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool {
+    fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool {
         // Access to locks is always treated as Read
         let access = if tpe == "locks" {
             AccessType::Read
@@ -121,19 +127,19 @@ mod tests {
         };
 
         let mut acl_all = HashMap::new();
-        acl_all.insert("bob".to_string(), Modify);
-        acl_all.insert("sam".to_string(), Append);
-        acl_all.insert("paul".to_string(), Read);
-        acl.repos.insert("all".to_string(), acl_all);
+        acl_all.insert("bob", Modify);
+        acl_all.insert("sam", Append);
+        acl_all.insert("paul", Read);
+        acl.repos.insert("all", acl_all);
 
         let mut acl_bob = HashMap::new();
-        acl_bob.insert("bob".to_string(), Modify);
-        acl.repos.insert("bob".to_string(), acl_bob);
+        acl_bob.insert("bob", Modify);
+        acl.repos.insert("bob", acl_bob);
 
         let mut acl_sam = HashMap::new();
-        acl_sam.insert("sam".to_string(), Append);
-        acl_sam.insert("bob".to_string(), Read);
-        acl.repos.insert("sam".to_string(), acl_sam);
+        acl_sam.insert("sam", Append);
+        acl_sam.insert("bob", Read);
+        acl.repos.insert("sam", acl_sam);
 
         // test ACLs for repo all
         assert_eq!(acl.allowed("bob", "all", "keys", Modify), true);
