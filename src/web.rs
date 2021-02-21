@@ -25,13 +25,13 @@ use tide_rustls::TlsListener;
 use http_range::HttpRange;
 
 use super::acl::{AccessType, AclChecker};
-use super::auth::Auth;
+use super::auth::AuthChecker;
 use super::helpers::IteratorAdapter;
 use super::storage::Storage;
 
 #[derive(Clone)]
 pub struct State {
-    auth: Auth,
+    auth: Arc<dyn AuthChecker>,
     acl: Arc<dyn AclChecker>,
     storage: Storage,
 }
@@ -48,10 +48,10 @@ impl tide_http_auth::Storage<String, BasicAuthRequest> for State {
 }
 
 impl State {
-    pub fn new(auth: Auth, acl: impl AclChecker, storage: Storage) -> Self {
+    pub fn new(auth: impl AuthChecker, acl: impl AclChecker, storage: Storage) -> Self {
         Self {
             storage,
-            auth,
+            auth: Arc::new(auth),
             acl: Arc::new(acl),
         }
     }
