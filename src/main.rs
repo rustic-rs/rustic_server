@@ -44,7 +44,7 @@ struct Opts {
 
 #[async_std::main]
 async fn main() -> tide::Result<()> {
-    let opts: Opts = Opts::parse();
+    let opts = Opts::parse();
 
     tide::log::with_level(opts.log);
 
