@@ -48,7 +48,7 @@ async fn main() -> tide::Result<()> {
 
     tide::log::with_level(opts.log);
 
-    let storage = storage::Storage::try_new(&opts.path)?;
+    let storage = storage::LocalStorage::try_new(&opts.path)?;
     let auth = auth::Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))?;
     let acl = acl::Acl::from_file(opts.append_only, opts.private_repo, opts.acl)?;
 

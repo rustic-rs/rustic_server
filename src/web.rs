@@ -33,7 +33,7 @@ use super::storage::Storage;
 pub struct State {
     auth: Arc<dyn AuthChecker>,
     acl: Arc<dyn AclChecker>,
-    storage: Storage,
+    storage: Arc<dyn Storage>,
 }
 
 #[async_trait::async_trait]
@@ -48,9 +48,9 @@ impl tide_http_auth::Storage<String, BasicAuthRequest> for State {
 }
 
 impl State {
-    pub fn new(auth: impl AuthChecker, acl: impl AclChecker, storage: Storage) -> Self {
+    pub fn new(auth: impl AuthChecker, acl: impl AclChecker, storage: impl Storage) -> Self {
         Self {
-            storage,
+            storage: Arc::new(storage),
             auth: Arc::new(auth),
             acl: Arc::new(acl),
         }

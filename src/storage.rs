@@ -6,19 +6,38 @@ use async_std::fs::File;
 use async_std::io::Result;
 use walkdir::WalkDir;
 
+#[async_trait::async_trait]
+pub trait Storage: Send + Sync + 'static {
+    fn create_dir(&self, path: &Path, tpe: &str) -> std::io::Result<()>;
+    fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn  Iterator<Item = walkdir::DirEntry>>;
+    fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf;
+    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File>;
+    async fn create_file(
+        &self,
+        path: &Path,
+        tpe: &str,
+        name: &str,
+    ) -> Result<WriteOrDeleteFile>;
+    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()>;
+}
+
+
 #[derive(Clone)]
-pub struct Storage {
+pub struct LocalStorage {
     path: PathBuf,
 }
 
-impl Storage {
+impl LocalStorage {
     pub fn try_new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             path: path.to_path_buf(),
         })
     }
+}
 
-    pub fn create_dir(&self, path: &Path, tpe: &str) -> std::io::Result<()> {
+#[async_trait::async_trait]
+impl Storage for LocalStorage {
+    fn create_dir(&self, path: &Path, tpe: &str) -> std::io::Result<()> {
         match tpe {
             "data" => {
                 for i in 0..256 {
@@ -30,14 +49,15 @@ impl Storage {
         }
     }
 
-    pub fn read_dir(&self, path: &Path, tpe: &str) -> impl Iterator<Item = walkdir::DirEntry> {
-        WalkDir::new(self.path.join(path).join(tpe))
+    fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>> {
+        let walker = WalkDir::new(self.path.join(path).join(tpe))
             .into_iter()
             .filter_map(walkdir::Result::ok)
-            .filter(|e| e.file_type().is_file())
+            .filter(|e| e.file_type().is_file());
+            Box::new(walker)
     }
 
-    pub fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf {
+    fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf {
         match tpe {
             "config" => self.path.join(path).join("config"),
             "data" => self.path.join(path).join(tpe).join(&name[0..2]).join(name),
@@ -45,12 +65,12 @@ impl Storage {
         }
     }
 
-    pub async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File> {
+    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File> {
         let file_path = self.filename(path, tpe, name);
         Ok(File::open(file_path).await?)
     }
 
-    pub async fn create_file(
+    async fn create_file(
         &self,
         path: &Path,
         tpe: &str,
@@ -60,7 +80,7 @@ impl Storage {
         WriteOrDeleteFile::new(file_path).await
     }
 
-    pub fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()> {
+    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()> {
         let file_path = self.filename(path, tpe, name);
         Ok(fs::remove_file(&file_path)?)
     }
