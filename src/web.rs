@@ -57,7 +57,7 @@ impl State {
     }
 }
 
-const TYPES: [&'static str; 5] = ["data", "keys", "locks", "snapshots", "index"];
+const TYPES: [&str; 5] = ["data", "keys", "locks", "snapshots", "index"];
 const DEFAULT_PATH: &str = "";
 const CONFIG_TYPE: &str = "config";
 const CONFIG_NAME: &str = "";
@@ -67,11 +67,11 @@ fn check_string_sha256(name: &str) -> bool {
         return false;
     }
     for c in name.chars() {
-        if !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f') {
+        if !c.is_ascii_digit() && !('a'..='f').contains(&c) {
             return false;
         }
     }
-    return true;
+    true
 }
 
 fn check_name(tpe: &str, name: &str) -> Result<(), tide::Error> {
@@ -136,7 +136,7 @@ async fn create_dirs(path: &str, req: &Request<State>) -> tide::Result {
     });
 
     let path = Path::new(path);
-    check_auth_and_acl(&req, path, "", AccessType::Append)?;
+    check_auth_and_acl(req, path, "", AccessType::Append)?;
     let c: Create = req.query()?;
     match c.create {
         true => {
@@ -149,8 +149,8 @@ async fn create_dirs(path: &str, req: &Request<State>) -> tide::Result {
     }
 }
 
-const API_V1: &'static str = "application/vnd.x.restic.rest.v1";
-const API_V2: &'static str = "application/vnd.x.restic.rest.v2";
+const API_V1: &str = "application/vnd.x.restic.rest.v1";
+const API_V2: &str = "application/vnd.x.restic.rest.v2";
 
 #[derive(Serialize)]
 struct RepoPathEntry {
@@ -165,7 +165,7 @@ async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> tide::Result
     });
 
     let path = Path::new(path);
-    check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
+    check_auth_and_acl(req, path, tpe, AccessType::Read)?;
 
     let read_dir = req.state().storage.read_dir(path, tpe);
     let mut res = Response::new(StatusCode::Ok);
@@ -198,7 +198,7 @@ async fn length(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide
 
     check_name(tpe, name)?;
     let path = Path::new(path);
-    check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
+    check_auth_and_acl(req, path, tpe, AccessType::Read)?;
 
     let _file = req.state().storage.filename(path, tpe, name);
     Err(tide::Error::from_str(
@@ -216,7 +216,7 @@ async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> ti
 
     check_name(tpe, name)?;
     let path = Path::new(path);
-    check_auth_and_acl(&req, path, tpe, AccessType::Read)?;
+    check_auth_and_acl(req, path, tpe, AccessType::Read)?;
 
     let mut file = req.state().storage.open_file(path, tpe, name).await?;
     let mut len = file.metadata().await?.len();
@@ -283,7 +283,7 @@ async fn get_save_file(
 
     check_name(tpe, name)?;
     let path = Path::new(path);
-    check_auth_and_acl(&req, path, tpe, AccessType::Append)?;
+    check_auth_and_acl(req, path, tpe, AccessType::Append)?;
 
     Ok(req.state().storage.create_file(path, tpe, name).await?)
 }
@@ -291,7 +291,7 @@ async fn get_save_file(
 async fn delete_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide::Result {
     check_name(tpe, name)?;
     let path = Path::new(path);
-    check_auth_and_acl(&req, path, tpe, AccessType::Modify)?;
+    check_auth_and_acl(req, path, tpe, AccessType::Modify)?;
     req.state().storage.remove_file(path, tpe, name)?;
     Ok(Response::new(StatusCode::Ok))
 }
@@ -303,7 +303,7 @@ pub async fn main(
     cert: Option<String>,
     key: Option<String>,
 ) -> tide::Result<()> {
-    let mid = tide_http_auth::Authentication::new(BasicAuthScheme::default());
+    let mid = tide_http_auth::Authentication::new(BasicAuthScheme);
     let mut app = tide::with_state(state);
     app.with(mid);
 

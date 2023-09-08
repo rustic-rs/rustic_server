@@ -42,10 +42,9 @@ impl AuthChecker for Auth {
     // returns true if Auth::users is None.
     fn verify(&self, user: &str, passwd: &str) -> bool {
         match &self.users {
-            Some(users) => match users.get(user) {
-                Some(passwd_data) if htpasswd_verify::load(passwd_data).check(user, passwd) => true,
-                _ => false,
-            },
+            Some(users) => {
+                matches!(users.get(user), Some(passwd_data) if htpasswd_verify::Htpasswd::from(*passwd_data).check(user, passwd))
+            }
             None => true,
         }
     }
