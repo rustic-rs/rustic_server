@@ -1,4 +1,4 @@
-use clap::Clap;
+use clap::Parser;
 use std::path::PathBuf;
 
 pub mod acl;
@@ -8,37 +8,39 @@ pub mod storage;
 mod web;
 
 /// A REST server build in rust for use with restic
-#[derive(Clap)]
+#[derive(Parser)]
+#[command(name = "rustic-server")]
+#[command(bin_name = "rustic-server")]
 struct Opts {
     /// listen adress
-    #[clap(short, long, default_value = "localhost:8000")]
+    #[arg(short, long, default_value = "localhost:8000")]
     listen: String,
     /// data directory
-    #[clap(short, long, default_value = "/tmp/restic")]
+    #[arg(short, long, default_value = "/tmp/restic")]
     path: PathBuf,
     /// disable .htpasswd authentication
-    #[clap(long)]
+    #[arg(long)]
     no_auth: bool,
     /// file to read per-repo ACLs from
-    #[clap(long)]
+    #[arg(long)]
     acl: Option<PathBuf>,
     /// set standard acl to append only mode
-    #[clap(long)]
+    #[arg(long)]
     append_only: bool,
     /// set standard acl to only access private repos
-    #[clap(long)]
+    #[arg(long)]
     private_repo: bool,
     /// turn on TLS support
-    #[clap(long)]
+    #[arg(long)]
     tls: bool,
     /// TLS certificate path
-    #[clap(long)]
+    #[arg(long)]
     cert: Option<String>,
     /// TLS key path
-    #[clap(long)]
+    #[arg(long)]
     key: Option<String>,
     /// logging level (Off/Error/Warn/Info/Debug/Trace)
-    #[clap(long, default_value = "Info")]
+    #[arg(long, default_value = "Info")]
     log: tide::log::LevelFilter,
 }
 

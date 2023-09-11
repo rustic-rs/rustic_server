@@ -1,0 +1,7 @@
+[default]
+alex = "Read"
+admin = "Modify"
+
+[alex]
+alex = "Modify"
+bob = "Append"

@@ -9,18 +9,12 @@ use walkdir::WalkDir;
 #[async_trait::async_trait]
 pub trait Storage: Send + Sync + 'static {
     fn create_dir(&self, path: &Path, tpe: &str) -> std::io::Result<()>;
-    fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn  Iterator<Item = walkdir::DirEntry>>;
+    fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
     fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf;
     async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File>;
-    async fn create_file(
-        &self,
-        path: &Path,
-        tpe: &str,
-        name: &str,
-    ) -> Result<WriteOrDeleteFile>;
+    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile>;
     fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()>;
 }
-
 
 #[derive(Clone)]
 pub struct LocalStorage {
@@ -28,7 +22,7 @@ pub struct LocalStorage {
 }
 
 impl LocalStorage {
-    pub fn try_new(path: &PathBuf) -> Result<Self> {
+    pub fn try_new(path: &Path) -> Result<Self> {
         Ok(Self {
             path: path.to_path_buf(),
         })
@@ -54,7 +48,7 @@ impl Storage for LocalStorage {
             .into_iter()
             .filter_map(walkdir::Result::ok)
             .filter(|e| e.file_type().is_file());
-            Box::new(walker)
+        Box::new(walker)
     }
 
     fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf {
@@ -70,18 +64,13 @@ impl Storage for LocalStorage {
         Ok(File::open(file_path).await?)
     }
 
-    async fn create_file(
-        &self,
-        path: &Path,
-        tpe: &str,
-        name: &str,
-    ) -> Result<WriteOrDeleteFile> {
+    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile> {
         let file_path = self.filename(path, tpe, name);
         WriteOrDeleteFile::new(file_path).await
     }
 
     fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()> {
         let file_path = self.filename(path, tpe, name);
-        Ok(fs::remove_file(&file_path)?)
+        fs::remove_file(file_path)
     }
 }
