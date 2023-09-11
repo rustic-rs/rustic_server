@@ -23,11 +23,11 @@ Most features are already implemented.
 
 ## Contact
 
-| Contact       | Where?                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------- |
-| Issue Tracker | [GitHub Issues](https://github.com/rustic-rs/rustic_server/issues)                     |
-| Discord       | [![](https://dcbadge.vercel.app/api/server/WRUWENZnzQ)](https://discord.gg/WRUWENZnzQ) |
-| Discussions   | [GitHub Discussions](https://github.com/rustic-rs/rustic/discussions)                  |
+| Contact       | Where?                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| Issue Tracker | [GitHub Issues](https://github.com/rustic-rs/rustic_server/issues)                            |
+| Discord       | [![Discord](https://dcbadge.vercel.app/api/server/WRUWENZnzQ)](https://discord.gg/WRUWENZnzQ) |
+| Discussions   | [GitHub Discussions](https://github.com/rustic-rs/rustic/discussions)                         |
 
 ## Dependencies
 
