@@ -12,6 +12,10 @@ description = """
 rustic server - a REST server built in rust to use with rustic and restic.
 """
 
+[[bin]]
+name = "rustic-server"
+path = "src/bin/rustic-server.rs"
+
 [dependencies]
 anyhow = "1.0.75"
 async-std = { version = "1", features = ["attributes"] }
