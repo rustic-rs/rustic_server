@@ -12,7 +12,7 @@
 
 <p align="center">
 <a href="https://github.com/rustic-rs/rustic_server/actions/workflows/nightly.yml"><img src="https://github.com/rustic-rs/rustic_server/actions/workflows/nightly.yml/badge.svg" /></a>
-</P>
+</p>
 
 ## About
 
