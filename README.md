@@ -10,6 +10,10 @@
 <a href="https://crates.io/crates/rustic-rs"><img src="https://img.shields.io/crates/d/rustic-rs.svg" /></a>
 <p> -->
 
+<p align="center">
+<a href="https://github.com/rustic-rs/rustic_server/actions/workflows/nightly.yml"><img src="https://github.com/rustic-rs/rustic_server/actions/workflows/nightly.yml/badge.svg" /></a>
+</P>
+
 ## About
 
 A REST server built in rust for use with rustic and restic.
