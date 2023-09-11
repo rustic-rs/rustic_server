@@ -1,10 +1,16 @@
 [package]
-name = "rust-server"
+name = "rustic_server"
 version = "0.1.0"
 authors = ["Alexander Weiss <alex@weissfam.de>"]
+categories = ["command-line-utilities"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+homepage = "https://rustic.cli.rs/"
+keywords = ["backup", "restic", "deduplication", "encryption", "cli", "server"]
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/rustic-rs/rustic_server"
+description = """
+rustic server - a REST server built in rust to use with rustic and restic.
+"""
 
 [dependencies]
 anyhow = "1.0.75"

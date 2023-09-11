@@ -1,9 +1,29 @@
-# rust-server
+<p align="center">
+<img src="https://media.githubusercontent.com/media/rustic-rs/docs/main/assets/readme_header_server.png" height="400" />
+</p>
+<p align="center"><b>REST server for rustic</b></p>
 
-A REST server built in rust for use with restic
+<!-- <p align="center">
+<a href="https://crates.io/crates/rustic-rs"><img src="https://img.shields.io/crates/v/rustic-rs.svg" /></a>
+<a href="https://docs.rs/rustic-rs/"><img src="https://img.shields.io/docsrs/rustic-rs?style=flat&amp;labelColor=1c1d42&amp;color=4f396a&amp;logo=Rust&amp;logoColor=white" /></a>
+<a href="https://raw.githubusercontent.com/rustic-rs/rustic/main/"><img src="https://img.shields.io/badge/license-Apache2.0/MIT-blue.svg" /></a>
+<a href="https://crates.io/crates/rustic-rs"><img src="https://img.shields.io/crates/d/rustic-rs.svg" /></a>
+<p> -->
+
+## About
+
+A REST server built in rust for use with rustic and restic.
 
 Works pretty similar to [rest-server](https://github.com/restic/rest-server).
 Most features are already implemented.
+
+## Contact
+
+| Contact       | Where?                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------- |
+| Issue Tracker | [GitHub Issues](https://github.com/rustic-rs/rustic_server/issues)                     |
+| Discord       | [![](https://dcbadge.vercel.app/api/server/WRUWENZnzQ)](https://discord.gg/WRUWENZnzQ) |
+| Discussions   | [GitHub Discussions](https://github.com/rustic-rs/rustic/discussions)                  |
 
 ## Dependencies
 
