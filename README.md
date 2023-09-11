@@ -46,7 +46,8 @@ Allows to give ACLs im TOML format, use option `--acl`
 Example TOML file:
 
 ```toml
-# default sets ACL for the repo without explicit path (and for the repo under path "default", if exists)
+# default sets ACL for the repo without explicit path
+# (and for the repo under path "default", if exists)
 [default]
 alex = "Read"
 admin = "Modify"
