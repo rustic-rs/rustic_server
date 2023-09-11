@@ -39,13 +39,6 @@ Is built using [tide](https://github.com/http-rs/tide),
 
 Yes, you can find them [here](https://rustic.cli.rs/docs/nightly_builds.html).
 
-## Missing features / TODOs
-
-- Tests
-- An option `max-size`
-- support for prometheus
-- Storage part: Error handling etc
-
 ## Additional feature
 
 Allows to give ACLs im TOML format, use option `--acl`
