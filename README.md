@@ -42,7 +42,6 @@ Yes, you can find them [here](https://rustic.cli.rs/docs/nightly_builds.html).
 ## Missing features / TODOs
 
 - Tests
-- CI pipeline
 - An option `max-size`
 - support for prometheus
 - Storage part: Error handling etc
