@@ -37,7 +37,7 @@ Is built using [tide](https://github.com/http-rs/tide),
 
 ## Are binaries available?
 
-Yes, you can find them [here](https://github.com/rustic-rs/nightly).
+Yes, you can find them [here](https://rustic.cli.rs/docs/nightly_builds.html).
 
 ## Missing features / TODOs
 
