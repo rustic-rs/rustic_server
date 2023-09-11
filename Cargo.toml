@@ -7,16 +7,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.75"
 async-std = { version = "1", features = ["attributes"] }
 async-trait = "0.1"
-tide = "0.16"
-tide-rustls = "0.3"
-# local fix for tide-http-auth to support tide 0.16!
-tide-http-auth = "0.5"
-http-range = "0.1"
-serde = { version = "1", features = ["derive"] }
 clap = { version = "4.4.2", features = ["derive"] }
 htpasswd-verify = "0.3"
+http-range = "0.1"
+serde = { version = "1", features = ["derive"] }
+tide = "0.16"
+# local fix for tide-http-auth to support tide 0.16!
+tide-http-auth = "0.5"
+tide-rustls = "0.3"
 toml = "0.5"
 walkdir = "2"
-anyhow = "1.0.75"
