@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://github.com/rustic-rs/assets/blob/main/logos/readme_header_server.png" height="400" />
+<img src="https://media.githubusercontent.com/media/rustic-rs/assets/main/logos/readme_header_server.png" height="400" />
 </p>
 <p align="center"><b>REST server for rustic</b></p>
 
