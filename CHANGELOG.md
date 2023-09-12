@@ -6,7 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
-- Nightly builds, exclude arm64 darwin build until issue Publishing aarch64-apple-darwin failed #6 is fixed
+- Nightly builds, exclude arm64 darwin build until issue Publishing
+  aarch64-apple-darwin failed #6 is fixed
 
 ### Documentation
 
@@ -32,7 +33,8 @@ All notable changes to this project will be documented in this file.
 - Add caching
 - Add signature and shallow clones to nightly
 - Declutter and reorganize
-- Remove lint from ci workflow and keep it separate, replace underscore in workflow files
+- Remove lint from ci workflow and keep it separate, replace underscore in
+  workflow files
 - Rebase and extract action to own repository
 - Use create-binary-artifact action
 - Put action version to follow main branch while action is still in development
