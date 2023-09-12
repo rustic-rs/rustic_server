@@ -11,6 +11,10 @@ defaults:
   run:
     shell: bash
 
+env:
+  BINARY_NAME: rustic-server
+  BINARY_NIGHTLY_DIR: rustic_server
+
 jobs:
   publish:
     name: Publishing ${{ matrix.job.target }}
@@ -81,89 +85,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4
         with:
-          fetch-depth: 0
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1
+          fetch-depth: 0 # fetch all history so that git describe works
+      - name: Create binary artifact
+        uses: rustic-rs/create-binary-artifact@0b25e87322b998fe7fe6734babc5e953f8e816ef # dev
         with:
           toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
           target: ${{ matrix.job.target }}
-      - name: install compiler
-        shell: bash
-        run: |
-          if [[ ${{ matrix.job.target }} == x86_64-unknown-linux-musl ]]; then
-              sudo apt update
-              sudo apt-get install -y musl-tools
-          fi
-      - name: install cargo-auditable for non-cross builds
-        shell: bash
-        if: ${{ matrix.job.use_cross != true}}
-        run: |
-          cargo install cargo-auditable cargo-audit
-      - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4 # v2
-        with:
-          key: ${{ matrix.job.target }}
-      - name: Set Version
-        shell: bash
-        run: echo "PROJECT_VERSION=$(git describe --tags)" >> $GITHUB_ENV
-      - name: Cargo build
-        uses: actions-rs/cargo@844f36862e911db73fe0815f00a4a2602c279505 # v1
-        if: ${{ matrix.job.use-cross == true }}
-        with:
-          command: build
           use-cross: ${{ matrix.job.use-cross }}
-          toolchain: ${{ matrix.rust }}
-          args: --release --target ${{ matrix.job.target }}
-      - name: Cargo auditable build
-        uses: actions-rs/cargo@844f36862e911db73fe0815f00a4a2602c279505 # v1
-        if: ${{ matrix.job.use-cross == false }}
-        with:
-          command: auditable
-          use-cross: ${{ matrix.job.use-cross }}
-          toolchain: ${{ matrix.rust }}
-          args: build --release --target ${{ matrix.job.target }}
-      - name: Packaging final binary
-        shell: bash
-        id: package-binary
-        run: |
-          cp -a config target/${{ matrix.job.target }}/release/config
-          cd target/${{ matrix.job.target }}/release
-
-          ########## create tar.gz ##########
-
-          # accounting for main branch and therefore nightly builds
-          if [[ ${{ github.ref }} = refs/heads/main ]]; then
-              RELEASE_NAME=rustic-server-nightly-${{ matrix.job.target}}.tar.gz
-          elif [[ ${{ github.ref }} = refs/tags/* ]]; then
-              RELEASE_NAME=rustic-server-${{ github.ref_name }}-${{ matrix.job.target}}.tar.gz
-          else    
-              RELEASE_NAME=rustic-server-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.job.target}}.tar.gz 
-          fi
-
-          tar czvf $RELEASE_NAME rustic-server${{ matrix.job.binary-postfix }} config/
-
-          ########## create sha256 ##########
-          if [[ ${{ runner.os }} == 'Windows' ]]; then
-            certutil -hashfile $RELEASE_NAME sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
-          else
-            shasum -a 256 $RELEASE_NAME > $RELEASE_NAME.sha256
-          fi
-
-          ########## create gpg signature ##########
-          echo "${{ secrets.GPG_RELEASE_PRIVATE_KEY }}" > private.key
-          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --pinentry-mode=loopback \
-            --passphrase-fd 0 --import private.key
-          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --pinentry-mode=loopback \
-            --passphrase-fd 0 --local-user 12B7166D9FD59124416952E34018C5DE3BF8C081 \
-            --armor --output $RELEASE_NAME.asc --detach-sign $RELEASE_NAME
-
-          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
-      - name: Storing binary as artefact
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3
-        with:
-          name: binary-${{ matrix.job.target}}
-          path: target/${{ matrix.job.target }}/release/${{ steps.package-binary.outputs.release_name }}*
+          describe-tag-prefix: -nightly
+          binary-postfix: ${{ matrix.job.binary-postfix }}
+          os: ${{ runner.os }}
+          binary-name: ${{ env.BINARY_NAME }}
+          package-secondary-name: nightly-${{ matrix.job.target}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gpg-release-private-key: ${{ secrets.GPG_RELEASE_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          github-ref: ${{ github.ref }}
+          sign-release: true
+          hash-release: true
+          use-project-version: false
 
   publish-nightly:
     name: Publishing nightly builds
@@ -178,7 +118,7 @@ jobs:
         run: |
           # set up some directories
           WORKING_DIR=$(mktemp -d)
-          DEST_DIR=rustic_server
+          DEST_DIR=$BINARY_NIGHTLY_DIR
 
           # set up the github deploy key
           mkdir -p ~/.ssh
