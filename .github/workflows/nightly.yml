@@ -87,7 +87,7 @@ jobs:
         with:
           fetch-depth: 0 # fetch all history so that git describe works
       - name: Create binary artifact
-        uses: rustic-rs/create-binary-artifact@2b2093838c04234740bdc2e33d3688597cea5a7f #v1
+        uses: rustic-rs/create-binary-artifact@main # dev
         with:
           toolchain: ${{ matrix.rust }}
           target: ${{ matrix.job.target }}
