@@ -6,7 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
-- Nightly builds, exclude arm64 darwin build until issue Publishing aarch64-apple-darwin failed #6 is fixed
+- Nightly builds, exclude arm64 darwin build until issue Publishing
+  aarch64-apple-darwin failed #6 is fixed
 
 ### Documentation
 
