@@ -1,20 +1,16 @@
-name: Build PR binaries
+name: Build release binaries
 
 on:
-  workflow_dispatch:
-  pull_request:
+  push:
     branches:
-      - main
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**/*"
+      - release/*
 
 env:
   BINARY_NAME: rustic-server
 
 jobs:
-  pr-build:
-    name: Build PR on ${{ matrix.job.target }}
+  publish:
+    name: Publishing ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     strategy:
       matrix:
@@ -86,7 +82,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           target: ${{ matrix.job.target }}
           use-cross: ${{ matrix.job.use-cross }}
-          describe-tag-suffix: -${{ github.run_id }}-${{ github.run_attempt }}
+          describe-tag-suffix: ""
           binary-postfix: ${{ matrix.job.binary-postfix }}
           os: ${{ runner.os }}
           binary-name: ${{ env.BINARY_NAME }}
@@ -95,6 +91,28 @@ jobs:
           gpg-release-private-key: ${{ secrets.GPG_RELEASE_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
           github-ref: ${{ github.ref }}
-          sign-release: false
+          sign-release: true
           hash-release: true
           use-project-version: false # not being used in rustic_server
+#
+# TODO!: add publishing to release draft
+# TODO!: include changelog in release draft
+#
+# publish-cargo:
+#   name: Publishing to Cargo
+#   runs-on: ubuntu-latest
+#   steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v4
+#     - uses: actions-rs/toolchain@v1
+#     with:
+#       toolchain: stable
+#       profile: minimal
+#       override: true
+#   - uses: Swatinem/rust-cache@v2
+#     with:
+#       key: ${{ matrix.job.target }}
+#   - uses: actions-rs/cargo@v1
+#     with:
+#       command: publish
+#       args: --token ${{ secrets.CARGO_API_KEY }}
