@@ -19,7 +19,8 @@
         "**/*.{json}"
     ],
     "excludes": [
-        "target/**/*"
+        "target/**/*",
+        ".github/**/*"
     ],
     "plugins": [
         "https://plugins.dprint.dev/markdown-0.16.1.wasm",
