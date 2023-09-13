@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - Remove CI Todo
 - Remove To-dos from Readme
 - Break line in toml code for usability
+- Update changelog
 
 ### Features
 
@@ -44,6 +45,7 @@ All notable changes to this project will be documented in this file.
 ### Refactor
 
 - Refactor to library and server binary
+- Begin refactor to axum
 
 ### Styling
 

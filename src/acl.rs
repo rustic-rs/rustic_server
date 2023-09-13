@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 // Access Types
-#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde_derive::Deserialize)]
 pub enum AccessType {
     Nothing,
     Read,

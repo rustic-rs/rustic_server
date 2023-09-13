@@ -29,7 +29,6 @@ Most features are already implemented.
 | Discord       | [![Discord](https://dcbadge.vercel.app/api/server/WRUWENZnzQ)](https://discord.gg/WRUWENZnzQ) |
 | Discussions   | [GitHub Discussions](https://github.com/rustic-rs/rustic/discussions)                         |
 
-
 ## Are binaries available?
 
 Yes, you can find them [here](https://rustic.cli.rs/docs/nightly_builds.html).
