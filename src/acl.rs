@@ -27,6 +27,16 @@ pub struct Acl {
     private_repo: bool,
 }
 
+impl Default for Acl {
+    fn default() -> Self {
+        Self {
+            repos: HashMap::new(),
+            append_only: false,
+            private_repo: false,
+        }
+    }
+}
+
 // read_toml is a helper func that reads the given file in toml
 // into a Hashmap mapping each user to the whole passwd line
 fn read_toml(file_path: &PathBuf) -> Result<HashMap<String, RepoAcl>> {

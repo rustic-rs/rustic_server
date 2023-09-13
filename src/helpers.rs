@@ -7,7 +7,7 @@ use async_std::io::{self, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use super::web::Finalizer;
+use crate::web::Finalizer;
 
 // helper struct which is like a async_std::fs::File but removes the file
 // if finalize() was not called.
