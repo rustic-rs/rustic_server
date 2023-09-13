@@ -7,32 +7,33 @@
 // storage - to access the file system
 // auth    - for user authentication
 // acl     - for access control
-
-use std::convert::TryInto;
-use std::marker::Unpin;
-use std::path::Path;
-use std::sync::Arc;
-
 use http_range::HttpRange;
+use std::collections::HashMap;
+use std::{convert::TryInto, error::Error, future::Future, marker::Unpin, path::Path, sync::Arc};
 
 use axum::{
     body::Body,
-    extract::Host,
+    extract::{FromRequest, FromRequestParts, Host, Query, State},
     handler::HandlerWithoutStateExt,
-    http::{Request, StatusCode, Uri},
+    http::{request::Parts, Request, StatusCode, Uri},
     response::{IntoResponse, Redirect, Response},
-    routing::get,
-    BoxError, Router,
+    routing::{get, post},
+    BoxError, RequestExt, Router,
 };
+use axum_auth::AuthBasic;
 use axum_server::tls_rustls::RustlsConfig;
-use serde_derive::{Deserialize, Serialize};
-use std::io;
-use std::{net::SocketAddr, path::PathBuf};
 
-use super::acl::{AccessType, AclChecker};
-use super::auth::AuthChecker;
-use super::helpers::IteratorAdapter;
-use super::storage::Storage;
+use serde_derive::{Deserialize, Serialize};
+use std::{io, net::SocketAddr, path::PathBuf};
+
+use crate::{
+    acl::{AccessType, Acl, AclChecker},
+    auth::{Auth, AuthChecker},
+    error::StatusError,
+    helpers::IteratorAdapter,
+    storage::{LocalStorage, Storage},
+    Result, StatusResult,
+};
 
 #[derive(Clone, Copy)]
 pub struct Ports {
@@ -41,24 +42,35 @@ pub struct Ports {
 }
 
 #[derive(Clone)]
-pub struct State {
+pub struct AppState {
     auth: Arc<dyn AuthChecker>,
     acl: Arc<dyn AclChecker>,
     storage: Arc<dyn Storage>,
 }
 
-#[async_trait::async_trait]
-impl tide_http_auth::Storage<String, BasicAuthRequest> for State {
-    async fn get_user(&self, request: BasicAuthRequest) -> Result<Option<String>> {
-        let user = request.username;
-        match self.auth.verify(&user, &request.password) {
-            true => Ok(Some(user)),
-            false => Ok(None),
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            auth: Arc::new(Auth::default()),
+            acl: Arc::new(Acl::default()),
+            storage: Arc::new(LocalStorage::default()),
         }
     }
 }
 
-impl State {
+// TODO!
+// #[async_trait::async_trait]
+// impl tide_http_auth::Storage<String, BasicAuthRequest> for State {
+//     async fn get_user(&self, request: BasicAuthRequest) -> Result<Option<String>> {
+//         let user = request.username;
+//         match self.auth.verify(&user, &request.password) {
+//             true => Ok(Some(user)),
+//             false => Ok(None),
+//         }
+//     }
+// }
+
+impl AppState {
     pub fn new(auth: impl AuthChecker, acl: impl AclChecker, storage: impl Storage) -> Self {
         Self {
             storage: Arc::new(storage),
@@ -85,48 +97,52 @@ fn check_string_sha256(name: &str) -> bool {
     true
 }
 
-fn check_name(tpe: &str, name: &str) -> Result<(), axum::Error> {
+fn check_name(tpe: &str, name: &str) -> StatusResult<()> {
     match tpe {
         "config" => Ok(()),
         _ if check_string_sha256(name) => Ok(()),
-        _ => Err(axum::Error::from_str(
-            StatusCode::Forbidden,
-            format!("filename {} not allowed", name),
-        )),
+        _ => Err(StatusError {
+            status: StatusCode::FORBIDDEN,
+            message: format!("filename {} not allowed", name).into(),
+        }),
     }
 }
 
 fn check_auth_and_acl(
-    req: &Request<State>,
+    state: &AppState,
     path: &Path,
     tpe: &str,
     append: AccessType,
-) -> Result<(), axum::Error> {
-    let state = req.state();
-
+) -> StatusResult<()> {
     // don't allow paths that includes any of the defined types
     for part in path.iter() {
         if let Some(part) = part.to_str() {
             for tpe in TYPES.iter() {
                 if &part == tpe {
-                    return Err(axum::Error::from_str(StatusCode::Forbidden, "not allowed"));
+                    Err(StatusError {
+                        status: StatusCode::FORBIDDEN,
+                        message: format!("path {} not allowed", path.display()).into(),
+                    });
                 }
             }
         }
     }
 
     let empty = String::new();
-    let user: &str = req.ext::<String>().unwrap_or(&empty);
-    let path = path.to_str().ok_or(axum::Error::from_str(
-        StatusCode::Forbidden,
-        "path is non-unicode",
-    ))?;
+    let user: &str = state.ext::<String>().unwrap_or(&empty);
+    let path = path.to_str().ok_or(Err(StatusError {
+        status: StatusCode::FORBIDDEN,
+        message: format!("path {} is non-unicode", path.display()).into(),
+    }))?;
     let allowed = state.acl.allowed(user, path, tpe, append);
     tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
 
     match allowed {
         true => Ok(()),
-        false => Err(axum::Error::from_str(StatusCode::Forbidden, "not allowed")),
+        false => Err(StatusError {
+            status: StatusCode::FORBIDDEN,
+            message: format!("path {path} not allowed").into(),
+        }),
     }
 }
 
@@ -136,20 +152,27 @@ struct Create {
     create: bool,
 }
 
-async fn create_dirs(path: &str, req: &Request<State>) -> Result {
+async fn create_dirs(
+    path: &str,
+    Query(params): Query<Create>,
+    State(state): State<AppState>,
+) -> Result<String> {
     tracing::debug!("[create_dirs] path: {path}");
 
     let path = Path::new(path);
-    check_auth_and_acl(req, path, "", AccessType::Append)?;
-    let c: Create = req.query()?;
+    check_auth_and_acl(&state, path, "", AccessType::Append)?;
+    let c: Create = params;
     match c.create {
         true => {
             for tpe in TYPES.iter() {
-                req.state().storage.create_dir(path, tpe)?;
+                state.storage.create_dir(path, tpe)?;
             }
-            Ok(format!("Called create_files with path {:?}\n", path).into())
+            Ok(format!("Called create_files with path {:?}\n", path))
         }
-        false => Ok(format!("Called create_files with path {:?}, create=false\n", path).into()),
+        false => Ok(format!(
+            "Called create_files with path {:?}, create=false\n",
+            path
+        )),
     }
 }
 
@@ -162,7 +185,7 @@ struct RepoPathEntry {
     size: u64,
 }
 
-async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> Result {
+async fn list_files(path: &str, tpe: &str, req: &Request<AppState>) -> Result<Response> {
     tracing::debug!("[list_files] path: {path}, tpe: {tpe}");
 
     let path = Path::new(path);
@@ -190,7 +213,7 @@ async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> Result {
     Ok(res)
 }
 
-async fn length(path: &str, tpe: &str, name: &str, req: &Request<State>) -> Result {
+async fn length(path: &str, tpe: &str, name: &str, req: &Request<AppState>) -> Result<()> {
     tracing::debug!("[length] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
@@ -204,7 +227,7 @@ async fn length(path: &str, tpe: &str, name: &str, req: &Request<State>) -> Resu
     ))
 }
 
-async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> Result {
+async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<AppState>) -> Result<Response> {
     tracing::debug!("[get_file] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
@@ -247,13 +270,13 @@ async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> Re
 
 #[async_trait::async_trait]
 pub trait Finalizer {
-    async fn finalize(&mut self) -> Result<(), io::Error>;
+    async fn finalize(&mut self) -> Result<()>;
 }
 
 async fn save_body(
-    req: &mut Request<State>,
+    req: &mut Request<AppState>,
     mut file: impl io::Write + Unpin + Finalizer,
-) -> Result {
+) -> Result<Response> {
     let bytes_written = io::copy(req, &mut file).await?;
     tracing::debug!("[file written] bytes: {bytes_written}");
     file.finalize().await?;
@@ -264,8 +287,8 @@ async fn get_save_file(
     path: &str,
     tpe: &str,
     name: &str,
-    req: &Request<State>,
-) -> Result<impl io::Write + Unpin + Finalizer, axum::Error> {
+    req: &Request<AppState>,
+) -> Result<impl io::Write + Unpin + Finalizer> {
     tracing::debug!("[get_save_file] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
@@ -275,30 +298,48 @@ async fn get_save_file(
     Ok(req.state().storage.create_file(path, tpe, name).await?)
 }
 
-async fn delete_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> Result {
+async fn delete_file(
+    path: &str,
+    tpe: &str,
+    name: &str,
+    req: &Request<AppState>,
+) -> Result<Response> {
     check_name(tpe, name)?;
     let path = Path::new(path);
     check_auth_and_acl(req, path, tpe, AccessType::Modify)?;
     req.state().storage.remove_file(path, tpe, name)?;
     Ok(Response::new(StatusCode::Ok))
 }
+
+async fn auth_handler(AuthBasic((id, password)): AuthBasic) -> Result<String> {
+    tracing::debug!("[auth_handler] id: {id}, password: {password}");
+    match id.as_str() {
+        "user" if password == "password" => Ok(id),
+        _ => Err(axum::Error::from_str(StatusCode::Forbidden, "not allowed")),
+    }
+}
+
 // TODO!: https://github.com/tokio-rs/axum/blob/main/examples/tls-rustls/src/main.rs
 // TODO!: https://github.com/tokio-rs/axum/blob/main/examples/readme/src/main.rs
 pub async fn main(
-    state: State,
+    state: AppState,
     addr: String,
+    ports: Ports,
     tls: bool,
     cert: Option<String>,
     key: Option<String>,
 ) -> Result<()> {
-    let mid = tide_http_auth::Authentication::new(BasicAuthScheme);
-    let mut app = tide::with_state(state);
-    app.with(mid);
+    // let mid = tide_http_auth::Authentication::new(BasicAuthScheme);
+    // let mut app = tide::with_state(state);
+    // app.with(mid);
 
-    app.at("/:path/")
-        .post(|req: Request<State>| async move { create_dirs(req.param("path")?, &req).await });
-    app.at("/")
-        .post(|req| async move { create_dirs(DEFAULT_PATH, &req).await });
+    let mut app = Router::new().with_state(state);
+
+    app.route("/", post(root));
+    app.route(
+        "/:path/",
+        post(|req| async move { create_dirs(req.param("path")?, &req).await }),
+    );
 
     for tpe in TYPES.iter() {
         let path = &("/".to_string() + tpe + "/");
@@ -309,40 +350,40 @@ pub async fn main(
         let path = &("/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
         app.at(path)
-            .head(move |req: Request<State>| async move {
+            .head(move |req: Request<AppState>| async move {
                 length(DEFAULT_PATH, tpe, req.param("name")?, &req).await
             })
-            .get(move |req: Request<State>| async move {
+            .get(move |req: Request<AppState>| async move {
                 get_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await
             })
-            .post(move |mut req: Request<State>| async move {
+            .post(move |mut req: Request<AppState>| async move {
                 let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
                 save_body(&mut req, file).await
             })
-            .delete(move |req: Request<State>| async move {
+            .delete(move |req: Request<AppState>| async move {
                 delete_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await
             });
 
         let path = &("/:path/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
-        app.at(path).get(move |req: Request<State>| async move {
+        app.at(path).get(move |req: Request<AppState>| async move {
             list_files(req.param("path")?, tpe, &req).await
         });
 
         let path = &("/:path/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
         app.at(path)
-            .head(move |req: Request<State>| async move {
+            .head(move |req: Request<AppState>| async move {
                 length(req.param("path")?, tpe, req.param("name")?, &req).await
             })
-            .get(move |req: Request<State>| async move {
+            .get(move |req: Request<AppState>| async move {
                 get_file(req.param("path")?, tpe, req.param("name")?, &req).await
             })
-            .post(move |mut req: Request<State>| async move {
+            .post(move |mut req: Request<AppState>| async move {
                 let file = get_save_file(req.param("path")?, tpe, req.param("name")?, &req).await?;
                 save_body(&mut req, file).await
             })
-            .delete(move |req: Request<State>| async move {
+            .delete(move |req: Request<AppState>| async move {
                 delete_file(req.param("path")?, tpe, req.param("name")?, &req).await
             });
     }
@@ -358,28 +399,59 @@ pub async fn main(
         );
 
     app.at("/:path/config")
-        .get(|req: Request<State>| async move {
+        .get(|req: Request<AppState>| async move {
             get_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await
         })
-        .post(|mut req: Request<State>| async move {
+        .post(|mut req: Request<AppState>| async move {
             let file = get_save_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await?;
             save_body(&mut req, file).await
         })
-        .delete(|req: Request<State>| async move {
+        .delete(|req: Request<AppState>| async move {
             delete_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await
         });
 
-    match tls {
-        false => app.listen(addr).await?,
+    // configure certificate and private key used by https
+    let config = match tls {
         true => {
-            app.listen(
-                TlsListener::build()
-                    .addrs(addr)
-                    .cert(cert.expect("--cert not given"))
-                    .key(key.expect("--key not given")),
-            )
-            .await?
+            Some(
+                RustlsConfig::from_pem_file(
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                        .join("self_signed_certs")
+                        .join("cert.pem"),
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                        .join("self_signed_certs")
+                        .join("key.pem"),
+                )
+                .await
+                .unwrap(),
+            );
         }
+        false => None,
     };
+
+    // match tls {
+    //     false => app.listen(addr).await?,
+    //     true => {
+    //         app.listen(
+    //             TlsListener::build()
+    //                 .addrs(addr)
+    //                 .cert(cert.expect("--cert not given"))
+    //                 .key(key.expect("--key not given")),
+    //         )
+    //         .await?
+    //     }
+    // };
+
+    // run https server
+    let addr = SocketAddr::from(([127, 0, 0, 1], ports.https));
+    tracing::debug!("listening on {}", addr);
+    axum_server::bind_rustls(addr, config)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
     Ok(())
+}
+
+async fn root(req: Request<AppState>) -> impl IntoResponse {
+    create_dirs(DEFAULT_PATH, &req, &req, &req)
 }

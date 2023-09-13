@@ -26,6 +26,12 @@ pub struct Auth {
     users: Option<HashMap<&'static str, &'static str>>,
 }
 
+impl Default for Auth {
+    fn default() -> Self {
+        Self { users: None }
+    }
+}
+
 impl Auth {
     pub fn from_file(no_auth: bool, path: &PathBuf) -> io::Result<Self> {
         Ok(Self {

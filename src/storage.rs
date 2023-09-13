@@ -21,6 +21,19 @@ pub struct LocalStorage {
     path: PathBuf,
 }
 
+impl Default for LocalStorage {
+    fn default() -> Self {
+        #[cfg(target_os = "windows")]
+        return Self {
+            path: PathBuf::from(r"C:\tmp\rustic"),
+        };
+        #[cfg(not(target_os = "windows"))]
+        Self {
+            path: PathBuf::from("/tmp/rustic"),
+        }
+    }
+}
+
 impl LocalStorage {
     pub fn try_new(path: &Path) -> Result<Self> {
         Ok(Self {
