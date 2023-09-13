@@ -13,21 +13,29 @@ use std::marker::Unpin;
 use std::path::Path;
 use std::sync::Arc;
 
-use async_std::io;
-use async_std::io::SeekFrom::Start;
-use async_std::prelude::*;
-
-use tide::prelude::*;
-use tide::{Body, Request, Response, StatusCode};
-use tide_http_auth::{BasicAuthRequest, BasicAuthScheme};
-use tide_rustls::TlsListener;
-
 use http_range::HttpRange;
+
+use axum::{
+    extract::Host,
+    handler::HandlerWithoutStateExt,
+    http::{StatusCode, Uri},
+    response::Redirect,
+    routing::get,
+    BoxError, Router,
+};
+use axum_server::tls_rustls::RustlsConfig;
+use std::{net::SocketAddr, path::PathBuf};
 
 use super::acl::{AccessType, AclChecker};
 use super::auth::AuthChecker;
 use super::helpers::IteratorAdapter;
 use super::storage::Storage;
+
+#[derive(Clone, Copy)]
+pub struct Ports {
+    http: u16,
+    https: u16,
+}
 
 #[derive(Clone)]
 pub struct State {
@@ -295,14 +303,15 @@ async fn delete_file(path: &str, tpe: &str, name: &str, req: &Request<State>) ->
     req.state().storage.remove_file(path, tpe, name)?;
     Ok(Response::new(StatusCode::Ok))
 }
-
+// TODO!: https://github.com/tokio-rs/axum/blob/main/examples/tls-rustls/src/main.rs
+// TODO!: https://github.com/tokio-rs/axum/blob/main/examples/readme/src/main.rs
 pub async fn main(
     state: State,
     addr: String,
     tls: bool,
     cert: Option<String>,
     key: Option<String>,
-) -> tide::Result<()> {
+) -> Result<()> {
     let mid = tide_http_auth::Authentication::new(BasicAuthScheme);
     let mut app = tide::with_state(state);
     app.with(mid);
