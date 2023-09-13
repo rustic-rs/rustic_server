@@ -25,7 +25,7 @@ pubkey = "RWSWSCEJEEacVeCy0va71hlrVtiW8YzMzOyJeso0Bfy/ZXq5OryWi/8T"
 [dependencies]
 anyhow = "1.0.75"
 async-trait = "0.1"
-axum = "0.6.20"
+axum = { version = "0.6.20", features = ["headers", "tracing", "multipart", "http2"] }
 axum-auth = "0.4.0"
 axum-server = { version = "0.5.1", features = ["tls-rustls"] }
 tokio = { version = "1", features = ["full"] }

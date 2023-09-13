@@ -1,5 +1,4 @@
 // used by WriteOrDeleteFile
-use crate::web::Finalizer;
 use std::fs;
 use std::io::Result as IoResult;
 use std::path::PathBuf;
@@ -21,6 +20,11 @@ pub struct WriteOrDeleteFile {
     file: File,
     path: PathBuf,
     finalized: bool,
+}
+#[async_trait::async_trait]
+pub trait Finalizer {
+    type Error;
+    async fn finalize(&mut self) -> Result<(), Self::Error>;
 }
 
 impl WriteOrDeleteFile {
