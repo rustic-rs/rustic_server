@@ -12,6 +12,7 @@
 
 <p align="center">
 <a href="https://github.com/rustic-rs/rustic_server/actions/workflows/nightly.yml"><img src="https://github.com/rustic-rs/rustic_server/actions/workflows/nightly.yml/badge.svg" /></a>
+<a href="https://www.gnu.org/licenses/agpl.txt"><img src="https://www.gnu.org/graphics/agplv3-88x31.png" height="20"/></a>
 </p>
 
 ## About
@@ -56,3 +57,7 @@ admin = "Modify"
 alex = "Modify"
 bob = "Append"
 ```
+
+# License
+
+`rustic-server` is open-sourced software licensed under the [GNU Affero General Public License v3.0 or later](./LICENSE).
