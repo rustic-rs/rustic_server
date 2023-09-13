@@ -1,3 +1,4 @@
+use async_std::io::prelude::SeekExt;
 // mod web
 //
 // implements a REST server as specified by
@@ -7,23 +8,21 @@
 // storage - to access the file system
 // auth    - for user authentication
 // acl     - for access control
-use http_range::HttpRange;
-use std::collections::HashMap;
-use std::{
-    convert::TryInto, error::Error, future::Future, marker::Unpin, path::Path as StdPath, sync::Arc,
-};
+
+use async_std::io::SeekFrom::Start;
 
 use axum::{
     body::Body,
-    extract::{FromRequest, FromRequestParts, Host, Path as PathExtract, Query, State},
+    extract::{Path as PathExtract, Query, State},
     handler::HandlerWithoutStateExt,
-    http::{request::Parts, Request, StatusCode, Uri},
-    response::{IntoResponse, Redirect, Response},
-    routing::{get, post},
-    BoxError, RequestExt, Router,
+    http::{header, Request, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, head, post},
+    Json, Router,
 };
-use axum_auth::AuthBasic;
-use axum_server::{accept::Accept, tls_rustls::RustlsConfig};
+use axum_server::tls_rustls::RustlsConfig;
+use http_range::HttpRange;
+use std::{convert::TryInto, marker::Unpin, path::Path as StdPath, sync::Arc};
 
 use serde_derive::{Deserialize, Serialize};
 use std::{io, net::SocketAddr, path::PathBuf};
@@ -31,8 +30,6 @@ use std::{io, net::SocketAddr, path::PathBuf};
 use crate::{
     acl::{AccessType, Acl, AclChecker},
     auth::{Auth, AuthChecker},
-    error::StatusError,
-    error::{Result, StatusResult},
     helpers::IteratorAdapter,
     storage::{LocalStorage, Storage},
 };
@@ -102,14 +99,14 @@ fn check_string_sha256(name: &str) -> bool {
     true
 }
 
-fn check_name(tpe: &str, name: &str) -> StatusResult<()> {
+fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse, (StatusCode, String)> {
     match tpe {
         "config" => Ok(()),
         _ if check_string_sha256(name) => Ok(()),
-        _ => Err(StatusError {
-            status: StatusCode::FORBIDDEN,
-            message: format!("filename {} not allowed", name).into(),
-        }),
+        _ => Err((
+            StatusCode::FORBIDDEN,
+            format!("filename {} not allowed", name),
+        )),
     }
 }
 
@@ -159,10 +156,10 @@ struct Create {
 async fn create_dirs(
     Query(params): Query<Create>,
     State(state): State<AppState>,
-    path: Option<PathExtract<String>>,
+    path: Option<PathExtract<&str>>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(&path_ext)
+        StdPath::new(path_ext)
     } else {
         StdPath::new(DEFAULT_PATH)
     };
@@ -207,105 +204,125 @@ struct RepoPathEntry {
     name: String,
     size: u64,
 }
-// (DEFAULT_PATH, tpe, &req)
+
 async fn list_files(
-    PathExtract(path): PathExtract<String>,
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
-    req: Request<AppState>,
+    req: &Request<AppState>,
+    path: Option<PathExtract<&str>>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let tpe = &tpe_state.0;
-    tracing::debug!("[list_files] path: {path}, tpe: {tpe}");
 
-    let path = StdPath::new(&path);
+    let path = if let Some(PathExtract(path_ext)) = path {
+        StdPath::new(path_ext)
+    } else {
+        StdPath::new(DEFAULT_PATH)
+    };
+
+    tracing::debug!("[list_files] path: {path:?}, tpe: {tpe}");
+
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
     let read_dir = state.storage.read_dir(path, tpe);
-    let mut res = Response::new(StatusCode::OK);
+    let mut res = Response::builder().status(StatusCode::OK);
 
     // TODO: error handling
     match req.headers().get("Accept") {
-        Some(a) if a.as_str() == API_V2 => {
-            res.set_content_type(API_V2);
+        Some(a) if a.to_str()? == API_V2 => {
+            res.header(header::CONTENT_TYPE, API_V2);
             let read_dir_version = read_dir.map(|e| RepoPathEntry {
                 name: e.file_name().to_str().unwrap().to_string(),
                 size: e.metadata().unwrap().len(),
             });
-            res.set_body(Body::from_json(&IteratorAdapter::new(read_dir_version))?);
+            res.body(Json(&IteratorAdapter::new(read_dir_version)));
         }
         _ => {
-            res.set_content_type(API_V1);
+            res.header(header::CONTENT_TYPE, API_V1);
             let read_dir_version = read_dir.map(|e| e.file_name().to_str().unwrap().to_string());
-            res.set_body(Body::from_json(&IteratorAdapter::new(read_dir_version))?);
+            res.body(Json(&IteratorAdapter::new(read_dir_version)));
         }
     };
     Ok(res)
 }
 
-async fn length(path: &str, tpe: &str, name: &str, req: &Request<AppState>) -> Result<()> {
+async fn length(
+    PathExtract(path): PathExtract<&str>,
+    State(tpe_state): State<TpeState>,
+    State(state): State<AppState>,
+    PathExtract(name): PathExtract<&str>,
+    req: &Request<AppState>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let tpe = &tpe_state.0;
     tracing::debug!("[length] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
-    let path = Path::new(path);
-    check_auth_and_acl(req, path, tpe, AccessType::Read)?;
+    let path = StdPath::new(&path);
+    check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
-    let _file = req.state().storage.filename(path, tpe, name);
-    Err(axum::Error::from_str(
-        StatusCode::NotImplemented,
-        "not yet implemented",
-    ))
+    let _file = state.storage.filename(path, tpe, name);
+    Err((StatusCode::NOT_IMPLEMENTED, "not yet implemented"))
 }
+// DEFAULT_PATH, tpe, req.param("name")?, &req)
+async fn get_file(
+    State(tpe_state): State<TpeState>,
+    State(state): State<AppState>,
+    PathExtract(name): PathExtract<&str>,
+    req: &Request<AppState>,
+    path: Option<PathExtract<&str>>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let tpe = &tpe_state.0;
 
-async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<AppState>) -> Result<Response> {
-    tracing::debug!("[get_file] path: {path}, tpe: {tpe}, name: {name}");
+    let path = if let Some(PathExtract(path_ext)) = path {
+        StdPath::new(path_ext)
+    } else {
+        StdPath::new(DEFAULT_PATH)
+    };
+    tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
-    let path = Path::new(path);
-    check_auth_and_acl(req, path, tpe, AccessType::Read)?;
+    let path = StdPath::new(path);
+    check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
-    let mut file = req.state().storage.open_file(path, tpe, name).await?;
+    let mut file = state.storage.open_file(path, tpe, name).await?;
     let mut len = file.metadata().await?.len();
 
     let mut res;
-    match req.header("Range") {
+    match req.headers().get("Range") {
         None => {
-            res = Response::new(StatusCode::Ok);
+            res = Response::new(StatusCode::OK);
         }
-        Some(r) => match HttpRange::parse(r.as_str(), len) {
+        Some(r) => match HttpRange::parse(r.to_str()?, len) {
             Ok(range) if range.len() == 1 => {
                 file.seek(Start(range[0].start)).await?;
                 len = range[0].length;
-                res = Response::new(StatusCode::PartialContent);
+                res = Response::new(StatusCode::PARTIAL_CONTENT);
             }
             Ok(_) => {
-                return Err(axum::Error::from_str(
-                    StatusCode::NotImplemented,
-                    "multipart range not implemented",
+                return Err((
+                    StatusCode::NOT_IMPLEMENTED,
+                    "multipart range not implemented".to_string(),
                 ))
             }
-            Err(_) => {
-                return Err(axum::Error::from_str(
-                    StatusCode::InternalServerError,
-                    "range error",
-                ))
-            }
+            Err(_) => return Err((StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string())),
         },
     };
 
     let file = io::BufReader::new(file);
-    res.set_body(Body::from_reader(file, Some(len.try_into()?)));
+    let content = Body::from_reader(file, Some(len.try_into()?));
+    res.body(); // TODO!
     Ok(res)
 }
 
 #[async_trait::async_trait]
 pub trait Finalizer {
-    async fn finalize(&mut self) -> Result<()>;
+    type Error;
+    async fn finalize(&mut self) -> Result<(), Self::Error>;
 }
 
 async fn save_body(
     req: &mut Request<AppState>,
     mut file: impl io::Write + Unpin + Finalizer,
-) -> Result<Response> {
+) -> Result<impl IntoResponse, (StatusCode, String)> {
     let bytes_written = io::copy(req, &mut file).await?;
     tracing::debug!("[file written] bytes: {bytes_written}");
     file.finalize().await?;
@@ -321,7 +338,7 @@ async fn get_save_file(
     tracing::debug!("[get_save_file] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
-    let path = Path::new(path);
+    let path = StdPath::new(path);
     check_auth_and_acl(req, path, tpe, AccessType::Append)?;
 
     Ok(req.state().storage.create_file(path, tpe, name).await?)
@@ -332,21 +349,21 @@ async fn delete_file(
     tpe: &str,
     name: &str,
     req: &Request<AppState>,
-) -> Result<Response> {
+) -> Result<impl IntoResponse, (StatusCode, String)> {
     check_name(tpe, name)?;
-    let path = Path::new(path);
+    let path = StdPath::new(path);
     check_auth_and_acl(req, path, tpe, AccessType::Modify)?;
     req.state().storage.remove_file(path, tpe, name)?;
     Ok(Response::new(StatusCode::Ok))
 }
 
-async fn auth_handler(AuthBasic((id, password)): AuthBasic) -> Result<String> {
-    tracing::debug!("[auth_handler] id: {id}, password: {password}");
-    match id.as_str() {
-        "user" if password == "password" => Ok(id),
-        _ => Err(axum::Error::from_str(StatusCode::Forbidden, "not allowed")),
-    }
-}
+// async fn auth_handler(AuthBasic((id, password)): AuthBasic) -> Result<String> {
+//     tracing::debug!("[auth_handler] id: {id}, password: {password}");
+//     match id.as_str() {
+//         "user" if password == "password" => Ok(id),
+//         _ => Err(axum::Error::from_str(StatusCode::Forbidden, "not allowed")),
+//     }
+// }
 
 // TODO!: https://github.com/tokio-rs/axum/blob/main/examples/tls-rustls/src/main.rs
 // TODO!: https://github.com/tokio-rs/axum/blob/main/examples/readme/src/main.rs
@@ -357,7 +374,7 @@ pub async fn main(
     tls: bool,
     cert: Option<String>,
     key: Option<String>,
-) -> StatusResult<()> {
+) -> Result<(), Box<dyn std::error::Error>> {
     // let mid = tide_http_auth::Authentication::new(BasicAuthScheme);
     // let mut app = tide::with_state(state);
     // app.with(mid);
@@ -376,20 +393,18 @@ pub async fn main(
 
         let path = &("/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
-        app.route(path)
-            .head(move |req: Request<AppState>| async move {
-                length(DEFAULT_PATH, tpe, req.param("name")?, &req).await
-            })
-            .get(move |req: Request<AppState>| async move {
-                get_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await
-            })
-            .post(move |mut req: Request<AppState>| async move {
-                let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
-                save_body(&mut req, file).await
-            })
-            .delete(move |req: Request<AppState>| async move {
-                delete_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await
-            });
+        app.route(
+            path,
+            head(length)
+                .get(get_file)
+                .post(move |mut req: Request<AppState>| async move {
+                    let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
+                    save_body(&mut req, file).await
+                })
+                .delete(move |req: Request<AppState>| async move {
+                    delete_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await
+                }),
+        );
 
         let path = &("/:path/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
