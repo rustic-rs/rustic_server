@@ -4,7 +4,9 @@ use tracing_subscriber::filter::LevelFilter;
 
 pub mod acl;
 pub mod auth;
+pub mod error;
 pub mod helpers;
+pub mod log;
 pub mod storage;
 pub mod web;
 

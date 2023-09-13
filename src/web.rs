@@ -49,7 +49,7 @@ pub struct State {
 
 #[async_trait::async_trait]
 impl tide_http_auth::Storage<String, BasicAuthRequest> for State {
-    async fn get_user(&self, request: BasicAuthRequest) -> tide::Result<Option<String>> {
+    async fn get_user(&self, request: BasicAuthRequest) -> Result<Option<String>> {
         let user = request.username;
         match self.auth.verify(&user, &request.password) {
             true => Ok(Some(user)),
@@ -85,11 +85,11 @@ fn check_string_sha256(name: &str) -> bool {
     true
 }
 
-fn check_name(tpe: &str, name: &str) -> Result<(), tide::Error> {
+fn check_name(tpe: &str, name: &str) -> Result<(), axum::Error> {
     match tpe {
         "config" => Ok(()),
         _ if check_string_sha256(name) => Ok(()),
-        _ => Err(tide::Error::from_str(
+        _ => Err(axum::Error::from_str(
             StatusCode::Forbidden,
             format!("filename {} not allowed", name),
         )),
@@ -101,7 +101,7 @@ fn check_auth_and_acl(
     path: &Path,
     tpe: &str,
     append: AccessType,
-) -> Result<(), tide::Error> {
+) -> Result<(), axum::Error> {
     let state = req.state();
 
     // don't allow paths that includes any of the defined types
@@ -109,7 +109,7 @@ fn check_auth_and_acl(
         if let Some(part) = part.to_str() {
             for tpe in TYPES.iter() {
                 if &part == tpe {
-                    return Err(tide::Error::from_str(StatusCode::Forbidden, "not allowed"));
+                    return Err(axum::Error::from_str(StatusCode::Forbidden, "not allowed"));
                 }
             }
         }
@@ -117,21 +117,16 @@ fn check_auth_and_acl(
 
     let empty = String::new();
     let user: &str = req.ext::<String>().unwrap_or(&empty);
-    let path = path.to_str().ok_or(tide::Error::from_str(
+    let path = path.to_str().ok_or(axum::Error::from_str(
         StatusCode::Forbidden,
         "path is non-unicode",
     ))?;
     let allowed = state.acl.allowed(user, path, tpe, append);
-    tide::log::debug!("auth",  {
-    user: user,
-    path: path,
-    tpe: tpe,
-    allowed: allowed,
-    });
+    tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
 
     match allowed {
         true => Ok(()),
-        false => Err(tide::Error::from_str(StatusCode::Forbidden, "not allowed")),
+        false => Err(axum::Error::from_str(StatusCode::Forbidden, "not allowed")),
     }
 }
 
@@ -141,10 +136,8 @@ struct Create {
     create: bool,
 }
 
-async fn create_dirs(path: &str, req: &Request<State>) -> tide::Result {
-    tide::log::debug!("create_dirs", {
-        path: path,
-    });
+async fn create_dirs(path: &str, req: &Request<State>) -> Result {
+    tracing::debug!("[create_dirs] path: {path}");
 
     let path = Path::new(path);
     check_auth_and_acl(req, path, "", AccessType::Append)?;
@@ -169,11 +162,8 @@ struct RepoPathEntry {
     size: u64,
 }
 
-async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> tide::Result {
-    tide::log::debug!("list_files", {
-        path: path,
-        tpe: tpe,
-    });
+async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> Result {
+    tracing::debug!("[list_files] path: {path}, tpe: {tpe}");
 
     let path = Path::new(path);
     check_auth_and_acl(req, path, tpe, AccessType::Read)?;
@@ -200,30 +190,22 @@ async fn list_files(path: &str, tpe: &str, req: &Request<State>) -> tide::Result
     Ok(res)
 }
 
-async fn length(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide::Result {
-    tide::log::debug!("length", {
-        path: path,
-        tpe: tpe,
-        name: name,
-    });
+async fn length(path: &str, tpe: &str, name: &str, req: &Request<State>) -> Result {
+    tracing::debug!("[length] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
     let path = Path::new(path);
     check_auth_and_acl(req, path, tpe, AccessType::Read)?;
 
     let _file = req.state().storage.filename(path, tpe, name);
-    Err(tide::Error::from_str(
+    Err(axum::Error::from_str(
         StatusCode::NotImplemented,
         "not yet implemented",
     ))
 }
 
-async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide::Result {
-    tide::log::debug!("get_file", {
-        path: path,
-        tpe: tpe,
-        name: name,
-    });
+async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> Result {
+    tracing::debug!("[get_file] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
     let path = Path::new(path);
@@ -244,13 +226,13 @@ async fn get_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> ti
                 res = Response::new(StatusCode::PartialContent);
             }
             Ok(_) => {
-                return Err(tide::Error::from_str(
+                return Err(axum::Error::from_str(
                     StatusCode::NotImplemented,
                     "multipart range not implemented",
                 ))
             }
             Err(_) => {
-                return Err(tide::Error::from_str(
+                return Err(axum::Error::from_str(
                     StatusCode::InternalServerError,
                     "range error",
                 ))
@@ -271,11 +253,9 @@ pub trait Finalizer {
 async fn save_body(
     req: &mut Request<State>,
     mut file: impl io::Write + Unpin + Finalizer,
-) -> tide::Result {
+) -> Result {
     let bytes_written = io::copy(req, &mut file).await?;
-    tide::log::debug!("file written", {
-        bytes: bytes_written,
-    });
+    tracing::debug!("[file written] bytes: {bytes_written}");
     file.finalize().await?;
     Ok(Response::new(StatusCode::Ok))
 }
@@ -285,12 +265,8 @@ async fn get_save_file(
     tpe: &str,
     name: &str,
     req: &Request<State>,
-) -> Result<impl io::Write + Unpin + Finalizer, tide::Error> {
-    tide::log::debug!("get_save_file", {
-        path: path,
-        tpe: tpe,
-        name: name,
-    });
+) -> Result<impl io::Write + Unpin + Finalizer, axum::Error> {
+    tracing::debug!("[get_save_file] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
     let path = Path::new(path);
@@ -299,7 +275,7 @@ async fn get_save_file(
     Ok(req.state().storage.create_file(path, tpe, name).await?)
 }
 
-async fn delete_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> tide::Result {
+async fn delete_file(path: &str, tpe: &str, name: &str, req: &Request<State>) -> Result {
     check_name(tpe, name)?;
     let path = Path::new(path);
     check_auth_and_acl(req, path, tpe, AccessType::Modify)?;
@@ -326,12 +302,12 @@ pub async fn main(
 
     for tpe in TYPES.iter() {
         let path = &("/".to_string() + tpe + "/");
-        tide::log::debug!("add path: {}", path);
+        tracing::debug!("add path: {path}");
         app.at(path)
             .get(move |req| async move { list_files(DEFAULT_PATH, tpe, &req).await });
 
         let path = &("/".to_string() + tpe + "/:name");
-        tide::log::debug!("add path: {}", path);
+        tracing::debug!("add path: {path}");
         app.at(path)
             .head(move |req: Request<State>| async move {
                 length(DEFAULT_PATH, tpe, req.param("name")?, &req).await
@@ -348,13 +324,13 @@ pub async fn main(
             });
 
         let path = &("/:path/".to_string() + tpe + "/");
-        tide::log::debug!("add path: {}", path);
+        tracing::debug!("add path: {path}");
         app.at(path).get(move |req: Request<State>| async move {
             list_files(req.param("path")?, tpe, &req).await
         });
 
         let path = &("/:path/".to_string() + tpe + "/:name");
-        tide::log::debug!("add path: {}", path);
+        tracing::debug!("add path: {path}");
         app.at(path)
             .head(move |req: Request<State>| async move {
                 length(req.param("path")?, tpe, req.param("name")?, &req).await

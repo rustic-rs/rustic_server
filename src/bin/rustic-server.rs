@@ -1,17 +1,10 @@
 use clap::Parser;
-use rustic_server::{acl::Acl, auth::Auth, storage::LocalStorage, web, web::State, Opts};
+use rustic_server::{acl::Acl, auth::Auth, log, storage::LocalStorage, web, web::State, Opts};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> tide::Result<()> {
-    // TODO!: Add LayerFilter to the tracing_subscriber::registry (opts.log)
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "example_tls_rustls=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    log::init_tracing();
 
     let opts = Opts::parse();
 

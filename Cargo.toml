@@ -37,6 +37,7 @@ htpasswd-verify = "0.3"
 http-range = "0.1"
 serde = "1"
 serde_derive = "1"
+thiserror = "1.0.48"
 toml = "0.8"
 walkdir = "2"
 
