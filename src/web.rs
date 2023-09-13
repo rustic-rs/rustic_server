@@ -1,4 +1,3 @@
-use async_std::io::prelude::SeekExt;
 // mod web
 //
 // implements a REST server as specified by
@@ -9,23 +8,22 @@ use async_std::io::prelude::SeekExt;
 // auth    - for user authentication
 // acl     - for access control
 
-use async_std::io::SeekFrom::Start;
-
 use axum::{
-    body::Body,
+    body::{Body, StreamBody},
     extract::{Path as PathExtract, Query, State},
-    handler::HandlerWithoutStateExt,
+    handler::{Handler, HandlerWithoutStateExt},
     http::{header, Request, StatusCode},
-    response::{IntoResponse, Response},
+    response::{AppendHeaders, IntoResponse, Response},
     routing::{get, head, post},
     Json, Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
 use http_range::HttpRange;
-use std::{convert::TryInto, marker::Unpin, path::Path as StdPath, sync::Arc};
-
 use serde_derive::{Deserialize, Serialize};
-use std::{io, net::SocketAddr, path::PathBuf};
+use std::{convert::TryInto, marker::Unpin, path::Path as StdPath, sync::Arc};
+use std::{net::SocketAddr, path::PathBuf};
+use tokio::io::SeekFrom::Start;
+use tokio_util::io::ReaderStream;
 
 use crate::{
     acl::{AccessType, Acl, AclChecker},
@@ -33,6 +31,13 @@ use crate::{
     helpers::IteratorAdapter,
     storage::{LocalStorage, Storage},
 };
+
+const API_V1: &str = "application/vnd.x.restic.rest.v1";
+const API_V2: &str = "application/vnd.x.restic.rest.v2";
+const TYPES: [&str; 5] = ["data", "keys", "locks", "snapshots", "index"];
+const DEFAULT_PATH: &str = "";
+const CONFIG_TYPE: &str = "config";
+const CONFIG_NAME: &str = "";
 
 #[derive(Clone)]
 struct TpeState(pub String);
@@ -81,11 +86,6 @@ impl AppState {
         }
     }
 }
-
-const TYPES: [&str; 5] = ["data", "keys", "locks", "snapshots", "index"];
-const DEFAULT_PATH: &str = "";
-const CONFIG_TYPE: &str = "config";
-const CONFIG_NAME: &str = "";
 
 fn check_string_sha256(name: &str) -> bool {
     if name.len() != 64 {
@@ -174,30 +174,27 @@ async fn create_dirs(
                 match state.storage.create_dir(path, tpe) {
                     Ok(_) => (),
                     Err(e) => {
-                        return (
+                        return Err((
                             StatusCode::INTERNAL_SERVER_ERROR,
                             format!("error creating dir: {:?}", e),
-                        )
+                        ))
                     }
                 };
             }
 
-            return (
+            return Ok((
                 StatusCode::OK,
                 format!("Called create_files with path {:?}\n", path),
-            );
+            ));
         }
         false => {
-            return (
+            return Ok((
                 StatusCode::OK,
                 format!("Called create_files with path {:?}, create=false\n", path),
-            )
+            ))
         }
     }
 }
-
-const API_V1: &str = "application/vnd.x.restic.rest.v1";
-const API_V2: &str = "application/vnd.x.restic.rest.v2";
 
 #[derive(Serialize)]
 struct RepoPathEntry {
@@ -208,8 +205,8 @@ struct RepoPathEntry {
 async fn list_files(
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
-    req: &Request<AppState>,
     path: Option<PathExtract<&str>>,
+    req: &Request<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let tpe = &tpe_state.0;
 
@@ -224,24 +221,41 @@ async fn list_files(
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
     let read_dir = state.storage.read_dir(path, tpe);
-    let mut res = Response::builder().status(StatusCode::OK);
 
     // TODO: error handling
-    match req.headers().get("Accept") {
-        Some(a) if a.to_str()? == API_V2 => {
-            res.header(header::CONTENT_TYPE, API_V2);
+    let res = match req.headers().get("Accept") {
+        Some(a)
+            if match a.to_str() {
+                Ok(s) => s == API_V2,
+                Err(_) => false, // possibly not a String
+            } =>
+        {
             let read_dir_version = read_dir.map(|e| RepoPathEntry {
                 name: e.file_name().to_str().unwrap().to_string(),
                 size: e.metadata().unwrap().len(),
             });
-            res.body(Json(&IteratorAdapter::new(read_dir_version)));
+            let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();
+            response.headers_mut().insert(
+                header::CONTENT_TYPE,
+                header::HeaderValue::from_static(API_V2),
+            );
+            let status = response.status_mut();
+            *status = StatusCode::OK;
+            response
         }
         _ => {
-            res.header(header::CONTENT_TYPE, API_V1);
             let read_dir_version = read_dir.map(|e| e.file_name().to_str().unwrap().to_string());
-            res.body(Json(&IteratorAdapter::new(read_dir_version)));
+            let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();
+            response.headers_mut().insert(
+                header::CONTENT_TYPE,
+                header::HeaderValue::from_static(API_V1),
+            );
+            let status = response.status_mut();
+            *status = StatusCode::OK;
+            response
         }
     };
+
     Ok(res)
 }
 
@@ -260,7 +274,10 @@ async fn length(
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
     let _file = state.storage.filename(path, tpe, name);
-    Err((StatusCode::NOT_IMPLEMENTED, "not yet implemented"))
+    Err((
+        StatusCode::NOT_IMPLEMENTED,
+        "not yet implemented".to_string(),
+    ))
 }
 // DEFAULT_PATH, tpe, req.param("name")?, &req)
 async fn get_file(
@@ -283,19 +300,42 @@ async fn get_file(
     let path = StdPath::new(path);
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
-    let mut file = state.storage.open_file(path, tpe, name).await?;
-    let mut len = file.metadata().await?.len();
+    let Ok(mut file) = state.storage.open_file(path, tpe, name).await else {
+        return Err((StatusCode::NOT_FOUND, format!("file not found: {:?}", path)));
+    };
+
+    let Ok(mut len) = match file.metadata().await {
+        Ok(val) => val.len(),
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error getting file metadata".to_string(),
+            ))
+        }
+    };
 
     let mut res;
     match req.headers().get("Range") {
         None => {
-            res = Response::new(StatusCode::OK);
+            res = Ok(StatusCode::OK);
         }
-        Some(r) => match HttpRange::parse(r.to_str()?, len) {
+        Some(header_value) => match HttpRange::parse(
+            match header_value.to_str() {
+                Ok(val) => val,
+                Err(_) => return Err((StatusCode::BAD_REQUEST, "range not valid".to_string())),
+            },
+            len,
+        ) {
             Ok(range) if range.len() == 1 => {
-                file.seek(Start(range[0].start)).await?;
+                let Ok(_) = file.seek(Start(range[0].start)).await else {
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "error seeking file".to_string(),
+                    ));
+                };
+
                 len = range[0].length;
-                res = Response::new(StatusCode::PARTIAL_CONTENT);
+                res = Ok(StatusCode::PARTIAL_CONTENT);
             }
             Ok(_) => {
                 return Err((
@@ -307,10 +347,23 @@ async fn get_file(
         },
     };
 
-    let file = io::BufReader::new(file);
-    let content = Body::from_reader(file, Some(len.try_into()?));
-    res.body(); // TODO!
-    Ok(res)
+    // From: https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
+    let stream: ReaderStream = ReaderStream::with_capacity(
+        file,
+        match len.try_into() {
+            Ok(val) => val,
+            Err(_) => {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "error converting length to u64".to_string(),
+                ))
+            }
+        },
+    );
+    let body = StreamBody::new(stream);
+
+    let headers = AppendHeaders([(header::CONTENT_TYPE, "application/octet-stream")]);
+    Ok((headers, body))
 }
 
 #[async_trait::async_trait]
@@ -326,7 +379,7 @@ async fn save_body(
     let bytes_written = io::copy(req, &mut file).await?;
     tracing::debug!("[file written] bytes: {bytes_written}");
     file.finalize().await?;
-    Ok(Response::new(StatusCode::Ok))
+    Ok(Response::new(StatusCode::OK))
 }
 
 async fn get_save_file(
@@ -334,7 +387,7 @@ async fn get_save_file(
     tpe: &str,
     name: &str,
     req: &Request<AppState>,
-) -> Result<impl io::Write + Unpin + Finalizer> {
+) -> Result<impl io::Write + Unpin + Finalizer, Box<dyn std::error::Error>> {
     tracing::debug!("[get_save_file] path: {path}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name)?;
@@ -389,7 +442,7 @@ pub async fn main(
         tracing::debug!("add path: {path}");
         let tpe_state = TpeState(tpe.into());
 
-        app.route(path, get(list_files).with_state(tpe));
+        app.route(path, get(list_files).layer(tpe));
 
         let path = &("/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");

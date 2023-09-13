@@ -1,15 +1,21 @@
 // used by WriteOrDeleteFile
+use crate::web::Finalizer;
 use std::fs;
+use std::io::Result as IoResult;
 use std::path::PathBuf;
-
-use async_std::fs::{File, OpenOptions};
-use async_std::io::{self, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use tokio::fs::{File, OpenOptions};
+use tokio::io::AsyncWrite;
 
-use crate::web::Finalizer;
+// used by IteratorAdapter
+use serde::{Serialize, Serializer};
+use std::cell::RefCell;
 
-// helper struct which is like a async_std::fs::File but removes the file
+// helper struct to make iterators serializable
+pub struct IteratorAdapter<I>(RefCell<I>);
+
+// helper struct which is like a async_std|tokio::fs::File but removes the file
 // if finalize() was not called.
 pub struct WriteOrDeleteFile {
     file: File,
@@ -18,7 +24,7 @@ pub struct WriteOrDeleteFile {
 }
 
 impl WriteOrDeleteFile {
-    pub async fn new(file_path: PathBuf) -> io::Result<Self> {
+    pub async fn new(file_path: PathBuf) -> IoResult<Self> {
         Ok(Self {
             file: OpenOptions::new()
                 .write(true)
@@ -33,28 +39,24 @@ impl WriteOrDeleteFile {
 
 #[async_trait::async_trait]
 impl Finalizer for WriteOrDeleteFile {
-    async fn finalize(&mut self) -> io::Result<()> {
+    async fn finalize(&mut self) -> IoResult<()> {
         self.file.sync_all().await?;
         self.finalized = true;
         Ok(())
     }
 }
 
-impl Write for WriteOrDeleteFile {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
+impl AsyncWrite for WriteOrDeleteFile {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<IoResult<usize>> {
         Pin::new(&mut self.get_mut().file).poll_write(cx, buf)
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<IoResult<()>> {
         Pin::new(&mut self.get_mut().file).poll_flush(cx)
     }
 
-    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.get_mut().file).poll_close(cx)
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<IoResult<()>> {
+        Pin::new(&mut self.get_mut().file).poll_shutdown(cx)
     }
 }
 
@@ -66,13 +68,6 @@ impl Drop for WriteOrDeleteFile {
         }
     }
 }
-
-// used by IteratorAdapter
-use serde::{Serialize, Serializer};
-use std::cell::RefCell;
-
-// helper struct to make iterators serializable
-pub struct IteratorAdapter<I>(RefCell<I>);
 
 impl<I> IteratorAdapter<I> {
     pub fn new(iterator: I) -> Self {

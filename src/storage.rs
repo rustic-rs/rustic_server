@@ -2,18 +2,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::helpers::WriteOrDeleteFile;
-use async_std::fs::File;
-use async_std::io::Result;
+use std::io::Result as IoResult;
+use tokio::fs::File;
 use walkdir::WalkDir;
 
 #[async_trait::async_trait]
 pub trait Storage: Send + Sync + 'static {
-    fn create_dir(&self, path: &Path, tpe: &str) -> std::io::Result<()>;
+    fn create_dir(&self, path: &Path, tpe: &str) -> IoResult<()>;
     fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
     fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf;
-    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File>;
-    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile>;
-    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()>;
+    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<File>;
+    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<WriteOrDeleteFile>;
+    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<()>;
 }
 
 #[derive(Clone)]
@@ -35,7 +35,7 @@ impl Default for LocalStorage {
 }
 
 impl LocalStorage {
-    pub fn try_new(path: &Path) -> Result<Self> {
+    pub fn try_new(path: &Path) -> IoResult<Self> {
         Ok(Self {
             path: path.to_path_buf(),
         })
@@ -44,7 +44,7 @@ impl LocalStorage {
 
 #[async_trait::async_trait]
 impl Storage for LocalStorage {
-    fn create_dir(&self, path: &Path, tpe: &str) -> std::io::Result<()> {
+    fn create_dir(&self, path: &Path, tpe: &str) -> IoResult<()> {
         match tpe {
             "data" => {
                 for i in 0..256 {
@@ -72,17 +72,17 @@ impl Storage for LocalStorage {
         }
     }
 
-    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File> {
+    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<File> {
         let file_path = self.filename(path, tpe, name);
         Ok(File::open(file_path).await?)
     }
 
-    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile> {
+    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<WriteOrDeleteFile> {
         let file_path = self.filename(path, tpe, name);
         WriteOrDeleteFile::new(file_path).await
     }
 
-    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()> {
+    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<()> {
         let file_path = self.filename(path, tpe, name);
         fs::remove_file(file_path)
     }
