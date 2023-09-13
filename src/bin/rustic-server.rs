@@ -1,6 +1,13 @@
 use clap::Parser;
-use rustic_server::{acl::Acl, auth::Auth, log, storage::LocalStorage, web, web::AppState, Opts};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use rustic_server::{
+    acl::Acl,
+    auth::Auth,
+    log,
+    storage::LocalStorage,
+    web,
+    web::{AppState, Ports},
+    Opts,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -13,8 +20,16 @@ async fn main() -> anyhow::Result<()> {
         https: opts.https_port,
     };
 
-    // optional: spawn a second server to redirect http requests to this server
-    tokio::spawn(redirect_http_to_https(ports));
+    // spawn a second server to redirect http requests to this server
+    match (opt.cert, opt.key) {
+        (Some(cert), Some(key)) => {
+            tracing::info!("TLS is enabled, http requests will be redirected to https");
+            tokio::spawn(redirect_http_to_https(ports));
+        }
+        _ => {
+            tracing::warn!("TLS is not enabled, http requests will not be redirected to https");
+        }
+    }
 
     let storage = LocalStorage::try_new(&opts.path)?;
     let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))?;
