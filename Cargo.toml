@@ -6,7 +6,7 @@ categories = ["command-line-utilities"]
 edition = "2021"
 homepage = "https://rustic.cli.rs/"
 keywords = ["backup", "restic", "deduplication", "encryption", "cli", "server"]
-license = "Apache-2.0 OR MIT"
+license = "AGPL-3.0-or-later"
 repository = "https://github.com/rustic-rs/rustic_server"
 description = """
 rustic server - a REST server built in rust to use with rustic and restic.
