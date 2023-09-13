@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::path::PathBuf;
+use tracing_subscriber::filter::LevelFilter;
 
 pub mod acl;
 pub mod auth;
@@ -13,8 +14,14 @@ pub mod web;
 #[command(bin_name = "rustic-server")]
 pub struct Opts {
     /// listen address
-    #[arg(short, long, default_value = "localhost:8000")]
-    pub listen: String,
+    #[arg(short, long, default_value = "localhost")]
+    pub host: String,
+    /// listen port https
+    #[arg(short, long, default_value = 8000)]
+    pub https_port: u16,
+    /// listen port http
+    #[arg(short, long, default_value = 8080)]
+    pub http_port: u16,
     /// data directory
     #[arg(short, long, default_value = "/tmp/restic")]
     pub path: PathBuf,
@@ -41,5 +48,5 @@ pub struct Opts {
     pub key: Option<String>,
     /// logging level (Off/Error/Warn/Info/Debug/Trace)
     #[arg(long, default_value = "Info")]
-    pub log: tide::log::LevelFilter,
+    pub log: LevelFilter,
 }

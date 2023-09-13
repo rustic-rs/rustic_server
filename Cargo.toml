@@ -26,13 +26,16 @@ pubkey = "RWSWSCEJEEacVeCy0va71hlrVtiW8YzMzOyJeso0Bfy/ZXq5OryWi/8T"
 anyhow = "1.0.75"
 async-std = { version = "1", features = ["attributes"] }
 async-trait = "0.1"
+axum = "0.6.20"
+axum-auth = "0.4.0"
+axum-server = { version = "0.5.1", features = ["tls-rustls"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4.4.10", features = ["derive"] }
 htpasswd-verify = "0.3"
 http-range = "0.1"
 serde = { version = "1", features = ["derive"] }
-tide = "0.16"
-tide-http-auth = "0.5"
-tide-rustls = "0.3"
 toml = "0.8"
 walkdir = "2"
 
