@@ -1409,6 +1409,7 @@ dependencies = [
  "htpasswd-verify",
  "http-range",
  "serde",
+ "serde_derive",
  "tokio",
  "toml",
  "tracing",

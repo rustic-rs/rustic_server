@@ -35,7 +35,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4.4.10", features = ["derive"] }
 htpasswd-verify = "0.3"
 http-range = "0.1"
-serde = { version = "1", features = ["derive"] }
+serde = "1"
+serde_derive = "1"
 toml = "0.8"
 walkdir = "2"
 

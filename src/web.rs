@@ -16,14 +16,17 @@ use std::sync::Arc;
 use http_range::HttpRange;
 
 use axum::{
+    body::Body,
     extract::Host,
     handler::HandlerWithoutStateExt,
-    http::{StatusCode, Uri},
-    response::Redirect,
+    http::{Request, StatusCode, Uri},
+    response::{IntoResponse, Redirect, Response},
     routing::get,
     BoxError, Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
+use serde_derive::{Deserialize, Serialize};
+use std::io;
 use std::{net::SocketAddr, path::PathBuf};
 
 use super::acl::{AccessType, AclChecker};

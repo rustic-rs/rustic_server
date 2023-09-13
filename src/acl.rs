@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 
 // Access Types
-#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde_derive::Deserialize)]
 pub enum AccessType {
     Nothing,
     Read,
