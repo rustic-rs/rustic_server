@@ -9,11 +9,13 @@
 // acl     - for access control
 use http_range::HttpRange;
 use std::collections::HashMap;
-use std::{convert::TryInto, error::Error, future::Future, marker::Unpin, path::Path, sync::Arc};
+use std::{
+    convert::TryInto, error::Error, future::Future, marker::Unpin, path::Path as StdPath, sync::Arc,
+};
 
 use axum::{
     body::Body,
-    extract::{FromRequest, FromRequestParts, Host, Query, State},
+    extract::{FromRequest, FromRequestParts, Host, Path as PathExtract, Query, State},
     handler::HandlerWithoutStateExt,
     http::{request::Parts, Request, StatusCode, Uri},
     response::{IntoResponse, Redirect, Response},
@@ -21,7 +23,7 @@ use axum::{
     BoxError, RequestExt, Router,
 };
 use axum_auth::AuthBasic;
-use axum_server::tls_rustls::RustlsConfig;
+use axum_server::{accept::Accept, tls_rustls::RustlsConfig};
 
 use serde_derive::{Deserialize, Serialize};
 use std::{io, net::SocketAddr, path::PathBuf};
@@ -30,10 +32,13 @@ use crate::{
     acl::{AccessType, Acl, AclChecker},
     auth::{Auth, AuthChecker},
     error::StatusError,
+    error::{Result, StatusResult},
     helpers::IteratorAdapter,
     storage::{LocalStorage, Storage},
-    Result, StatusResult,
 };
+
+#[derive(Clone)]
+struct TpeState(pub String);
 
 #[derive(Clone, Copy)]
 pub struct Ports {
@@ -110,19 +115,19 @@ fn check_name(tpe: &str, name: &str) -> StatusResult<()> {
 
 fn check_auth_and_acl(
     state: &AppState,
-    path: &Path,
+    path: &StdPath,
     tpe: &str,
     append: AccessType,
-) -> StatusResult<()> {
+) -> Result<impl IntoResponse, (StatusCode, String)> {
     // don't allow paths that includes any of the defined types
     for part in path.iter() {
         if let Some(part) = part.to_str() {
             for tpe in TYPES.iter() {
                 if &part == tpe {
-                    Err(StatusError {
-                        status: StatusCode::FORBIDDEN,
-                        message: format!("path {} not allowed", path.display()).into(),
-                    });
+                    return Err((
+                        StatusCode::FORBIDDEN,
+                        format!("path {} not allowed", path.display()),
+                    ));
                 }
             }
         }
@@ -130,19 +135,18 @@ fn check_auth_and_acl(
 
     let empty = String::new();
     let user: &str = state.ext::<String>().unwrap_or(&empty);
-    let path = path.to_str().ok_or(Err(StatusError {
-        status: StatusCode::FORBIDDEN,
-        message: format!("path {} is non-unicode", path.display()).into(),
-    }))?;
+    let Some(path) = path.to_str() else {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("path {} is non-unicode", path.display()),
+        ));
+    };
     let allowed = state.acl.allowed(user, path, tpe, append);
     tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
 
     match allowed {
-        true => Ok(()),
-        false => Err(StatusError {
-            status: StatusCode::FORBIDDEN,
-            message: format!("path {path} not allowed").into(),
-        }),
+        true => Ok(StatusCode::OK),
+        false => Err((StatusCode::FORBIDDEN, format!("path {path} not allowed"))),
     }
 }
 
@@ -153,26 +157,45 @@ struct Create {
 }
 
 async fn create_dirs(
-    path: &str,
     Query(params): Query<Create>,
     State(state): State<AppState>,
-) -> Result<String> {
-    tracing::debug!("[create_dirs] path: {path}");
+    path: Option<PathExtract<String>>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let path = if let Some(PathExtract(path_ext)) = path {
+        StdPath::new(&path_ext)
+    } else {
+        StdPath::new(DEFAULT_PATH)
+    };
 
-    let path = Path::new(path);
+    tracing::debug!("[create_dirs] path: {path:?}");
+
     check_auth_and_acl(&state, path, "", AccessType::Append)?;
     let c: Create = params;
     match c.create {
         true => {
             for tpe in TYPES.iter() {
-                state.storage.create_dir(path, tpe)?;
+                match state.storage.create_dir(path, tpe) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("error creating dir: {:?}", e),
+                        )
+                    }
+                };
             }
-            Ok(format!("Called create_files with path {:?}\n", path))
+
+            return (
+                StatusCode::OK,
+                format!("Called create_files with path {:?}\n", path),
+            );
         }
-        false => Ok(format!(
-            "Called create_files with path {:?}, create=false\n",
-            path
-        )),
+        false => {
+            return (
+                StatusCode::OK,
+                format!("Called create_files with path {:?}, create=false\n", path),
+            )
+        }
     }
 }
 
@@ -184,18 +207,24 @@ struct RepoPathEntry {
     name: String,
     size: u64,
 }
-
-async fn list_files(path: &str, tpe: &str, req: &Request<AppState>) -> Result<Response> {
+// (DEFAULT_PATH, tpe, &req)
+async fn list_files(
+    PathExtract(path): PathExtract<String>,
+    State(tpe_state): State<TpeState>,
+    State(state): State<AppState>,
+    req: Request<AppState>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let tpe = &tpe_state.0;
     tracing::debug!("[list_files] path: {path}, tpe: {tpe}");
 
-    let path = Path::new(path);
-    check_auth_and_acl(req, path, tpe, AccessType::Read)?;
+    let path = StdPath::new(&path);
+    check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
-    let read_dir = req.state().storage.read_dir(path, tpe);
-    let mut res = Response::new(StatusCode::Ok);
+    let read_dir = state.storage.read_dir(path, tpe);
+    let mut res = Response::new(StatusCode::OK);
 
     // TODO: error handling
-    match req.header("Accept") {
+    match req.headers().get("Accept") {
         Some(a) if a.as_str() == API_V2 => {
             res.set_content_type(API_V2);
             let read_dir_version = read_dir.map(|e| RepoPathEntry {
@@ -328,28 +357,26 @@ pub async fn main(
     tls: bool,
     cert: Option<String>,
     key: Option<String>,
-) -> Result<()> {
+) -> StatusResult<()> {
     // let mid = tide_http_auth::Authentication::new(BasicAuthScheme);
     // let mut app = tide::with_state(state);
     // app.with(mid);
 
     let mut app = Router::new().with_state(state);
 
-    app.route("/", post(root));
-    app.route(
-        "/:path/",
-        post(|req| async move { create_dirs(req.param("path")?, &req).await }),
-    );
+    app.route("/", post(create_dirs));
+    app.route("/:path/", post(create_dirs));
 
-    for tpe in TYPES.iter() {
+    for tpe in TYPES.into_iter() {
         let path = &("/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
-        app.at(path)
-            .get(move |req| async move { list_files(DEFAULT_PATH, tpe, &req).await });
+        let tpe_state = TpeState(tpe.into());
+
+        app.route(path, get(list_files).with_state(tpe));
 
         let path = &("/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
-        app.at(path)
+        app.route(path)
             .head(move |req: Request<AppState>| async move {
                 length(DEFAULT_PATH, tpe, req.param("name")?, &req).await
             })
@@ -366,13 +393,14 @@ pub async fn main(
 
         let path = &("/:path/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
-        app.at(path).get(move |req: Request<AppState>| async move {
-            list_files(req.param("path")?, tpe, &req).await
-        });
+        app.route(path)
+            .get(move |req: Request<AppState>| async move {
+                list_files(req.param("path")?, tpe, &req).await
+            });
 
         let path = &("/:path/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
-        app.at(path)
+        app.route(path)
             .head(move |req: Request<AppState>| async move {
                 length(req.param("path")?, tpe, req.param("name")?, &req).await
             })
@@ -388,7 +416,7 @@ pub async fn main(
             });
     }
 
-    app.at("config")
+    app.route("config")
         .get(|req| async move { get_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await })
         .post(|mut req| async move {
             let file = get_save_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await?;
@@ -398,7 +426,7 @@ pub async fn main(
             |req| async move { delete_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await },
         );
 
-    app.at("/:path/config")
+    app.route("/:path/config")
         .get(|req: Request<AppState>| async move {
             get_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await
         })
@@ -450,8 +478,4 @@ pub async fn main(
         .await
         .unwrap();
     Ok(())
-}
-
-async fn root(req: Request<AppState>) -> impl IntoResponse {
-    create_dirs(DEFAULT_PATH, &req, &req, &req)
 }
