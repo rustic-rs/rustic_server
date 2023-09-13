@@ -46,8 +46,8 @@ struct TpeState(pub String);
 
 #[derive(Clone, Copy)]
 pub struct Ports {
-    http: u16,
-    https: u16,
+    pub http: u16,
+    pub https: u16,
 }
 
 #[derive(Clone)]
@@ -493,8 +493,9 @@ pub async fn main(
     cert: Option<String>,
     key: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // TODO!
     // let mid = tide_http_auth::Authentication::new(BasicAuthScheme);
-    // let mut app = tide::with_state(state);
+
     // app.with(mid);
 
     let mut app = Router::new().with_state(state);
@@ -515,59 +516,56 @@ pub async fn main(
             path,
             head(length)
                 .get(get_file)
-                .post(move |mut req: Request<AppState>| async move {
-                    let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
-                    save_body(&mut req, file).await
-                })
-                .delete(move || delete_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await),
+                .post(
+                    // TODO!: middle layer candidate
+                    // let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
+                    // save_body(&mut req, file).await
+                )
+                .delete( delete_file),
         );
 
         let path = &("/:path/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
-        app.route(path)
-            .get(move |req: Request<AppState>| async move {
-                list_files(req.param("path")?, tpe, &req).await
-            });
+        app.route(path, get(list_files));
 
         let path = &("/:path/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
-        app.route(path)
-            .head(move |req: Request<AppState>| async move {
-                length(req.param("path")?, tpe, req.param("name")?, &req).await
-            })
-            .get(move |req: Request<AppState>| async move {
-                get_file(req.param("path")?, tpe, req.param("name")?, &req).await
-            })
-            .post(move |mut req: Request<AppState>| async move {
-                let file = get_save_file(req.param("path")?, tpe, req.param("name")?, &req).await?;
-                save_body(&mut req, file).await
-            })
-            .delete(move |req: Request<AppState>| async move {
-                delete_file(req.param("path")?, tpe, req.param("name")?, &req).await
-            });
+        app.route(
+            path,
+            head(length)
+            .get(get_file)
+            .post(
+                // TODO!: middle layer candidate
+                // let file = get_save_file(req.param("path")?, tpe, req.param("name")?, &req).await?;
+                // save_body(&mut req, file).await
+            )
+            .delete(delete_file),
+        );
     }
 
-    app.route("config")
-        .get(|req| async move { get_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await })
-        .post(|mut req| async move {
-            let file = get_save_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await?;
-            save_body(&mut req, file).await
-        })
+    app.route(
+        "config",
+        get(get_file)
+        .post(
+            // TODO!: middle layer candidate
+            // let file = get_save_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await?;
+            // save_body(&mut req, file).await
+        )
         .delete(
-            |req| async move { delete_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await },
-        );
+           delete_file
+        ),
+    );
 
-    app.route("/:path/config")
-        .get(|req: Request<AppState>| async move {
-            get_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await
-        })
-        .post(|mut req: Request<AppState>| async move {
-            let file = get_save_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await?;
-            save_body(&mut req, file).await
-        })
-        .delete(|req: Request<AppState>| async move {
-            delete_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await
-        });
+    app.route(
+        "/:path/config",
+        get(get_file)
+        .post(
+            // TODO!: middle layer candidate
+            // let file = get_save_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await?;
+            // save_body(&mut req, file).await
+        )
+        .delete(delete_file),
+    );
 
     // configure certificate and private key used by https
     let config = match tls {
@@ -604,9 +602,13 @@ pub async fn main(
     // run https server
     let addr = SocketAddr::from(([127, 0, 0, 1], ports.https));
     tracing::debug!("listening on {}", addr);
-    axum_server::bind_rustls(addr, config)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    match config {
+        Some(config) => axum_server::bind_rustls(addr, config)
+            .serve(app.into_make_service())
+            .await
+            .unwrap(),
+        None => axum_server::bind(addr),
+    }
+
     Ok(())
 }

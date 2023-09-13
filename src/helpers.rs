@@ -43,6 +43,8 @@ impl WriteOrDeleteFile {
 
 #[async_trait::async_trait]
 impl Finalizer for WriteOrDeleteFile {
+    type Error = std::io::Error;
+
     async fn finalize(&mut self) -> IoResult<()> {
         self.file.sync_all().await?;
         self.finalized = true;
