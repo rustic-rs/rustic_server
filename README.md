@@ -54,4 +54,5 @@ bob = "Append"
 
 # License
 
-`rustic-server` is open-sourced software licensed under the [GNU Affero General Public License v3.0 or later](./LICENSE).
+`rustic-server` is open-sourced software licensed under the
+[GNU Affero General Public License v3.0 or later](./LICENSE).
