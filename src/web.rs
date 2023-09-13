@@ -10,7 +10,7 @@
 
 use axum::{
     body::{Body, StreamBody},
-    extract::{Path as PathExtract, Query, State},
+    extract::{Path as PathExtract, Query, State, TypedHeader},
     handler::{Handler, HandlerWithoutStateExt},
     http::{header, Request, StatusCode},
     response::{AppendHeaders, IntoResponse, Response},
@@ -22,13 +22,15 @@ use http_range::HttpRange;
 use serde_derive::{Deserialize, Serialize};
 use std::{convert::TryInto, marker::Unpin, path::Path as StdPath, sync::Arc};
 use std::{net::SocketAddr, path::PathBuf};
+use tokio::io::AsyncWrite;
 use tokio::io::SeekFrom::Start;
+use tokio::{fs::copy, io::AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
 use crate::{
     acl::{AccessType, Acl, AclChecker},
     auth::{Auth, AuthChecker},
-    helpers::IteratorAdapter,
+    helpers::{Finalizer, IteratorAdapter},
     storage::{LocalStorage, Storage},
 };
 
@@ -206,7 +208,7 @@ async fn list_files(
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
     path: Option<PathExtract<&str>>,
-    req: &Request<AppState>,
+    req: &Request<Body>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let tpe = &tpe_state.0;
 
@@ -264,14 +266,21 @@ async fn length(
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
     PathExtract(name): PathExtract<&str>,
-    req: &Request<AppState>,
+    req: &Request<Body>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let tpe = &tpe_state.0;
+    let tpe = tpe_state.0.as_str();
     tracing::debug!("[length] path: {path}, tpe: {tpe}, name: {name}");
-
-    check_name(tpe, name)?;
     let path = StdPath::new(&path);
-    check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
+
+    match check_name(tpe, name) {
+        Ok(_) => (),
+        Err(e) => return Err(e),
+    };
+
+    match check_auth_and_acl(&state, path, tpe, AccessType::Read) {
+        Ok(_) => (),
+        Err(e) => return Err(e),
+    };
 
     let _file = state.storage.filename(path, tpe, name);
     Err((
@@ -279,13 +288,13 @@ async fn length(
         "not yet implemented".to_string(),
     ))
 }
-// DEFAULT_PATH, tpe, req.param("name")?, &req)
+
 async fn get_file(
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
     PathExtract(name): PathExtract<&str>,
-    req: &Request<AppState>,
     path: Option<PathExtract<&str>>,
+    req: &Request<Body>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let tpe = &tpe_state.0;
 
@@ -304,7 +313,7 @@ async fn get_file(
         return Err((StatusCode::NOT_FOUND, format!("file not found: {:?}", path)));
     };
 
-    let Ok(mut len) = match file.metadata().await {
+    let mut len = match file.metadata().await {
         Ok(val) => val.len(),
         Err(_) => {
             return Err((
@@ -314,10 +323,10 @@ async fn get_file(
         }
     };
 
-    let mut res;
+    let status;
     match req.headers().get("Range") {
         None => {
-            res = Ok(StatusCode::OK);
+            status = StatusCode::OK;
         }
         Some(header_value) => match HttpRange::parse(
             match header_value.to_str() {
@@ -335,7 +344,7 @@ async fn get_file(
                 };
 
                 len = range[0].length;
-                res = Ok(StatusCode::PARTIAL_CONTENT);
+                status = StatusCode::PARTIAL_CONTENT;
             }
             Ok(_) => {
                 return Err((
@@ -348,7 +357,7 @@ async fn get_file(
     };
 
     // From: https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
-    let stream: ReaderStream = ReaderStream::with_capacity(
+    let stream = ReaderStream::with_capacity(
         file,
         match len.try_into() {
             Ok(val) => val,
@@ -363,51 +372,107 @@ async fn get_file(
     let body = StreamBody::new(stream);
 
     let headers = AppendHeaders([(header::CONTENT_TYPE, "application/octet-stream")]);
-    Ok((headers, body))
-}
-
-#[async_trait::async_trait]
-pub trait Finalizer {
-    type Error;
-    async fn finalize(&mut self) -> Result<(), Self::Error>;
+    Ok((status, headers, body))
 }
 
 async fn save_body(
-    req: &mut Request<AppState>,
-    mut file: impl io::Write + Unpin + Finalizer,
+    mut file: impl AsyncWrite + Unpin + Finalizer,
+    req: &Request<Body>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let bytes_written = io::copy(req, &mut file).await?;
+    let bytes_written = match copy(req, &mut file).await {
+        Ok(val) => val,
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error writing file".to_string(),
+            ))
+        }
+    };
     tracing::debug!("[file written] bytes: {bytes_written}");
-    file.finalize().await?;
-    Ok(Response::new(StatusCode::OK))
+    let Ok(_) = file.finalize().await else {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error finalizing file".to_string(),
+        ));
+    };
+    Ok(StatusCode::OK)
 }
 
 async fn get_save_file(
-    path: &str,
-    tpe: &str,
-    name: &str,
-    req: &Request<AppState>,
-) -> Result<impl io::Write + Unpin + Finalizer, Box<dyn std::error::Error>> {
-    tracing::debug!("[get_save_file] path: {path}, tpe: {tpe}, name: {name}");
+    path: Option<PathExtract<&str>>,
+    State(tpe_state): State<TpeState>,
+    State(state): State<AppState>,
+    PathExtract(name): PathExtract<&str>,
+) -> Result<impl AsyncWrite + Unpin + Finalizer, (StatusCode, String)> {
+    let tpe = tpe_state.0.as_str();
+    let path = if let Some(PathExtract(path_ext)) = path {
+        StdPath::new(path_ext)
+    } else {
+        StdPath::new(DEFAULT_PATH)
+    };
 
-    check_name(tpe, name)?;
-    let path = StdPath::new(path);
-    check_auth_and_acl(req, path, tpe, AccessType::Append)?;
+    tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
-    Ok(req.state().storage.create_file(path, tpe, name).await?)
+    let Ok(_) = check_name(tpe, name) else {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("filename {} not allowed", name),
+        ));
+    };
+
+    let Ok(_) = check_auth_and_acl(&state, path, tpe, AccessType::Append) else {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("path {} not allowed", path.display()),
+        ));
+    };
+
+    match state.storage.create_file(path, tpe, name).await {
+        Ok(val) => Ok(val),
+        Err(_) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error getting file handle".to_string(),
+            ))
+        }
+    }
 }
 
 async fn delete_file(
-    path: &str,
-    tpe: &str,
-    name: &str,
-    req: &Request<AppState>,
+    path: Option<PathExtract<&str>>,
+    State(tpe_state): State<TpeState>,
+    State(state): State<AppState>,
+    PathExtract(name): PathExtract<&str>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    check_name(tpe, name)?;
-    let path = StdPath::new(path);
-    check_auth_and_acl(req, path, tpe, AccessType::Modify)?;
-    req.state().storage.remove_file(path, tpe, name)?;
-    Ok(Response::new(StatusCode::Ok))
+    let tpe = tpe_state.0.as_str();
+    let path = if let Some(PathExtract(path_ext)) = path {
+        StdPath::new(path_ext)
+    } else {
+        StdPath::new(DEFAULT_PATH)
+    };
+
+    let Ok(_) = check_name(tpe, name) else {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("filename {} not allowed", name),
+        ));
+    };
+
+    let Ok(_) = check_auth_and_acl(&state, path, tpe, AccessType::Modify) else {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("path {} not allowed", path.display()),
+        ));
+    };
+
+    let Ok(_) = state.storage.remove_file(path, tpe, name) else {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error removing file".to_string(),
+        ));
+    };
+
+    Ok(StatusCode::OK)
 }
 
 // async fn auth_handler(AuthBasic((id, password)): AuthBasic) -> Result<String> {
@@ -440,9 +505,9 @@ pub async fn main(
     for tpe in TYPES.into_iter() {
         let path = &("/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
-        let tpe_state = TpeState(tpe.into());
+        let tpe_state = Arc::new(TpeState(tpe.into()));
 
-        app.route(path, get(list_files).layer(tpe));
+        app.route(path, get(list_files));
 
         let path = &("/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
@@ -454,9 +519,7 @@ pub async fn main(
                     let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
                     save_body(&mut req, file).await
                 })
-                .delete(move |req: Request<AppState>| async move {
-                    delete_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await
-                }),
+                .delete(move || delete_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await),
         );
 
         let path = &("/:path/".to_string() + tpe + "/");

@@ -15,7 +15,7 @@ rustic server - a REST server built in rust to use with rustic and restic.
 [dependencies]
 anyhow = "1.0.75"
 async-trait = "0.1"
-axum = "0.6.20"
+axum = { version = "0.6.20", features = ["headers", "tracing", "multipart", "http2"] }
 axum-auth = "0.4.0"
 axum-server = { version = "0.5.1", features = ["tls-rustls"] }
 clap = { version = "4.4.2", features = ["derive"] }
