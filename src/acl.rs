@@ -1,7 +1,9 @@
-use anyhow::Result;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+
+use anyhow::Result;
 
 // Access Types
 #[derive(Debug, Clone, PartialEq, PartialOrd, serde::Deserialize)]
@@ -17,14 +19,24 @@ pub trait AclChecker: Send + Sync + 'static {
 }
 
 // ACL for a repo
-type RepoAcl = HashMap<&'static str, AccessType>;
+type RepoAcl = HashMap<String, AccessType>;
 
 // Acl holds ACLs for all repos
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Acl {
     repos: HashMap<String, RepoAcl>,
     append_only: bool,
     private_repo: bool,
+}
+
+impl Default for Acl {
+    fn default() -> Self {
+        Self {
+            repos: HashMap::new(),
+            append_only: true,
+            private_repo: true,
+        }
+    }
 }
 
 // read_toml is a helper func that reads the given file in toml
@@ -121,26 +133,22 @@ mod tests {
 
     #[test]
     fn repo_acl() {
-        let mut acl = Acl {
-            repos: HashMap::new(),
-            append_only: true,
-            private_repo: true,
-        };
+        let mut acl = Acl::default();
 
         let mut acl_all = HashMap::new();
-        acl_all.insert("bob", Modify);
-        acl_all.insert("sam", Append);
-        acl_all.insert("paul", Read);
-        acl.repos.insert("all".to_owned(), acl_all);
+        acl_all.insert("bob".to_string(), Modify);
+        acl_all.insert("sam".to_string(), Append);
+        acl_all.insert("paul".to_string(), Read);
+        acl.repos.insert("all".to_string(), acl_all);
 
         let mut acl_bob = HashMap::new();
-        acl_bob.insert("bob", Modify);
-        acl.repos.insert("bob".to_owned(), acl_bob);
+        acl_bob.insert("bob".to_string(), Modify);
+        acl.repos.insert("bob".to_string(), acl_bob);
 
         let mut acl_sam = HashMap::new();
-        acl_sam.insert("sam", Append);
-        acl_sam.insert("bob", Read);
-        acl.repos.insert("sam".to_owned(), acl_sam);
+        acl_sam.insert("sam".to_string(), Append);
+        acl_sam.insert("bob".to_string(), Read);
+        acl.repos.insert("sam".to_string(), acl_sam);
 
         // test ACLs for repo all
         assert!(acl.allowed("bob", "all", "keys", Modify));

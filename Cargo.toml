@@ -23,5 +23,5 @@ serde = { version = "1", features = ["derive"] }
 tide = "0.16"
 tide-http-auth = "0.5"
 tide-rustls = "0.3"
-toml = "0.5"
+toml = "0.8"
 walkdir = "2"
