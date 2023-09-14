@@ -21,7 +21,6 @@ htpasswd-verify = "0.3"
 http-range = "0.1"
 serde = { version = "1", features = ["derive"] }
 tide = "0.16"
-# local fix for tide-http-auth to support tide 0.16!
 tide-http-auth = "0.5"
 tide-rustls = "0.3"
 toml = "0.5"
