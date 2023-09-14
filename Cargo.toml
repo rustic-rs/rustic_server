@@ -1,6 +1,6 @@
 [package]
 name = "rustic_server"
-version = "0.1.0"
+version = "0.1.1-dev"
 authors = ["Alexander Weiss <alex@weissfam.de>"]
 categories = ["command-line-utilities"]
 edition = "2021"
