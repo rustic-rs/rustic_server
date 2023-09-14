@@ -24,7 +24,7 @@ jobs:
       - name: Determine package
         id: determine-package-name
         run: |
-          if [[ ${{ github.ref }} == 'refs/release/rustic_server-*' ]]; then
+          if [[ ${{ github.ref }} == 'refs/heads/release/rustic_server-*' ]]; then
           echo "package=rustic_server" >> $GITHUB_OUTPUT
           fi
 
