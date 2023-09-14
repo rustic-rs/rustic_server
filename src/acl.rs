@@ -62,7 +62,7 @@ impl Acl {
 }
 
 impl AclChecker for Acl {
-    // allowed yields whether thes access to {path,tpe, access} is allowed by user
+    // allowed yields whether these access to {path,tpe, access} is allowed by user
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool {
         // Access to locks is always treated as Read
         let access = if tpe == "locks" {
