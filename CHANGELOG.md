@@ -54,6 +54,10 @@ All notable changes to this project will be documented in this file.
 - Release rustic_server version 0.1.1
 - Add dev tooling
 - Run git-cliff with latest tag during release
+- Remove comment from cargo manifest
+- Change workflow extensions to yml
+- Add triaging of issues
+- Run release checks also on release subbranches
 
 ### Refactor
 
