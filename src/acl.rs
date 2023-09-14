@@ -1,7 +1,9 @@
-use anyhow::Result;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+
+use anyhow::Result;
 
 // Access Types
 #[derive(Debug, Clone, PartialEq, PartialOrd, serde::Deserialize)]
@@ -17,10 +19,10 @@ pub trait AclChecker: Send + Sync + 'static {
 }
 
 // ACL for a repo
-type RepoAcl = HashMap<&'static str, AccessType>;
+type RepoAcl = HashMap<String, AccessType>;
 
 // Acl holds ACLs for all repos
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Acl {
     repos: HashMap<String, RepoAcl>,
     append_only: bool,
