@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file.
 
 - Nightly builds, exclude arm64 darwin build until issue Publishing
   aarch64-apple-darwin failed #6 is fixed
+- Update rust crate toml to 0.8
+- Deserialization with newest toml
+- Clippy
 
 ### Documentation
 
@@ -58,6 +61,7 @@ All notable changes to this project will be documented in this file.
 - Change workflow extensions to yml
 - Add triaging of issues
 - Run release checks also on release subbranches
+- Add maskfile
 
 ### Refactor
 
