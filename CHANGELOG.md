@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.0-dev] - 2023-09-14
+## [0.1.1] - 2023-09-14
 
 ### Bug Fixes
 
@@ -51,6 +51,9 @@ All notable changes to this project will be documented in this file.
 - Fix woggly github action comparison
 - Add changelog generation
 - Initialize cargo release, update changelog
+- Release rustic_server version 0.1.1
+- Add dev tooling
+- Run git-cliff with latest tag during release
 
 ### Refactor
 
