@@ -318,9 +318,6 @@ async fn save_body(
         let Ok(chunk) = chunk else {
             return Err(ErrorKind::ReadingFromStreamFailed.into());
         };
-        // let Ok(_) = file.write_all(&chunk).await else {
-        //     return Err(ErrorKind::WritingToFileFailed.into());
-        // };
         let bytes_written = match copy(chunk, &mut file).await {
             Ok(val) => val,
             Err(_) => return Err(ErrorKind::WritingToFileFailed.into()),
