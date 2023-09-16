@@ -1,10 +1,6 @@
 use axum_macros::FromRef;
 
-use crate::{
-    acl::{Acl},
-    auth::{Auth},
-    storage::{LocalStorage},
-};
+use crate::{acl::Acl, auth::Auth, storage::LocalStorage};
 
 use crate::acl::AclCheckerEnum;
 use crate::auth::AuthCheckerEnum;
