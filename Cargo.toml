@@ -27,6 +27,7 @@ anyhow = "1.0.75"
 async-trait = "0.1"
 axum = { version = "0.6.20", features = ["headers", "tracing", "multipart", "http2"] }
 axum-auth = "0.4.0"
+axum-macros = "0.3.8"
 axum-server = { version = "0.5.1", features = ["tls-rustls"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"

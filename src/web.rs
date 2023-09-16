@@ -8,6 +8,7 @@
 // auth    - for user authentication
 // acl     - for access control
 
+use anyhow::Error;
 use axum::{
     body::{Body, StreamBody},
     extract::{Path as PathExtract, Query, State, TypedHeader},
@@ -17,6 +18,9 @@ use axum::{
     routing::{get, head, post},
     Json, Router,
 };
+
+use axum_macros::debug_handler;
+
 use axum_server::tls_rustls::RustlsConfig;
 use http_range::HttpRange;
 use serde_derive::{Deserialize, Serialize};
@@ -30,6 +34,7 @@ use tokio_util::io::ReaderStream;
 use crate::{
     acl::{AccessType, Acl, AclChecker},
     auth::{Auth, AuthChecker},
+    error::{ErrorKind, Result},
     helpers::{Finalizer, IteratorAdapter},
     storage::{LocalStorage, Storage},
 };
@@ -43,6 +48,12 @@ const CONFIG_NAME: &str = "";
 
 #[derive(Clone)]
 struct TpeState(pub String);
+
+#[derive(Serialize)]
+struct RepoPathEntry {
+    name: String,
+    size: u64,
+}
 
 #[derive(Clone, Copy)]
 pub struct Ports {
@@ -101,14 +112,11 @@ fn check_string_sha256(name: &str) -> bool {
     true
 }
 
-fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse, (StatusCode, String)> {
+fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse> {
     match tpe {
         "config" => Ok(()),
         _ if check_string_sha256(name) => Ok(()),
-        _ => Err((
-            StatusCode::FORBIDDEN,
-            format!("filename {} not allowed", name),
-        )),
+        _ => Err(ErrorKind::FilenameNotAllowed(name.to_string()).into()),
     }
 }
 
@@ -117,16 +125,13 @@ fn check_auth_and_acl(
     path: &StdPath,
     tpe: &str,
     append: AccessType,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> Result<impl IntoResponse> {
     // don't allow paths that includes any of the defined types
     for part in path.iter() {
         if let Some(part) = part.to_str() {
             for tpe in TYPES.iter() {
                 if &part == tpe {
-                    return Err((
-                        StatusCode::FORBIDDEN,
-                        format!("path {} not allowed", path.display()),
-                    ));
+                    return Err(ErrorKind::PathNotAllowed(path.display()).into());
                 }
             }
         }
@@ -135,17 +140,14 @@ fn check_auth_and_acl(
     let empty = String::new();
     let user: &str = state.ext::<String>().unwrap_or(&empty);
     let Some(path) = path.to_str() else {
-        return Err((
-            StatusCode::FORBIDDEN,
-            format!("path {} is non-unicode", path.display()),
-        ));
+        return Err(ErrorKind::NonUnicodePath(path.display()).into());
     };
     let allowed = state.acl.allowed(user, path, tpe, append);
     tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
 
     match allowed {
         true => Ok(StatusCode::OK),
-        false => Err((StatusCode::FORBIDDEN, format!("path {path} not allowed"))),
+        false => Err(ErrorKind::PathNotAllowed(path.to_string()).into()),
     }
 }
 
@@ -155,13 +157,14 @@ struct Create {
     create: bool,
 }
 
+#[debug_handler]
 async fn create_dirs(
+    State(state): State<Arc<AppState>>,
     Query(params): Query<Create>,
-    State(state): State<AppState>,
-    path: Option<PathExtract<&str>>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+    path: Option<PathExtract<String>>,
+) -> Result<impl IntoResponse> {
     let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext)
+        StdPath::new(path_ext.as_str())
     } else {
         StdPath::new(DEFAULT_PATH)
     };
@@ -175,12 +178,7 @@ async fn create_dirs(
             for tpe in TYPES.iter() {
                 match state.storage.create_dir(path, tpe) {
                     Ok(_) => (),
-                    Err(e) => {
-                        return Err((
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            format!("error creating dir: {:?}", e),
-                        ))
-                    }
+                    Err(e) => return Err(ErrorKind::CreatingDirectoryFailed(e.to_string()).into()),
                 };
             }
 
@@ -198,22 +196,17 @@ async fn create_dirs(
     }
 }
 
-#[derive(Serialize)]
-struct RepoPathEntry {
-    name: String,
-    size: u64,
-}
-
+#[debug_handler]
 async fn list_files(
     State(tpe_state): State<TpeState>,
-    State(state): State<AppState>,
-    path: Option<PathExtract<&str>>,
-    req: &Request<Body>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+    State(state): State<Arc<AppState>>,
+    path: Option<PathExtract<String>>,
+    req: Request<Body>,
+) -> Result<impl IntoResponse> {
     let tpe = &tpe_state.0;
 
     let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext)
+        StdPath::new(path_ext.as_str())
     } else {
         StdPath::new(DEFAULT_PATH)
     };
@@ -261,18 +254,19 @@ async fn list_files(
     Ok(res)
 }
 
+#[debug_handler]
 async fn length(
-    PathExtract(path): PathExtract<&str>,
+    PathExtract(path): PathExtract<String>,
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
-    PathExtract(name): PathExtract<&str>,
-    req: &Request<Body>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+    PathExtract(name): PathExtract<String>,
+    req: Request<Body>,
+) -> Result<impl IntoResponse> {
     let tpe = tpe_state.0.as_str();
     tracing::debug!("[length] path: {path}, tpe: {tpe}, name: {name}");
     let path = StdPath::new(&path);
 
-    match check_name(tpe, name) {
+    match check_name(tpe, name.as_str()) {
         Ok(_) => (),
         Err(e) => return Err(e),
     };
@@ -282,44 +276,39 @@ async fn length(
         Err(e) => return Err(e),
     };
 
-    let _file = state.storage.filename(path, tpe, name);
-    Err((
-        StatusCode::NOT_IMPLEMENTED,
-        "not yet implemented".to_string(),
-    ))
+    let _file = state.storage.filename(path, tpe, name.as_str());
+    Err(ErrorKind::NotImplemented.into())
 }
 
+#[debug_handler]
 async fn get_file(
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
-    PathExtract(name): PathExtract<&str>,
-    path: Option<PathExtract<&str>>,
-    req: &Request<Body>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+    PathExtract(name): PathExtract<String>,
+    path: Option<PathExtract<String>>,
+    req: Request<Body>,
+) -> Result<impl IntoResponse> {
     let tpe = &tpe_state.0;
 
     let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext)
+        StdPath::new(path_ext.as_str())
     } else {
         StdPath::new(DEFAULT_PATH)
     };
     tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
-    check_name(tpe, name)?;
+    check_name(tpe, name.as_str())?;
     let path = StdPath::new(path);
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
-    let Ok(mut file) = state.storage.open_file(path, tpe, name).await else {
-        return Err((StatusCode::NOT_FOUND, format!("file not found: {:?}", path)));
+    let Ok(mut file) = state.storage.open_file(path, tpe, name.as_str()).await else {
+        return Err(ErrorKind::FileNotFound(path.display()).into());
     };
 
     let mut len = match file.metadata().await {
         Ok(val) => val.len(),
         Err(_) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "error getting file metadata".to_string(),
-            ))
+            return Err(ErrorKind::GettingFileMetadataFailed.into());
         }
     };
 
@@ -331,28 +320,20 @@ async fn get_file(
         Some(header_value) => match HttpRange::parse(
             match header_value.to_str() {
                 Ok(val) => val,
-                Err(_) => return Err((StatusCode::BAD_REQUEST, "range not valid".to_string())),
+                Err(_) => return Err(ErrorKind::RangeNotValid.into()),
             },
             len,
         ) {
             Ok(range) if range.len() == 1 => {
                 let Ok(_) = file.seek(Start(range[0].start)).await else {
-                    return Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "error seeking file".to_string(),
-                    ));
+                    return Err(ErrorKind::SeekingFileFailed.into());
                 };
 
                 len = range[0].length;
                 status = StatusCode::PARTIAL_CONTENT;
             }
-            Ok(_) => {
-                return Err((
-                    StatusCode::NOT_IMPLEMENTED,
-                    "multipart range not implemented".to_string(),
-                ))
-            }
-            Err(_) => return Err((StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string())),
+            Ok(_) => return Err(ErrorKind::MultipartRangeNotImplemented.into()),
+            Err(_) => return Err(ErrorKind::GeneralRange.into()),
         },
     };
 
@@ -361,12 +342,7 @@ async fn get_file(
         file,
         match len.try_into() {
             Ok(val) => val,
-            Err(_) => {
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "error converting length to u64".to_string(),
-                ))
-            }
+            Err(_) => return Err(ErrorKind::ConversionToU64Failed.into()),
         },
     );
     let body = StreamBody::new(stream);
@@ -375,101 +351,76 @@ async fn get_file(
     Ok((status, headers, body))
 }
 
+#[debug_handler]
 async fn save_body(
     mut file: impl AsyncWrite + Unpin + Finalizer,
-    req: &Request<Body>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+    req: Request<Body>,
+) -> Result<impl IntoResponse> {
     let bytes_written = match copy(req, &mut file).await {
         Ok(val) => val,
-        Err(_) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "error writing file".to_string(),
-            ))
-        }
+        Err(_) => return Err(ErrorKind::WritingToFileFailed.into()),
     };
     tracing::debug!("[file written] bytes: {bytes_written}");
     let Ok(_) = file.finalize().await else {
-        return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "error finalizing file".to_string(),
-        ));
+        return Err(ErrorKind::FinalizingFileFailed.into());
     };
     Ok(StatusCode::OK)
 }
 
+#[debug_handler]
 async fn get_save_file(
-    path: Option<PathExtract<&str>>,
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
-    PathExtract(name): PathExtract<&str>,
-) -> Result<impl AsyncWrite + Unpin + Finalizer, (StatusCode, String)> {
+    PathExtract(name): PathExtract<String>,
+    path: Option<PathExtract<String>>,
+) -> Result<impl AsyncWrite + Unpin + Finalizer> {
     let tpe = tpe_state.0.as_str();
     let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext)
+        StdPath::new(path_ext.as_str())
     } else {
         StdPath::new(DEFAULT_PATH)
     };
 
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
-    let Ok(_) = check_name(tpe, name) else {
-        return Err((
-            StatusCode::FORBIDDEN,
-            format!("filename {} not allowed", name),
-        ));
+    let Ok(_) = check_name(tpe, name.as_str()) else {
+        return Err(ErrorKind::FilenameNotAllowed(name).into());
     };
 
     let Ok(_) = check_auth_and_acl(&state, path, tpe, AccessType::Append) else {
-        return Err((
-            StatusCode::FORBIDDEN,
-            format!("path {} not allowed", path.display()),
-        ));
+        return Err(ErrorKind::PathNotAllowed(path.display()).into());
     };
 
-    match state.storage.create_file(path, tpe, name).await {
+    match state.storage.create_file(path, tpe, name.as_str()).await {
         Ok(val) => Ok(val),
-        Err(_) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "error getting file handle".to_string(),
-            ))
-        }
+        Err(_) => return Err(ErrorKind::GettingFileHandleFailed.into()),
     }
 }
 
+#[debug_handler]
 async fn delete_file(
-    path: Option<PathExtract<&str>>,
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
-    PathExtract(name): PathExtract<&str>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+    PathExtract(name): PathExtract<String>,
+    path: Option<PathExtract<String>>,
+) -> Result<impl IntoResponse> {
     let tpe = tpe_state.0.as_str();
     let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext)
+        StdPath::new(&path_ext)
     } else {
         StdPath::new(DEFAULT_PATH)
     };
 
-    let Ok(_) = check_name(tpe, name) else {
-        return Err((
-            StatusCode::FORBIDDEN,
-            format!("filename {} not allowed", name),
-        ));
+    let Ok(_) = check_name(tpe, name.as_str()) else {
+        return Err(ErrorKind::FilenameNotAllowed(name).into());
     };
 
     let Ok(_) = check_auth_and_acl(&state, path, tpe, AccessType::Modify) else {
-        return Err((
-            StatusCode::FORBIDDEN,
-            format!("path {} not allowed", path.display()),
-        ));
+        return Err(ErrorKind::PathNotAllowed(path.display()).into());
     };
 
-    let Ok(_) = state.storage.remove_file(path, tpe, name) else {
-        return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "error removing file".to_string(),
-        ));
+    let Ok(_) = state.storage.remove_file(path, tpe, name.as_str()) else {
+        return Err(ErrorKind::RemovingFileFailed.into());
     };
 
     Ok(StatusCode::OK)
@@ -486,7 +437,7 @@ async fn delete_file(
 // TODO!: https://github.com/tokio-rs/axum/blob/main/examples/tls-rustls/src/main.rs
 // TODO!: https://github.com/tokio-rs/axum/blob/main/examples/readme/src/main.rs
 pub async fn main(
-    state: AppState,
+    mut state: AppState,
     addr: String,
     ports: Ports,
     tls: bool,
@@ -498,7 +449,9 @@ pub async fn main(
 
     // app.with(mid);
 
-    let mut app = Router::new().with_state(state);
+    let shared_state = Arc::new(state);
+
+    let mut app = Router::new().with_state(shared_state);
 
     app.route("/", post(create_dirs));
     app.route("/:path/", post(create_dirs));
@@ -508,21 +461,22 @@ pub async fn main(
         tracing::debug!("add path: {path}");
         let tpe_state = Arc::new(TpeState(tpe.into()));
 
-        app.route(path, get(list_files));
+        app.route(path, get(list_files))
+            .with_state(tpe_state.clone());
 
         let path = &("/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
-        app.route(
-            path,
-            head(length)
-                .get(get_file)
-                .post(
-                    // TODO!: middle layer candidate
-                    // let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
-                    // save_body(&mut req, file).await
-                )
-                .delete( delete_file),
-        );
+        //     app.route(
+        //         path,
+        //         head(length)
+        //             .get(get_file)
+        //             .post(
+        //                 // TODO!: middle layer candidate
+        //                 // let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
+        //                 // save_body(&mut req, file).await
+        //             )
+        //             .delete( delete_file),
+        //     );
 
         let path = &("/:path/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
@@ -530,74 +484,57 @@ pub async fn main(
 
         let path = &("/:path/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
-        app.route(
-            path,
-            head(length)
-            .get(get_file)
-            .post(
-                // TODO!: middle layer candidate
-                // let file = get_save_file(req.param("path")?, tpe, req.param("name")?, &req).await?;
-                // save_body(&mut req, file).await
-            )
-            .delete(delete_file),
-        );
+        //     app.route(
+        //         path,
+        //         head(length)
+        //         .get(get_file)
+        //         .post(
+        //             // TODO!: middle layer candidate
+        //             // let file = get_save_file(req.param("path")?, tpe, req.param("name")?, &req).await?;
+        //             // save_body(&mut req, file).await
+        //         )
+        //         .delete(delete_file),
+        //     );
     }
 
-    app.route(
-        "config",
-        get(get_file)
-        .post(
-            // TODO!: middle layer candidate
-            // let file = get_save_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await?;
-            // save_body(&mut req, file).await
-        )
-        .delete(
-           delete_file
-        ),
-    );
+    // app.route(
+    //     "config",
+    //     get(get_file)
+    //     .post(
+    //         // TODO!: middle layer candidate
+    //         // let file = get_save_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await?;
+    //         // save_body(&mut req, file).await
+    //     )
+    //     .delete(delete_file),
+    // );
 
-    app.route(
-        "/:path/config",
-        get(get_file)
-        .post(
-            // TODO!: middle layer candidate
-            // let file = get_save_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await?;
-            // save_body(&mut req, file).await
-        )
-        .delete(delete_file),
-    );
+    // app.route(
+    //     "/:path/config",
+    //     get(get_file)
+    //     .post(
+    //         // TODO!: middle layer candidate
+    //         // let file = get_save_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await?;
+    //         // save_body(&mut req, file).await
+    //     )
+    //     .delete(delete_file),
+    // );
 
     // configure certificate and private key used by https
     let config = match tls {
-        true => {
-            Some(
-                RustlsConfig::from_pem_file(
-                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                        .join("self_signed_certs")
-                        .join("cert.pem"),
-                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                        .join("self_signed_certs")
-                        .join("key.pem"),
-                )
-                .await
-                .unwrap(),
-            );
-        }
+        true => Some(
+            RustlsConfig::from_pem_file(
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("self_signed_certs")
+                    .join("cert.pem"),
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("self_signed_certs")
+                    .join("key.pem"),
+            )
+            .await
+            .unwrap(),
+        ),
         false => None,
     };
-
-    // match tls {
-    //     false => app.listen(addr).await?,
-    //     true => {
-    //         app.listen(
-    //             TlsListener::build()
-    //                 .addrs(addr)
-    //                 .cert(cert.expect("--cert not given"))
-    //                 .key(key.expect("--key not given")),
-    //         )
-    //         .await?
-    //     }
-    // };
 
     // run https server
     let addr = SocketAddr::from(([127, 0, 0, 1], ports.https));
@@ -607,7 +544,10 @@ pub async fn main(
             .serve(app.into_make_service())
             .await
             .unwrap(),
-        None => axum_server::bind(addr),
+        None => axum_server::bind(addr)
+            .serve(app.into_make_service())
+            .await
+            .unwrap(),
     }
 
     Ok(())
