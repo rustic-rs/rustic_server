@@ -312,6 +312,8 @@ async fn save_body(
     mut file: impl AsyncWrite + Unpin + Finalizer,
     stream: &mut BodyStream,
 ) -> Result<impl IntoResponse> {
+    // TODO!: Bodystream?
+    let mut bytes_written_overall = 0_u64;
     while let Some(chunk) = stream.next().await {
         let Ok(chunk) = chunk else {
             return Err(ErrorKind::ReadingFromStreamFailed.into());
@@ -323,9 +325,10 @@ async fn save_body(
             Ok(val) => val,
             Err(_) => return Err(ErrorKind::WritingToFileFailed.into()),
         };
+        bytes_written_overall += bytes_written;
     }
 
-    tracing::debug!("[file written] bytes: {bytes_written}");
+    tracing::debug!("[file written] bytes: {bytes_written_overall}");
     let Ok(_) = file.finalize().await else {
         return Err(ErrorKind::FinalizingFileFailed.into());
     };
@@ -452,7 +455,8 @@ pub async fn main(
                     let PathExtract(path): PathExtract<String>;
                     let file = get_save_file(Some(path), shared_state, name).await?;
 
-                    save_body(file, &mut req).await
+                    let mut async_body: BodyStream;
+                    save_body(file, &mut async_body).await
                 })
                 .delete(delete_file),
         )
@@ -466,7 +470,8 @@ pub async fn main(
                 shared_state.set_tpe(CONFIG_TYPE.to_string());
                 let file = get_save_file(None, shared_state, CONFIG_NAME.to_string()).await?;
 
-                save_body(file, &mut req).await
+                let mut async_body: BodyStream;
+                save_body(file, &mut async_body).await
             })
             .delete(delete_file),
     );
@@ -480,7 +485,8 @@ pub async fn main(
                 shared_state.set_tpe(CONFIG_TYPE.to_string());
                 let file = get_save_file(Some(path), shared_state, CONFIG_NAME.to_string()).await?;
 
-                save_body(file, &mut req).await
+                let mut async_body: BodyStream;
+                save_body(file, &mut async_body).await
             })
             .delete(delete_file),
     );
