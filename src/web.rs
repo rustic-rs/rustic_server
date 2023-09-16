@@ -8,13 +8,11 @@
 // auth    - for user authentication
 // acl     - for access control
 
-use anyhow::Error;
 use axum::{
     body::{Body, StreamBody},
-    extract::{BodyStream, FromRef, Path as PathExtract, Query, State, TypedHeader},
-    handler::{Handler, HandlerWithoutStateExt},
+    extract::{BodyStream, Path as PathExtract, Query, State},
     http::{header, Request, StatusCode},
-    response::{AppendHeaders, IntoResponse, Response},
+    response::{AppendHeaders, IntoResponse},
     routing::{get, head, post},
     Json, Router,
 };
@@ -33,11 +31,10 @@ use tokio::{io::copy, io::AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
 use crate::{
-    acl::{AccessType, Acl, AclChecker},
-    auth::{Auth, AuthChecker},
+    acl::{AccessType, AclChecker},
     error::{ErrorKind, Result},
     helpers::{Finalizer, IteratorAdapter},
-    storage::{LocalStorage, Storage},
+    storage::Storage,
 };
 
 use crate::state::AppState;
@@ -318,7 +315,7 @@ async fn save_body(
         let Ok(chunk) = chunk else {
             return Err(ErrorKind::ReadingFromStreamFailed.into());
         };
-        let bytes_written = match copy(chunk, &mut file).await {
+        let bytes_written = match copy(&mut chunk, &mut file).await {
             Ok(val) => val,
             Err(_) => return Err(ErrorKind::WritingToFileFailed.into()),
         };

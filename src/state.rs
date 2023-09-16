@@ -1,16 +1,16 @@
+use axum_macros::FromRef;
+
 use crate::{
-    acl::{AccessType, Acl, AclChecker},
-    auth::{Auth, AuthChecker},
-    error::{ErrorKind, Result},
-    helpers::{Finalizer, IteratorAdapter},
-    storage::{LocalStorage, Storage},
+    acl::{Acl},
+    auth::{Auth},
+    storage::{LocalStorage},
 };
 
 use crate::acl::AclCheckerEnum;
 use crate::auth::AuthCheckerEnum;
 use crate::storage::StorageEnum;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, FromRef)]
 pub struct AppState {
     auth: AuthCheckerEnum,
     acl: AclCheckerEnum,
