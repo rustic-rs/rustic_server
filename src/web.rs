@@ -131,7 +131,7 @@ fn check_auth_and_acl(
         if let Some(part) = part.to_str() {
             for tpe in TYPES.iter() {
                 if &part == tpe {
-                    return Err(ErrorKind::PathNotAllowed(path.display()).into());
+                    return Err(ErrorKind::PathNotAllowed(path.display().to_string()).into());
                 }
             }
         }
@@ -140,7 +140,7 @@ fn check_auth_and_acl(
     let empty = String::new();
     let user: &str = state.ext::<String>().unwrap_or(&empty);
     let Some(path) = path.to_str() else {
-        return Err(ErrorKind::NonUnicodePath(path.display()).into());
+        return Err(ErrorKind::NonUnicodePath(path.display().to_string()).into());
     };
     let allowed = state.acl.allowed(user, path, tpe, append);
     tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
@@ -260,21 +260,14 @@ async fn length(
     State(tpe_state): State<TpeState>,
     State(state): State<AppState>,
     PathExtract(name): PathExtract<String>,
-    req: Request<Body>,
-) -> Result<impl IntoResponse> {
+    _req: Request<Body>,
+) -> Result<()> {
     let tpe = tpe_state.0.as_str();
     tracing::debug!("[length] path: {path}, tpe: {tpe}, name: {name}");
     let path = StdPath::new(&path);
 
-    match check_name(tpe, name.as_str()) {
-        Ok(_) => (),
-        Err(e) => return Err(e),
-    };
-
-    match check_auth_and_acl(&state, path, tpe, AccessType::Read) {
-        Ok(_) => (),
-        Err(e) => return Err(e),
-    };
+    check_name(tpe, name.as_str())?;
+    check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
     let _file = state.storage.filename(path, tpe, name.as_str());
     Err(ErrorKind::NotImplemented.into())
@@ -302,7 +295,7 @@ async fn get_file(
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
     let Ok(mut file) = state.storage.open_file(path, tpe, name.as_str()).await else {
-        return Err(ErrorKind::FileNotFound(path.display()).into());
+        return Err(ErrorKind::FileNotFound(path.display().to_string()).into());
     };
 
     let mut len = match file.metadata().await {
@@ -388,7 +381,7 @@ async fn get_save_file(
     };
 
     let Ok(_) = check_auth_and_acl(&state, path, tpe, AccessType::Append) else {
-        return Err(ErrorKind::PathNotAllowed(path.display()).into());
+        return Err(ErrorKind::PathNotAllowed(path.display().to_string()).into());
     };
 
     match state.storage.create_file(path, tpe, name.as_str()).await {
@@ -416,7 +409,7 @@ async fn delete_file(
     };
 
     let Ok(_) = check_auth_and_acl(&state, path, tpe, AccessType::Modify) else {
-        return Err(ErrorKind::PathNotAllowed(path.display()).into());
+        return Err(ErrorKind::PathNotAllowed(path.display().to_string()).into());
     };
 
     let Ok(_) = state.storage.remove_file(path, tpe, name.as_str()) else {
