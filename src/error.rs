@@ -3,7 +3,7 @@ use axum::response::{IntoResponse, Response};
 
 pub type Result<T> = std::result::Result<T, ErrorKind>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum ErrorKind {
     FilenameNotAllowed(String),
     PathNotAllowed(String),
@@ -29,15 +29,17 @@ impl IntoResponse for ErrorKind {
         match self {
             ErrorKind::FilenameNotAllowed(filename) => (
                 StatusCode::FORBIDDEN,
-                format!("filename {filename} not allowed").into_response(),
-            ),
+                format!("filename {filename} not allowed"),
+            )
+                .into_response(),
             ErrorKind::PathNotAllowed(path) => {
                 (StatusCode::FORBIDDEN, format!("path {path} not allowed")).into_response()
             }
             ErrorKind::NonUnicodePath(path) => (
                 StatusCode::BAD_REQUEST,
-                format!("path {path} is not valid unicode").into_response(),
-            ),
+                format!("path {path} is not valid unicode"),
+            )
+                .into_response(),
             ErrorKind::InvalidPath(_) => todo!(),
             ErrorKind::CreatingDirectoryFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

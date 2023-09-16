@@ -443,7 +443,7 @@ pub async fn main(
     tls: bool,
     cert: Option<String>,
     key: Option<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     // TODO!
     // let mid = tide_http_auth::Authentication::new(BasicAuthScheme);
 
