@@ -11,7 +11,7 @@
 use anyhow::Error;
 use axum::{
     body::{Body, StreamBody},
-    extract::{FromRef, Path as PathExtract, Query, State, TypedHeader},
+    extract::{BodyStream, FromRef, Path as PathExtract, Query, State, TypedHeader},
     handler::{Handler, HandlerWithoutStateExt},
     http::{header, Request, StatusCode},
     response::{AppendHeaders, IntoResponse, Response},
@@ -22,6 +22,7 @@ use axum::{
 use axum_macros::debug_handler;
 
 use axum_server::tls_rustls::RustlsConfig;
+use futures_util::StreamExt;
 use http_range::HttpRange;
 use serde_derive::{Deserialize, Serialize};
 use std::{convert::TryInto, marker::Unpin, path::Path as StdPath, sync::Arc};
@@ -309,12 +310,21 @@ async fn get_file(
 
 async fn save_body(
     mut file: impl AsyncWrite + Unpin + Finalizer,
-    req: &mut Request<Body>,
+    stream: &mut BodyStream,
 ) -> Result<impl IntoResponse> {
-    let bytes_written = match copy(req, &mut file).await {
-        Ok(val) => val,
-        Err(_) => return Err(ErrorKind::WritingToFileFailed.into()),
-    };
+    while let Some(chunk) = stream.next().await {
+        let Ok(chunk) = chunk else {
+            return Err(ErrorKind::ReadingFromStreamFailed.into());
+        };
+        // let Ok(_) = file.write_all(&chunk).await else {
+        //     return Err(ErrorKind::WritingToFileFailed.into());
+        // };
+        let bytes_written = match copy(chunk, &mut file).await {
+            Ok(val) => val,
+            Err(_) => return Err(ErrorKind::WritingToFileFailed.into()),
+        };
+    }
+
     tracing::debug!("[file written] bytes: {bytes_written}");
     let Ok(_) = file.finalize().await else {
         return Err(ErrorKind::FinalizingFileFailed.into());
@@ -420,7 +430,8 @@ pub async fn main(
                     let PathExtract(name): PathExtract<String>;
                     let file = get_save_file(None, shared_state, name).await?;
 
-                    save_body(file, &mut req).await
+                    let mut async_body: BodyStream;
+                    save_body(file, &mut async_body).await
                 })
                 .delete(delete_file),
         )

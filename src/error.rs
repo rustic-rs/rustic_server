@@ -22,6 +22,7 @@ pub enum ErrorKind {
     FinalizingFileFailed,
     GettingFileHandleFailed,
     RemovingFileFailed,
+    ReadingFromStreamFailed,
 }
 
 impl IntoResponse for ErrorKind {
@@ -100,6 +101,11 @@ impl IntoResponse for ErrorKind {
             ErrorKind::GeneralRange => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string()).into_response()
             }
+            ErrorKind::ReadingFromStreamFailed => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error reading from stream".to_string(),
+            )
+                .into_response(),
         }
     }
 }
