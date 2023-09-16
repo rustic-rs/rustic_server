@@ -1,3 +1,4 @@
+use enum_dispatch::enum_dispatch;
 use serde_derive::Deserialize;
 use std::collections::HashMap;
 use std::fs;
@@ -6,7 +7,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 
 // Access Types
-#[derive(Debug, Clone, PartialEq, PartialOrd, serde_derive::Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize)]
 pub enum AccessType {
     Nothing,
     Read,
@@ -14,6 +15,13 @@ pub enum AccessType {
     Modify,
 }
 
+#[derive(Debug, Clone)]
+#[enum_dispatch]
+pub(crate) enum AclCheckerEnum {
+    Acl(Acl),
+}
+
+#[enum_dispatch(AclCheckerEnum)]
 pub trait AclChecker: Send + Sync + 'static {
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool;
 }
@@ -22,7 +30,7 @@ pub trait AclChecker: Send + Sync + 'static {
 type RepoAcl = HashMap<String, AccessType>;
 
 // Acl holds ACLs for all repos
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct Acl {
     repos: HashMap<String, RepoAcl>,
     append_only: bool,

@@ -2,11 +2,19 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::helpers::WriteOrDeleteFile;
+use enum_dispatch::enum_dispatch;
 use std::io::Result as IoResult;
 use tokio::fs::File;
 use walkdir::WalkDir;
 
+#[derive(Debug, Clone)]
+#[enum_dispatch]
+pub(crate) enum StorageEnum {
+    LocalStorage(LocalStorage),
+}
+
 #[async_trait::async_trait]
+#[enum_dispatch(StorageEnum)]
 pub trait Storage: Send + Sync + 'static {
     fn create_dir(&self, path: &Path, tpe: &str) -> IoResult<()>;
     fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
@@ -16,7 +24,7 @@ pub trait Storage: Send + Sync + 'static {
     fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<()>;
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct LocalStorage {
     path: PathBuf,
 }

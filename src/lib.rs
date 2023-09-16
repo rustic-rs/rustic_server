@@ -7,6 +7,7 @@ pub mod auth;
 pub mod error;
 pub mod helpers;
 pub mod log;
+pub mod state;
 pub mod storage;
 pub mod web;
 
