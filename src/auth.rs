@@ -1,7 +1,15 @@
+use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{fs, io};
 
+#[enum_dispatch]
+#[derive(Debug, Clone)]
+pub(crate) enum AuthCheckerEnum {
+    Auth(Auth),
+}
+
+#[enum_dispatch(AuthCheckerEnum)]
 pub trait AuthChecker: Send + Sync + 'static {
     fn verify(&self, user: &str, passwd: &str) -> bool;
 }
@@ -21,7 +29,7 @@ fn read_htpasswd(file_path: &PathBuf) -> io::Result<HashMap<&'static str, &'stat
     Ok(user_map)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Auth {
     users: Option<HashMap<&'static str, &'static str>>,
 }

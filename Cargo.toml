@@ -20,6 +20,7 @@ axum-auth = "0.4.0"
 axum-macros = "0.3.8"
 axum-server = { version = "0.5.1", features = ["tls-rustls"] }
 clap = { version = "4.4.2", features = ["derive"] }
+enum_dispatch = "0.3.12"
 futures-util = "0.3.28"
 htpasswd-verify = "0.3"
 http-range = "0.1"

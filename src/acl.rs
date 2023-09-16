@@ -1,4 +1,5 @@
 use anyhow::Result;
+use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -12,6 +13,13 @@ pub enum AccessType {
     Modify,
 }
 
+#[derive(Debug, Clone)]
+#[enum_dispatch]
+pub(crate) enum AclCheckerEnum {
+    Acl(Acl),
+}
+
+#[enum_dispatch(AclCheckerEnum)]
 pub trait AclChecker: Send + Sync + 'static {
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool;
 }
@@ -20,7 +28,7 @@ pub trait AclChecker: Send + Sync + 'static {
 type RepoAcl = HashMap<&'static str, AccessType>;
 
 // Acl holds ACLs for all repos
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Acl {
     repos: HashMap<String, RepoAcl>,
     append_only: bool,
@@ -72,7 +80,7 @@ impl Acl {
 }
 
 impl AclChecker for Acl {
-    // allowed yields whether thes access to {path,tpe, access} is allowed by user
+    // allowed yields whether these access to {path,tpe, access} is allowed by user
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool {
         // Access to locks is always treated as Read
         let access = if tpe == "locks" {

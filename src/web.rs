@@ -11,7 +11,7 @@
 use anyhow::Error;
 use axum::{
     body::{Body, StreamBody},
-    extract::{Path as PathExtract, Query, State, TypedHeader},
+    extract::{FromRef, Path as PathExtract, Query, State, TypedHeader},
     handler::{Handler, HandlerWithoutStateExt},
     http::{header, Request, StatusCode},
     response::{AppendHeaders, IntoResponse, Response},
@@ -28,7 +28,7 @@ use std::{convert::TryInto, marker::Unpin, path::Path as StdPath, sync::Arc};
 use std::{net::SocketAddr, path::PathBuf};
 use tokio::io::AsyncWrite;
 use tokio::io::SeekFrom::Start;
-use tokio::{fs::copy, io::AsyncSeekExt};
+use tokio::{io::copy, io::AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
 use crate::{
@@ -38,6 +38,8 @@ use crate::{
     helpers::{Finalizer, IteratorAdapter},
     storage::{LocalStorage, Storage},
 };
+
+use crate::state::AppState;
 
 const API_V1: &str = "application/vnd.x.restic.rest.v1";
 const API_V2: &str = "application/vnd.x.restic.rest.v2";
@@ -61,23 +63,6 @@ pub struct Ports {
     pub https: u16,
 }
 
-#[derive(Clone)]
-pub struct AppState {
-    auth: Arc<dyn AuthChecker>,
-    acl: Arc<dyn AclChecker>,
-    storage: Arc<dyn Storage>,
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            auth: Arc::new(Auth::default()),
-            acl: Arc::new(Acl::default()),
-            storage: Arc::new(LocalStorage::default()),
-        }
-    }
-}
-
 // TODO!
 // #[async_trait::async_trait]
 // impl tide_http_auth::Storage<String, BasicAuthRequest> for State {
@@ -89,16 +74,6 @@ impl Default for AppState {
 //         }
 //     }
 // }
-
-impl AppState {
-    pub fn new(auth: impl AuthChecker, acl: impl AclChecker, storage: impl Storage) -> Self {
-        Self {
-            storage: Arc::new(storage),
-            auth: Arc::new(auth),
-            acl: Arc::new(acl),
-        }
-    }
-}
 
 fn check_string_sha256(name: &str) -> bool {
     if name.len() != 64 {
@@ -138,11 +113,12 @@ fn check_auth_and_acl(
     }
 
     let empty = String::new();
+    // TODO!: How to get extension value?
     let user: &str = state.ext::<String>().unwrap_or(&empty);
     let Some(path) = path.to_str() else {
         return Err(ErrorKind::NonUnicodePath(path.display().to_string()).into());
     };
-    let allowed = state.acl.allowed(user, path, tpe, append);
+    let allowed = state.acl().allowed(user, path, tpe, append);
     tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
 
     match allowed {
@@ -173,7 +149,7 @@ async fn create_dirs(
     match c.create {
         true => {
             for tpe in TYPES.iter() {
-                match state.storage.create_dir(path, tpe) {
+                match state.storage().create_dir(path, tpe) {
                     Ok(_) => (),
                     Err(e) => return Err(ErrorKind::CreatingDirectoryFailed(e.to_string()).into()),
                 };
@@ -195,12 +171,11 @@ async fn create_dirs(
 
 #[debug_handler]
 async fn list_files(
-    State(tpe_state): State<TpeState>,
     State(state): State<Arc<AppState>>,
     path: Option<PathExtract<String>>,
     req: Request<Body>,
 ) -> Result<impl IntoResponse> {
-    let tpe = &tpe_state.0;
+    let tpe = state.tpe();
     let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
     let path = StdPath::new(&unpacked_path);
 
@@ -208,7 +183,7 @@ async fn list_files(
 
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
-    let read_dir = state.storage.read_dir(path, tpe);
+    let read_dir = state.storage().read_dir(path, tpe);
 
     // TODO: error handling
     let res = match req.headers().get("Accept") {
@@ -250,31 +225,29 @@ async fn list_files(
 #[debug_handler]
 async fn length(
     PathExtract(path): PathExtract<String>,
-    State(tpe_state): State<TpeState>,
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     PathExtract(name): PathExtract<String>,
     _req: Request<Body>,
 ) -> Result<()> {
-    let tpe = tpe_state.0.as_str();
+    let tpe = state.tpe();
     tracing::debug!("[length] path: {path}, tpe: {tpe}, name: {name}");
     let path = StdPath::new(&path);
 
     check_name(tpe, name.as_str())?;
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
-    let _file = state.storage.filename(path, tpe, name.as_str());
+    let _file = state.storage().filename(path, tpe, name.as_str());
     Err(ErrorKind::NotImplemented.into())
 }
 
 #[debug_handler]
 async fn get_file(
-    State(tpe_state): State<TpeState>,
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     PathExtract(name): PathExtract<String>,
     path: Option<PathExtract<String>>,
     req: Request<Body>,
 ) -> Result<impl IntoResponse> {
-    let tpe = &tpe_state.0;
+    let tpe = state.tpe();
     let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
     let path = StdPath::new(&unpacked_path);
 
@@ -284,7 +257,7 @@ async fn get_file(
     let path = StdPath::new(path);
     check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
 
-    let Ok(mut file) = state.storage.open_file(path, tpe, name.as_str()).await else {
+    let Ok(mut file) = state.storage().open_file(path, tpe, name.as_str()).await else {
         return Err(ErrorKind::FileNotFound(path.display().to_string()).into());
     };
 
@@ -334,10 +307,9 @@ async fn get_file(
     Ok((status, headers, body))
 }
 
-#[debug_handler]
 async fn save_body(
     mut file: impl AsyncWrite + Unpin + Finalizer,
-    req: Request<Body>,
+    req: &mut Request<Body>,
 ) -> Result<impl IntoResponse> {
     let bytes_written = match copy(req, &mut file).await {
         Ok(val) => val,
@@ -350,15 +322,13 @@ async fn save_body(
     Ok(StatusCode::OK)
 }
 
-#[debug_handler]
 async fn get_save_file(
-    State(tpe_state): State<TpeState>,
-    State(state): State<AppState>,
-    PathExtract(name): PathExtract<String>,
-    path: Option<PathExtract<String>>,
-) -> Result<impl AsyncWrite + Unpin + Finalizer> {
-    let tpe = tpe_state.0.as_str();
-    let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    path: Option<String>,
+    state: Arc<AppState>,
+    name: String,
+) -> std::result::Result<impl AsyncWrite + Unpin + Finalizer, ErrorKind> {
+    let tpe = state.tpe();
+    let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |path_ext| path_ext);
     let path = StdPath::new(&unpacked_path);
 
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
@@ -371,7 +341,7 @@ async fn get_save_file(
         return Err(ErrorKind::PathNotAllowed(path.display().to_string()).into());
     };
 
-    match state.storage.create_file(path, tpe, name.as_str()).await {
+    match state.storage().create_file(path, tpe, name.as_str()).await {
         Ok(val) => Ok(val),
         Err(_) => return Err(ErrorKind::GettingFileHandleFailed.into()),
     }
@@ -379,12 +349,11 @@ async fn get_save_file(
 
 #[debug_handler]
 async fn delete_file(
-    State(tpe_state): State<TpeState>,
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     PathExtract(name): PathExtract<String>,
     path: Option<PathExtract<String>>,
 ) -> Result<impl IntoResponse> {
-    let tpe = tpe_state.0.as_str();
+    let tpe = state.tpe();
     let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
     let path = StdPath::new(&unpacked_path);
 
@@ -396,7 +365,7 @@ async fn delete_file(
         return Err(ErrorKind::PathNotAllowed(path.display().to_string()).into());
     };
 
-    let Ok(_) = state.storage.remove_file(path, tpe, name.as_str()) else {
+    let Ok(_) = state.storage().remove_file(path, tpe, name.as_str()) else {
         return Err(ErrorKind::RemovingFileFailed.into());
     };
 
@@ -428,73 +397,82 @@ pub async fn main(
 
     let shared_state = Arc::new(state);
 
-    let mut app = Router::new().with_state(shared_state);
+    let mut app = Router::new();
 
-    app.route("/", post(create_dirs));
-    app.route("/:path/", post(create_dirs));
+    app.route("/", post(create_dirs).with_state(shared_state));
+    app.route("/:path/", post(create_dirs).with_state(shared_state));
 
     for tpe in TYPES.into_iter() {
         let path = &("/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
-        let tpe_state = Arc::new(TpeState(tpe.into()));
 
-        app.route(path, get(list_files))
-            .with_state(tpe_state.clone());
+        shared_state.set_tpe(tpe.to_string());
+
+        app.route(path, get(list_files).with_state(shared_state));
 
         let path = &("/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
-        //     app.route(
-        //         path,
-        //         head(length)
-        //             .get(get_file)
-        //             .post(
-        //                 // TODO!: middle layer candidate
-        //                 // let file = get_save_file(DEFAULT_PATH, tpe, req.param("name")?, &req).await?;
-        //                 // save_body(&mut req, file).await
-        //             )
-        //             .delete( delete_file),
-        //     );
+        app.route(
+            path,
+            head(length)
+                .get(get_file)
+                .post(move |mut req: Request<Body>| async move {
+                    let PathExtract(name): PathExtract<String>;
+                    let file = get_save_file(None, shared_state, name).await?;
+
+                    save_body(file, &mut req).await
+                })
+                .delete(delete_file),
+        )
+        .with_state(shared_state);
 
         let path = &("/:path/".to_string() + tpe + "/");
         tracing::debug!("add path: {path}");
-        app.route(path, get(list_files));
+        app.route(path, get(list_files)).with_state(shared_state);
 
         let path = &("/:path/".to_string() + tpe + "/:name");
         tracing::debug!("add path: {path}");
-        //     app.route(
-        //         path,
-        //         head(length)
-        //         .get(get_file)
-        //         .post(
-        //             // TODO!: middle layer candidate
-        //             // let file = get_save_file(req.param("path")?, tpe, req.param("name")?, &req).await?;
-        //             // save_body(&mut req, file).await
-        //         )
-        //         .delete(delete_file),
-        //     );
+        app.route(
+            path,
+            head(length)
+                .get(get_file)
+                .post(move |mut req: Request<Body>| async move {
+                    let PathExtract(name): PathExtract<String>;
+                    let PathExtract(path): PathExtract<String>;
+                    let file = get_save_file(Some(path), shared_state, name).await?;
+
+                    save_body(file, &mut req).await
+                })
+                .delete(delete_file),
+        )
+        .with_state(shared_state);
     }
 
-    // app.route(
-    //     "config",
-    //     get(get_file)
-    //     .post(
-    //         // TODO!: middle layer candidate
-    //         // let file = get_save_file(DEFAULT_PATH, CONFIG_TYPE, CONFIG_NAME, &req).await?;
-    //         // save_body(&mut req, file).await
-    //     )
-    //     .delete(delete_file),
-    // );
+    app.route(
+        "config",
+        get(get_file)
+            .post(move |mut req: Request<Body>| async move {
+                shared_state.set_tpe(CONFIG_TYPE.to_string());
+                let file = get_save_file(None, shared_state, CONFIG_NAME.to_string()).await?;
 
-    // app.route(
-    //     "/:path/config",
-    //     get(get_file)
-    //     .post(
-    //         // TODO!: middle layer candidate
-    //         // let file = get_save_file(req.param("path")?, CONFIG_TYPE, CONFIG_NAME, &req).await?;
-    //         // save_body(&mut req, file).await
-    //     )
-    //     .delete(delete_file),
-    // );
+                save_body(file, &mut req).await
+            })
+            .delete(delete_file),
+    );
+
+    app.route(
+        "/:path/config",
+        get(get_file)
+            .post(move |mut req: Request<Body>| async move {
+                let PathExtract(name): PathExtract<String>;
+                let PathExtract(path): PathExtract<String>;
+                shared_state.set_tpe(CONFIG_TYPE.to_string());
+                let file = get_save_file(Some(path), shared_state, CONFIG_NAME.to_string()).await?;
+
+                save_body(file, &mut req).await
+            })
+            .delete(delete_file),
+    );
 
     // configure certificate and private key used by https
     let config = match tls {
