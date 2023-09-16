@@ -163,11 +163,8 @@ async fn create_dirs(
     Query(params): Query<Create>,
     path: Option<PathExtract<String>>,
 ) -> Result<impl IntoResponse> {
-    let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext.as_str())
-    } else {
-        StdPath::new(DEFAULT_PATH)
-    };
+    let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path = StdPath::new(&unpacked_path);
 
     tracing::debug!("[create_dirs] path: {path:?}");
 
@@ -204,12 +201,8 @@ async fn list_files(
     req: Request<Body>,
 ) -> Result<impl IntoResponse> {
     let tpe = &tpe_state.0;
-
-    let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext.as_str())
-    } else {
-        StdPath::new(DEFAULT_PATH)
-    };
+    let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path = StdPath::new(&unpacked_path);
 
     tracing::debug!("[list_files] path: {path:?}, tpe: {tpe}");
 
@@ -282,12 +275,9 @@ async fn get_file(
     req: Request<Body>,
 ) -> Result<impl IntoResponse> {
     let tpe = &tpe_state.0;
+    let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path = StdPath::new(&unpacked_path);
 
-    let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext.as_str())
-    } else {
-        StdPath::new(DEFAULT_PATH)
-    };
     tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
     check_name(tpe, name.as_str())?;
@@ -368,11 +358,8 @@ async fn get_save_file(
     path: Option<PathExtract<String>>,
 ) -> Result<impl AsyncWrite + Unpin + Finalizer> {
     let tpe = tpe_state.0.as_str();
-    let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(path_ext.as_str())
-    } else {
-        StdPath::new(DEFAULT_PATH)
-    };
+    let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path = StdPath::new(&unpacked_path);
 
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
@@ -398,11 +385,8 @@ async fn delete_file(
     path: Option<PathExtract<String>>,
 ) -> Result<impl IntoResponse> {
     let tpe = tpe_state.0.as_str();
-    let path = if let Some(PathExtract(path_ext)) = path {
-        StdPath::new(&path_ext)
-    } else {
-        StdPath::new(DEFAULT_PATH)
-    };
+    let unpacked_path = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path = StdPath::new(&unpacked_path);
 
     let Ok(_) = check_name(tpe, name.as_str()) else {
         return Err(ErrorKind::FilenameNotAllowed(name).into());
