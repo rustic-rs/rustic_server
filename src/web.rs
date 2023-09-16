@@ -382,6 +382,7 @@ async fn delete_file(
     Ok(StatusCode::OK)
 }
 
+// TODO!: Authentication middleware
 // async fn auth_handler(AuthBasic((id, password)): AuthBasic) -> Result<String> {
 //     tracing::debug!("[auth_handler] id: {id}, password: {password}");
 //     match id.as_str() {
