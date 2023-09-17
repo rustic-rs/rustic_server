@@ -20,7 +20,7 @@ pkg-fmt = "tar.gz"
 
 [package.metadata.binstall.signing]
 algorithm = "minisign"
-pubkey = "RWRsVnMnBLgZRL5oF8hrVNGxYhLIsl/ORrwYVhdk4np77dist7JO/1ce"
+pubkey = "RWSWSCEJEEacVeCy0va71hlrVtiW8YzMzOyJeso0Bfy/ZXq5OryWi/8T"
 
 [dependencies]
 anyhow = "1.0.75"
