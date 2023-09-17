@@ -62,9 +62,9 @@ bob = "Append"
 
 Tried rustic-server and not satisfied? Don't just walk away! You can help:
 
-You can report issues or suggest new features on our
-[Discord server](https://discord.gg/WRUWENZnzQ) or using
-[Github Issues](https://github.com/rustic-rs/rustic_server/issues/new/choose)!
+- You can report issues or suggest new features on our
+  [Discord server](https://discord.gg/WRUWENZnzQ) or using
+  [Github Issues](https://github.com/rustic-rs/rustic_server/issues/new/choose)!
 
 Do you know how to code or got an idea for an improvement? Don't keep it to
 yourself!
