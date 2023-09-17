@@ -11,6 +11,16 @@ repository = "https://github.com/rustic-rs/rustic_server"
 description = """
 rustic server - a REST server built in rust to use with rustic and restic.
 """
+# cargo-binstall support
+# https://github.com/cargo-bins/cargo-binstall/blob/HEAD/SUPPORT.md
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ repo }-v{ version }-{ target }{ archive-suffix }"
+bin-dir = "{ bin }-{ target }/{ bin }{ binary-ext }"
+pkg-fmt = "tar.gz"
+
+[package.metadata.binstall.signing]
+algorithm = "minisign"
+pubkey = "RWRsVnMnBLgZRL5oF8hrVNGxYhLIsl/ORrwYVhdk4np77dist7JO/1ce"
 
 [dependencies]
 anyhow = "1.0.75"
