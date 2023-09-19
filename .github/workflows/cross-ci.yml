@@ -1,0 +1,85 @@
+name: Cross CI
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  push:
+    branches:
+      - main
+      - "renovate/**"
+      - "release/**"
+    paths-ignore:
+      - "**/*.md"
+  merge_group:
+    types: [checks_requested]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  cross-check:
+    name: Cross checking ${{ matrix.job.target }}
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable]
+        job:
+          - os: windows-latest
+            os-name: windows
+            target: x86_64-pc-windows-msvc
+            architecture: x86_64
+            use-cross: false
+          - os: macos-latest
+            os-name: macos
+            target: x86_64-apple-darwin
+            architecture: x86_64
+            use-cross: false
+          - os: macos-latest
+            os-name: macos
+            target: aarch64-apple-darwin
+            architecture: arm64
+            use-cross: true
+          - os: ubuntu-latest
+            os-name: linux
+            target: x86_64-unknown-linux-gnu
+            architecture: x86_64
+            use-cross: false
+          - os: ubuntu-latest
+            os-name: linux
+            target: x86_64-unknown-linux-musl
+            architecture: x86_64
+            use-cross: false
+          - os: ubuntu-latest
+            os-name: linux
+            target: aarch64-unknown-linux-gnu
+            architecture: arm64
+            use-cross: true
+          - os: ubuntu-latest
+            os-name: linux
+            target: i686-unknown-linux-gnu
+            architecture: i686
+            use-cross: true
+          - os: ubuntu-latest
+            os-name: netbsd
+            target: x86_64-unknown-netbsd
+            architecture: x86_64
+            use-cross: true
+          - os: ubuntu-latest
+            os-name: linux
+            target: armv7-unknown-linux-gnueabihf
+            architecture: armv7
+            use-cross: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4
+
+      - name: Run Cross-CI action
+        uses: rustic-rs/cross-ci-action@main
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.job.target }}
+          use-cross: ${{ matrix.job.use-cross }}
