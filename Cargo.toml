@@ -26,7 +26,7 @@ pubkey = "RWSWSCEJEEacVeCy0va71hlrVtiW8YzMzOyJeso0Bfy/ZXq5OryWi/8T"
 anyhow = "1.0.75"
 async-std = { version = "1", features = ["attributes"] }
 async-trait = "0.1"
-clap = { version = "4.4.3", features = ["derive"] }
+clap = { version = "4.4.8", features = ["derive"] }
 htpasswd-verify = "0.3"
 http-range = "0.1"
 serde = { version = "1", features = ["derive"] }
