@@ -96,25 +96,22 @@ jobs:
           sign-release: true
           hash-release: true
           use-project-version: false # not being used in rustic_server
-#
-# TODO!: add publishing to release draft
-# TODO!: include changelog in release draft
-#
-# publish-cargo:
-#   name: Publishing to Cargo
-#   runs-on: ubuntu-latest
-#   steps:
-#     - name: Checkout repository
-#       uses: actions/checkout@v4
-#     - uses: actions-rs/toolchain@v1
-#     with:
-#       toolchain: stable
-#       profile: minimal
-#       override: true
-#   - uses: Swatinem/rust-cache@v2
-#     with:
-#       key: ${{ matrix.job.target }}
-#   - uses: actions-rs/cargo@v1
-#     with:
-#       command: publish
-#       args: --token ${{ secrets.CARGO_API_KEY }}
+      #
+      # TODO!: add publishing to release draft
+      # TODO!: include changelog in release draft
+      #
+      # publish-cargo:
+      #   name: Publishing to Cargo
+      #   runs-on: ubuntu-latest
+      #   steps:
+      #     - name: Checkout repository
+      #       uses: actions/checkout@v4
+      #     - name: Install Rust toolchain
+      #       uses: dtolnay/rust-toolchain@439cf607258077187679211f12aa6f19af4a0af7 # v1
+      #       with:
+      #         toolchain: stable
+      #   - uses: Swatinem/rust-cache@v2
+      #     with:
+      #       key: ${{ matrix.job.target }}
+      # - name: Run Cargo Fmt
+      #   run: cargo publish --token ${{ secrets.CARGO_API_KEY }}
