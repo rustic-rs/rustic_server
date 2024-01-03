@@ -1,39 +1,46 @@
+use crate::acl::{AccessType, Acl, RepoAcl};
+use crate::config::auth_config::HtAccess;
+use crate::config::server_config::{
+    AccessControl, Authorization, Repos, Server, ServerConfig, TLS,
+};
+use anyhow::{Context, Result};
+use inquire::validator::Validation;
+use inquire::{Confirm, CustomType, Password, Select, Text};
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use anyhow::{Context, Result};
-use inquire::{Confirm, CustomType, Password, Select, Text};
-use inquire::validator::Validation;
-use rand::distributions::Alphanumeric;
-use rand::{Rng, thread_rng};
-use crate::acl::{AccessType, Acl, RepoAcl};
-use crate::config::auth_config::HtAccess;
-use crate::config::server_config::{AccessControl, Authorization, Repos, Server, ServerConfig, TLS};
 
-const PROTOCOL_HTTP:&str = "http";  // tide: must be lower case !!
-const PROTOCOL_HTTPS:&str = "https"; // tide: must be lower case !!
-const HT_ACCESS_FILE:&str = ".htaccess";
-const ACL_FILE:&str="acl.toml";
-
+const PROTOCOL_HTTP: &str = "http"; // tide: must be lower case !!
+const PROTOCOL_HTTPS: &str = "https"; // tide: must be lower case !!
+const HT_ACCESS_FILE: &str = ".htaccess";
+const ACL_FILE: &str = "acl.toml";
 
 pub struct ServerConfigurator<'a> {
     server_path: PathBuf,
     file_name: &'a str,
-    server_config: Option<ServerConfig>
+    server_config: Option<ServerConfig>,
 }
 
 impl<'a> ServerConfigurator<'a> {
-
     /// creates a new configurator structure
-    pub fn new( server_path:PathBuf, file_name:&'a str) -> Self {
-        ServerConfigurator{ server_path, file_name, server_config: None }
+    pub fn new(server_path: PathBuf, file_name: &'a str) -> Self {
+        ServerConfigurator {
+            server_path,
+            file_name,
+            server_config: None,
+        }
     }
 
     /// Saves the configuration to a file.
     /// Here it is assumed the path to the file location is existing, and writable.
     pub fn save_configuration_file(&self) -> Result<()> {
         if self.server_config.is_some() {
-            self.server_config.as_ref().unwrap().to_file(&self.server_path.join(self.file_name))?;
+            self.server_config
+                .as_ref()
+                .unwrap()
+                .to_file(&self.server_path.join(self.file_name))?;
         }
         Ok(())
     }
@@ -42,7 +49,6 @@ impl<'a> ServerConfigurator<'a> {
     /// The server can then be started with a command like
     ///     rustic_server -P /<path>/<to>/rustic_server.toml
     pub fn ask_user_for_configuration_input(&mut self) -> Result<()> {
-
         let server = server_configuration()?;
         let repos = repo_root(&self.server_path)?;
         let accesscontrol = access_control_config(&self.server_path)?;
@@ -55,17 +61,20 @@ impl<'a> ServerConfigurator<'a> {
             None
         };
 
-        let server_config = ServerConfig { server, repos, tls, authorization, accesscontrol };
+        let server_config = ServerConfig {
+            server,
+            repos,
+            tls,
+            authorization,
+            accesscontrol,
+        };
         self.server_config = Some(server_config);
         Ok(())
     }
 }
 
-fn server_configuration() -> Result<Server>{
-    let protocol = vec![
-        PROTOCOL_HTTP,
-        PROTOCOL_HTTPS,
-    ];
+fn server_configuration() -> Result<Server> {
+    let protocol = vec![PROTOCOL_HTTP, PROTOCOL_HTTPS];
 
     let server_name = Text::new("Server FQDN or IP address:")
         .with_help_message("On which IP address can external computers contact your server?")
@@ -79,27 +88,30 @@ fn server_configuration() -> Result<Server>{
 
     let protocol = Select::new("Communication protocol:", protocol)
         .with_help_message("When choosing HTTP-S, then add encryption keys later")
-        .prompt()?.to_owned();
+        .prompt()?
+        .to_owned();
 
     let server = Server {
         host_dns_name: server_name,
         port: port.into(),
-        protocol
+        protocol,
     };
     Ok(server)
 }
 
-fn repo_root(server_path: &PathBuf) -> Result<Repos>{
+fn repo_root(server_path: &PathBuf) -> Result<Repos> {
     let repo_root = Text::new("Folder name containing all repositories:")
         .with_help_message("Data is stored under: <server_path>/<repo>")
-        .with_validator(|txt: &str| { abs_path_validator(txt, false) })
+        .with_validator(|txt: &str| abs_path_validator(txt, false))
         .with_default("repo")
         .prompt()?;
 
     let repo_root = server_path.join(&repo_root);
     if !repo_root.exists() {
-        fs::create_dir_all(&repo_root)
-            .context(format!("Error: Failed to create path: {}", &repo_root.to_string_lossy()))?;
+        fs::create_dir_all(&repo_root).context(format!(
+            "Error: Failed to create path: {}",
+            &repo_root.to_string_lossy()
+        ))?;
     }
 
     let repos = Repos {
@@ -108,7 +120,7 @@ fn repo_root(server_path: &PathBuf) -> Result<Repos>{
     Ok(repos)
 }
 
-fn access_control_config(server_path: &PathBuf) -> Result<AccessControl>{
+fn access_control_config(server_path: &PathBuf) -> Result<AccessControl> {
     let use_access_control = Confirm::new("Use Access control?")
         .with_default(true)
         .with_help_message("An open server might not be wise in these days...")
@@ -141,10 +153,10 @@ fn access_control_config(server_path: &PathBuf) -> Result<AccessControl>{
             append_only: limit_to_append,
         }
     } else {
-        AccessControl{
+        AccessControl {
             acl_path: None,
             private_repo: false,
-            append_only: limit_to_append
+            append_only: limit_to_append,
         }
     };
 
@@ -153,14 +165,13 @@ fn access_control_config(server_path: &PathBuf) -> Result<AccessControl>{
 
 fn access_type(a: &str) -> AccessType {
     return match a {
-        "Nothing" => { AccessType::Nothing },
-        "Read" => { AccessType::Read },
-        "Append" => { AccessType::Append },
-        "Modify" => { AccessType::Modify },
-        _ => { AccessType::Nothing }
-    }
+        "Nothing" => AccessType::Nothing,
+        "Read" => AccessType::Read,
+        "Append" => AccessType::Append,
+        "Modify" => AccessType::Modify,
+        _ => AccessType::Nothing,
+    };
 }
-
 
 /// This function will create the `ACL.toml` file.
 ///
@@ -168,15 +179,10 @@ fn access_type(a: &str) -> AccessType {
 /// `.htaccess` file (if not already exists). This will facilitate the creation of
 /// a `.htaccess` file with all the required users. Changing the `.htaccess` file can be
 /// done later with a separate command `rustic_server_htaccess`
-fn access_control_file(acl_path:&PathBuf, auth_path:&PathBuf) -> Result<()> {
-    let access_list = vec![
-        "Nothing",
-        "Read",
-        "Append",
-        "Modify",
-    ];
+fn access_control_file(acl_path: &PathBuf, auth_path: &PathBuf) -> Result<()> {
+    let access_list = vec!["Nothing", "Read", "Append", "Modify"];
 
-    let pepper:String = thread_rng()
+    let pepper: String = thread_rng()
         .sample_iter(&Alphanumeric)
         .take(16)
         .map(char::from)
@@ -185,15 +191,15 @@ fn access_control_file(acl_path:&PathBuf, auth_path:&PathBuf) -> Result<()> {
     let mut count = 0;
     let mut acl = Acl::default();
     let mut auth = HtAccess::from_file(&auth_path)?;
-    loop  {
+    loop {
         let repo = Text::new("Select repository name:")
-            .with_validator( |txt:&str| {single_word_validator(txt)})
+            .with_validator(|txt: &str| single_word_validator(txt))
             .with_help_message("Next: Define user to be allowed access to this repo.")
-            .with_default( "default" )
+            .with_default("default")
             .prompt()?;
         let user = Text::new("Give user name:")
-            .with_validator( |txt:&str| {single_word_validator(txt)})
-            .with_default( "admin" )
+            .with_validator(|txt: &str| single_word_validator(txt))
+            .with_default("admin")
             .prompt()?;
         let access = Select::new("What access does this user have:", access_list.clone())
             .with_help_message("If unsure select 'Append', you can change later")
@@ -202,20 +208,21 @@ fn access_control_file(acl_path:&PathBuf, auth_path:&PathBuf) -> Result<()> {
             .with_default(true)
             .prompt()?;
         if add_to_list {
-            count +=1;
+            count += 1;
             let u = user.to_string();
-            let r:String = repo.to_string();
+            let r: String = repo.to_string();
             if r == "default" {
                 acl.default_repo_access(&u, access_type(access))
             } else {
-
                 if acl.repos.contains_key(&r) {
-                    acl.repos.get_mut(&r).unwrap()
-                        .insert(u.clone(),access_type(access) );
+                    acl.repos
+                        .get_mut(&r)
+                        .unwrap()
+                        .insert(u.clone(), access_type(access));
                 } else {
                     let mut aa = RepoAcl::new();
-                    aa.insert(u.clone(),access_type(access) );
-                    acl.repos.insert(r.clone(), aa );
+                    aa.insert(u.clone(), access_type(access));
+                    acl.repos.insert(r.clone(), aa);
                 }
             }
             //Make sure the auth file knows all of these too ...
@@ -225,13 +232,16 @@ fn access_control_file(acl_path:&PathBuf, auth_path:&PathBuf) -> Result<()> {
             .with_default(true)
             .prompt()?;
 
-        if ! not_stop {
+        if !not_stop {
             if count == 0 {
-                let stop = Confirm::new("You have to set at least enter 1 user. Do you want to stop?")
-                    .with_default(false)
-                    .with_help_message("Try 'admin' for the 'default' repository'")
-                    .prompt()?;
-                if stop { return Ok(())}
+                let stop =
+                    Confirm::new("You have to set at least enter 1 user. Do you want to stop?")
+                        .with_default(false)
+                        .with_help_message("Try 'admin' for the 'default' repository'")
+                        .prompt()?;
+                if stop {
+                    return Ok(());
+                }
             } else {
                 // We are done; save the files, and break out of the loop
                 auth.to_file()?;
@@ -244,8 +254,7 @@ fn access_control_file(acl_path:&PathBuf, auth_path:&PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn authorization_config(server_path:&PathBuf) -> Result<Authorization>{
-
+fn authorization_config(server_path: &PathBuf) -> Result<Authorization> {
     let use_authorization = Confirm::new("Use password authorization?")
         .with_default(true)
         .with_help_message("An open server might not be wise in these days...")
@@ -266,19 +275,19 @@ fn authorization_config(server_path:&PathBuf) -> Result<Authorization>{
 
         Authorization {
             auth_path: Some(auth_path.to_string_lossy().into()),
-            use_auth: true
+            use_auth: true,
         }
     } else {
-        Authorization{
+        Authorization {
             auth_path: None,
-            use_auth: false
+            use_auth: false,
         }
     };
 
     Ok(authorization)
 }
 
-fn authorization_file(auth_path:&PathBuf) -> Result<()> {
+fn authorization_file(auth_path: &PathBuf) -> Result<()> {
     let mut hta_file = HtAccess::from_file(&auth_path)?;
     let users = hta_file.users();
     for user in users.iter() {
@@ -298,22 +307,24 @@ fn authorization_file(auth_path:&PathBuf) -> Result<()> {
 /// Maybe use https://lib.rs/crates/tere to facilitate user memory ...
 fn tls_paths() -> Result<TLS> {
     let pub_file = Text::new("Path to public key file?")
-        .with_validator(|txt: &str| { abs_path_validator(txt, true) })
+        .with_validator(|txt: &str| abs_path_validator(txt, true))
         .prompt()?;
     let crt_file = Text::new("Path the the certificate file?")
-        .with_validator(|txt: &str| { abs_path_validator(txt, true) })
+        .with_validator(|txt: &str| abs_path_validator(txt, true))
         .prompt()?;
 
     Ok(TLS {
         key_path: pub_file.to_string(),
-        cert_path: crt_file.to_string()
+        cert_path: crt_file.to_string(),
     })
 }
 
 // Use XOR in check. We are OK when both are either true, or both are false.
-fn abs_path_validator(txt:&str, require_absolute:bool) -> Result<Validation, Box<dyn Error + Send + Sync>> {
-    if ! (Path::new(txt).is_absolute() ^ require_absolute)
-    {
+fn abs_path_validator(
+    txt: &str,
+    require_absolute: bool,
+) -> Result<Validation, Box<dyn Error + Send + Sync>> {
+    if !(Path::new(txt).is_absolute() ^ require_absolute) {
         Ok(Validation::Valid)
     } else {
         Ok(Validation::Invalid(
@@ -322,12 +333,10 @@ fn abs_path_validator(txt:&str, require_absolute:bool) -> Result<Validation, Box
     }
 }
 
-fn single_word_validator(txt:&str) -> Result<Validation, Box<dyn Error + Send + Sync>> {
-    if txt.split( ' ' ).count() < 2 {
+fn single_word_validator(txt: &str) -> Result<Validation, Box<dyn Error + Send + Sync>> {
+    if txt.split(' ').count() < 2 {
         Ok(Validation::Valid)
     } else {
-        Ok(Validation::Invalid(
-            "Require single word, no spaces".into(),
-        ))
+        Ok(Validation::Invalid("Require single word, no spaces".into()))
     }
 }

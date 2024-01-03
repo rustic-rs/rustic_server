@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 pub mod acl;
 pub mod auth;
+pub mod config;
 pub mod helpers;
 pub mod storage;
 pub mod web;
@@ -12,6 +13,9 @@ pub mod web;
 #[command(name = "rustic-server")]
 #[command(bin_name = "rustic-server")]
 pub struct Opts {
+    /// Server configuration file
+    #[arg(short, long)]
+    pub config: Option<String>,
     /// listen address
     #[arg(short, long, default_value = "localhost:8000")]
     pub listen: String,
