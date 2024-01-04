@@ -1,12 +1,12 @@
-use serde::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 // Access Types
-#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Deserialize, Serialize)]
 pub enum AccessType {
     Nothing,
     Read,
@@ -19,14 +19,14 @@ pub trait AclChecker: Send + Sync + 'static {
 }
 
 // ACL for a repo
-type RepoAcl = HashMap<String, AccessType>;
+pub(crate) type RepoAcl = HashMap<String, AccessType>;
 
 // Acl holds ACLs for all repos
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Acl {
-    repos: HashMap<String, RepoAcl>,
-    append_only: bool,
-    private_repo: bool,
+    pub(crate) repos: HashMap<String, RepoAcl>,
+    pub(crate) append_only: bool,
+    pub(crate) private_repo: bool,
 }
 
 impl Default for Acl {
@@ -71,6 +71,37 @@ impl Acl {
             repos,
         })
     }
+
+    // The default repo has not been removed from the self.repos list, so we do not need to add here
+    // But we still need to remove the ""-tag that was added during the from_file()
+    pub fn to_file(&self, pth: &PathBuf) -> Result<()> {
+        let mut clone = self.repos.clone();
+        clone.remove("");
+        let toml_string =
+            toml::to_string(&clone).context("Could not serialize ACL config to TOML value")?;
+        fs::write(&pth, toml_string).context("Could not write ACL file!")?;
+        Ok(())
+    }
+
+    // If we do not have a key with ""-value then "default" is also not a key
+    // Since we guarantee this during the reading of a acl-file
+    pub fn default_repo_access(&mut self, user: &str, access: AccessType) {
+        if !self.repos.contains_key("") {
+            let mut acl = RepoAcl::new();
+            acl.insert(user.into(), access);
+            self.repos.insert("default".to_owned(), acl.clone());
+            self.repos.insert("".to_owned(), acl);
+        } else {
+            self.repos
+                .get_mut("default")
+                .unwrap()
+                .insert(user.into(), access.clone());
+            self.repos
+                .get_mut("")
+                .unwrap()
+                .insert(user.into(), access.clone());
+        }
+    }
 }
 
 impl AclChecker for Acl {
@@ -102,6 +133,8 @@ impl AclChecker for Acl {
 mod tests {
     use super::AccessType::*;
     use super::*;
+    use anyhow::Result;
+    use std::path::Path;
 
     #[test]
     fn allowed_flags() {
@@ -129,6 +162,64 @@ mod tests {
         assert!(acl.allowed("bob", "sam", "data", Modify));
         assert!(acl.allowed("bob", "bob", "data", Modify));
         assert!(acl.allowed("bob", "", "data", Modify));
+    }
+
+    #[test]
+    fn test_write_to_file_and_back() -> Result<()> {
+        let acl_path = Path::new("tmp_test_data").join("rustic");
+        fs::create_dir_all(&acl_path).unwrap();
+
+        let acl_file = acl_path.join("test_acl.toml");
+
+        let mut acl = Acl::default();
+
+        let mut acl_all = HashMap::new();
+        acl_all.insert("bob".to_string(), Modify);
+        acl_all.insert("sam".to_string(), Append);
+        acl_all.insert("paul".to_string(), Read);
+        acl.repos.insert("all".to_string(), acl_all);
+
+        let mut acl_bob = HashMap::new();
+        acl_bob.insert("bob".to_string(), Modify);
+        acl.repos.insert("bob".to_string(), acl_bob);
+
+        let mut acl_sam = HashMap::new();
+        acl_sam.insert("sam".to_string(), Append);
+        acl_sam.insert("bob".to_string(), Read);
+        acl.repos.insert("sam".to_string(), acl_sam);
+
+        acl.default_repo_access("admin".into(), Modify);
+
+        if acl_file.exists() {
+            fs::remove_file(&acl_file).expect("Failed to remove acl_file for test");
+        }
+        assert!(!acl_file.exists());
+
+        acl.to_file(&acl_file)?;
+        assert!(acl_file.exists());
+
+        let acl = Acl::from_file(true, true, Some(acl_file.clone()))
+            .expect("Failed to read acl_file for test");
+
+        // test ACLs for repo bob
+        assert!(acl.allowed("bob", "bob", "data", Modify));
+        assert!(!acl.allowed("sam", "bob", "data", Read));
+        assert!(!acl.allowed("attack", "bob", "locks", Modify));
+
+        // test ACLs for repo paul => fall back to flags
+        assert!(!acl.allowed("paul", "paul", "data", Modify));
+        assert!(acl.allowed("paul", "paul", "data", Append));
+        assert!(!acl.allowed("sam", "paul", "data", Read));
+
+        let acl = Acl::from_file(false, true, Some(acl_file.clone()))
+            .expect("Failed to read acl_file for test");
+
+        assert!(acl.allowed("paul", "paul", "data", Modify));
+        assert!(!acl.allowed("admin", "sam", "data", Modify));
+        assert!(acl.allowed("bob", "bob", "data", Modify));
+        assert!(!acl.allowed("admin", "bob", "data", Modify));
+
+        Ok(())
     }
 
     #[test]

@@ -23,6 +23,11 @@ algorithm = "minisign"
 pubkey = "RWSWSCEJEEacVeCy0va71hlrVtiW8YzMzOyJeso0Bfy/ZXq5OryWi/8T"
 
 [dependencies]
+# rustic server configuration related
+inquire = "0.6.2"
+rand = "0.8.5"
+
+# rustic_server dependencies
 anyhow = "1.0.75"
 async-std = { version = "1", features = ["attributes"] }
 async-trait = "0.1"
@@ -30,6 +35,7 @@ clap = { version = "4.4.10", features = ["derive"] }
 htpasswd-verify = "0.3"
 http-range = "0.1"
 serde = { version = "1", features = ["derive"] }
+serde_derive = "1.0.*"
 tide = "0.16"
 tide-http-auth = "0.5"
 tide-rustls = "0.3"
