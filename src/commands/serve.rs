@@ -1,16 +1,17 @@
+use crate::acl::Acl;
+use crate::auth::Auth;
+use crate::config::server_config::ServerConfig;
+use crate::storage::LocalStorage;
+use crate::web;
+use crate::web::State;
+use anyhow::Result;
 use clap::Parser;
-use rustic_server::commands::config::rustic_server_configuration;
-use rustic_server::config::server_config::ServerConfig;
-use rustic_server::{acl::Acl, auth::Auth, storage::LocalStorage, web, web::State, Opts};
 use std::path::PathBuf;
 
-#[async_std::main]
-async fn main() -> tide::Result<()> {
-    let opts = Opts::parse();
-
+pub async fn serve(opts: Opts) -> Result<()> {
     tide::log::with_level(opts.log);
 
-    match opts.config {
+    return match &opts.config {
         Some(config) => {
             let config_path = PathBuf::new().join(&config);
             let server_config = ServerConfig::from_file(&config_path).expect(&format!(
@@ -47,7 +48,10 @@ async fn main() -> tide::Result<()> {
                 server.protocol, server.host_dns_name, server.port
             );
             println!("Starting server. Listening on: {}", &s);
-            web::main(new_state, s, false, None, opts.key).await
+            match web::main(new_state, s, false, None, opts.key).await {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.into_inner()),
+            }
         }
         None => {
             let storage = LocalStorage::try_new(&opts.path)?;
@@ -55,7 +59,50 @@ async fn main() -> tide::Result<()> {
             let acl = Acl::from_file(opts.append_only, opts.private_repo, None)?;
 
             let new_state = State::new(auth, acl, storage);
-            web::main(new_state, "2222".into(), false, None, opts.key).await
+            match web::main(new_state, opts.listen.into(), false, None, opts.key).await {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.into_inner()),
+            }
         }
-    }
+    };
+}
+
+/// A REST server build in rust for use with restic
+#[derive(Parser)]
+#[command(name = "rustic-server")]
+#[command(bin_name = "rustic-server")]
+pub struct Opts {
+    /// Server configuration file
+    #[arg(short, long)]
+    pub config: Option<String>,
+    /// listen address
+    #[arg(short, long, default_value = "localhost:8000")]
+    pub listen: String,
+    /// data directory
+    #[arg(short, long, default_value = "/tmp/restic")]
+    pub path: PathBuf,
+    /// disable .htpasswd authentication
+    #[arg(long)]
+    pub no_auth: bool,
+    /// file to read per-repo ACLs from
+    #[arg(long)]
+    pub acl: Option<PathBuf>,
+    /// set standard acl to append only mode
+    #[arg(long)]
+    pub append_only: bool,
+    /// set standard acl to only access private repos
+    #[arg(long)]
+    pub private_repo: bool,
+    /// turn on TLS support
+    #[arg(long)]
+    pub tls: bool,
+    /// TLS certificate path
+    #[arg(long)]
+    pub cert: Option<String>,
+    /// TLS key path
+    #[arg(long)]
+    pub key: Option<String>,
+    /// logging level (Off/Error/Warn/Info/Debug/Trace)
+    #[arg(long, default_value = "Info")]
+    pub log: tide::log::LevelFilter,
 }

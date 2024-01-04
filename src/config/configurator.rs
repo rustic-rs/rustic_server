@@ -55,7 +55,7 @@ impl<'a> ServerConfigurator<'a> {
         let authorization = authorization_config(&self.server_path)?;
 
         // No sense in asking when the protocol is not HTTPS ...
-        let tls = if server.protocol == "HTTPS" {
+        let tls = if server.protocol == PROTOCOL_HTTPS {
             Some(tls_paths()?)
         } else {
             None

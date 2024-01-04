@@ -22,18 +22,6 @@ pkg-fmt = "tar.gz"
 algorithm = "minisign"
 pubkey = "RWSWSCEJEEacVeCy0va71hlrVtiW8YzMzOyJeso0Bfy/ZXq5OryWi/8T"
 
-[[bin]]
-name = "rustic_server"
-path = "src/bin/rustic-server.rs"
-
-[[bin]]
-name = "rustic_server_config"
-path = "src/bin/rustic-server-config.rs"
-
-[[bin]]
-name = "rustic_server_htaccess"
-path = "src/bin/rustic-server-htaccess.rs"
-
 [dependencies]
 # rustic server configuration related
 inquire = "0.6.2"

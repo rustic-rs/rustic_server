@@ -1,8 +1,8 @@
+use crate::config::configurator::ServerConfigurator;
 use anyhow::Context;
 use anyhow::Result;
 use inquire::validator::Validation;
 use inquire::Text;
-use rustic_server::config::configurator::ServerConfigurator;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -18,13 +18,14 @@ use std::process::exit;
 /// The ServerConfiguration TOML file definition allows the user to change the file locations.
 /// This can be done by manually later. For example if the configuration files should go to
 /// a mandatory location like "/etc/..." for some reason.
-pub fn main() -> Result<()> {
+pub fn rustic_server_configuration() -> Result<()> {
     let server_path = ask_server_path()?;
     let file_name = ask_configuration_file_name(&server_path)?;
 
     let mut configurator = ServerConfigurator::new(server_path, &file_name);
     configurator.ask_user_for_configuration_input()?;
     configurator.save_configuration_file()?;
+
     Ok(())
 }
 

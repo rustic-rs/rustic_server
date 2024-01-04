@@ -1,32 +1,15 @@
+use crate::config::auth_config::HtAccess;
+use crate::config::server_config::ServerConfig;
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use inquire::Password;
-use rustic_server::config::auth_config::HtAccess;
-use rustic_server::config::server_config::ServerConfig;
 use std::fs;
 use std::path::PathBuf;
 use std::process::exit;
 
-/// Tool to change the `.htaccess` file for a given rustic_server.
-///
-/// Design decision: Use the server configuration file as input.
-/// This way the user only has 1 file to "know".
-fn main() {
-    let cmd = HtAccessCmd::parse();
-    cmd.exec().unwrap();
-}
-
-/// rustic_server_htaccess:
-/// Tool to edit the '.htaccess' file given a `rustic_server` configuration.
-/// We take the server configuration to allow a cross check with the repository ACL list.
-/// For a clean start, start with creating the server configuration using 'rustic_server_config'
 #[derive(Parser)]
-#[command(
-    version,
-    bin_name = "rustic_server_htaccess",
-    disable_help_subcommand = false
-)]
-struct HtAccessCmd {
+#[command()]
+pub struct HtAccessCmd {
     ///Give the path where the `rustic_server` configuration can be found
     #[arg(short = 'c')]
     pub config_path: PathBuf,
@@ -56,6 +39,9 @@ impl HtAccessCmd {
             Commands::Add(arg) => {
                 add(&mut ht_access, arg)?;
             }
+            Commands::Update(arg) => {
+                update(&mut ht_access, arg)?;
+            }
             Commands::Delete(arg) => {
                 delete(&mut ht_access, arg)?;
             }
@@ -77,7 +63,7 @@ impl HtAccessCmd {
                 exit(0);
             }
             match fs::OpenOptions::new()
-                //Test: "open for writing"
+                //Test: "open for writing" (fail fast)
                 .create(false)
                 .truncate(false)
                 .append(true)
@@ -94,7 +80,7 @@ impl HtAccessCmd {
                 }
             }
         } else {
-            //"touch server_config file"
+            //"touch server_config file" (fail fast)
             match fs::OpenOptions::new()
                 .create(true)
                 .truncate(false)
@@ -117,25 +103,27 @@ impl HtAccessCmd {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Add a new credential to the .htaccess file
+    /// Add a new credential to the .htaccess file.
     /// If the user name already exists it will update the password only.
     Add(AddArg),
-    /// Delete an existing credential from the .htaccess file
+    /// Change the password for an existing user.
+    Update(AddArg),
+    /// Delete an existing credential from the .htaccess file.
     Delete(DelArg),
-    /// List all users known in the .htaccess file
+    /// List all users known in the .htaccess file.
     List,
 }
 
 #[derive(Args)]
 struct AddArg {
-    /// Name of the user to be added
+    /// Name of the user to be added.
     #[arg(short = 'u')]
     user: String,
 }
 
 #[derive(Args)]
 struct DelArg {
-    /// Name of the user to be removed
+    /// Name of the user to be removed.
     #[arg(short = 'u')]
     user: String,
 }
@@ -143,7 +131,7 @@ struct DelArg {
 fn add(hta: &mut HtAccess, arg: &AddArg) -> Result<()> {
     if hta.users().contains(&arg.user.to_string()) {
         println!(
-            "Update the password for a user with name {}?",
+            "Give the password for a user with name {}?",
             arg.user.as_str()
         )
     } else {
@@ -159,6 +147,17 @@ fn add(hta: &mut HtAccess, arg: &AddArg) -> Result<()> {
 
     hta.to_file()?;
     Ok(())
+}
+
+fn update(hta: &mut HtAccess, arg: &AddArg) -> Result<()> {
+    if !hta.credentials.contains_key(arg.user.as_str()) {
+        println!(
+            "I can not find a user with name {}. Use add command?",
+            arg.user.as_str()
+        );
+        exit(0);
+    }
+    add(hta, arg)
 }
 
 fn delete(hta: &mut HtAccess, arg: &DelArg) -> Result<()> {
