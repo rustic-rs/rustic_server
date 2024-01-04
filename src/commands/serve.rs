@@ -1,4 +1,5 @@
 use clap::Parser;
+use rustic_server::commands::config::rustic_server_configuration;
 use rustic_server::config::server_config::ServerConfig;
 use rustic_server::{acl::Acl, auth::Auth, storage::LocalStorage, web, web::State, Opts};
 use std::path::PathBuf;

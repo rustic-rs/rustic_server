@@ -1,0 +1,20 @@
+[server]
+host_dns_name = "localhost"
+port = 2222
+protocol = "https"
+
+[repos]
+storage_path = "/data/backup/repo"
+
+[tls]
+key_path = "/data/key"
+cert_path = "/data/cert"
+
+[authorization]
+auth_path = "/data/backup/.htaccess"
+use_auth = true
+
+[accesscontrol]
+acl_path = "/data/backup/acl.toml"
+private_repo = true
+append_only = false
