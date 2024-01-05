@@ -17,8 +17,8 @@ anyhow = "1.0.75"
 async-trait = "0.1"
 axum = { version = "0.6.20", features = ["headers", "tracing", "multipart", "http2"] }
 axum-auth = "0.4.0"
-axum-macros = "0.3.8"
-axum-server = { version = "0.5.1", features = ["tls-rustls"] }
+axum-macros = "0.4.0"
+axum-server = { version = "0.6.0", features = ["tls-rustls"] }
 clap = { version = "4.4.2", features = ["derive"] }
 enum_dispatch = "0.3.12"
 futures-util = "0.3.28"
@@ -29,7 +29,7 @@ serde_derive = "1"
 thiserror = "1.0.48"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.8", features = ["io-util"] }
-toml = "0.5"
+toml = "0.8.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = "2"

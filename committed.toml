@@ -8,13 +8,13 @@ hard_line_length = 0
 line_length = 80
 style = "none"
 allowed_types = [
-    "fix",
-    "feat",
-    "chore",
-    "docs",
-    "style",
-    "refactor",
-    "perf",
-    "test",
+  "fix",
+  "feat",
+  "chore",
+  "docs",
+  "style",
+  "refactor",
+  "perf",
+  "test",
 ]
 merge_commit = true
