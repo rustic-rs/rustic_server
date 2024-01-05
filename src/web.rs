@@ -9,8 +9,8 @@
 // acl     - for access control
 
 use axum::{
-    body::{Body, StreamBody},
-    extract::{BodyStream, Path as PathExtract, Query, State},
+    body::Body,
+    extract::{Path as PathExtract, Query, State},
     http::{header, Request, StatusCode},
     response::{AppendHeaders, IntoResponse},
     routing::{get, head, post},
@@ -94,9 +94,8 @@ fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse> {
 }
 
 fn check_auth_and_acl(
-    state: &AppState,
+    state: Arc<AppState>,
     path: &StdPath,
-    tpe: &str,
     append: AccessType,
 ) -> Result<impl IntoResponse> {
     // don't allow paths that includes any of the defined types
@@ -116,8 +115,11 @@ fn check_auth_and_acl(
     let Some(path) = path.to_str() else {
         return Err(ErrorKind::NonUnicodePath(path.display().to_string()).into());
     };
-    let allowed = state.acl().allowed(user, path, tpe, append);
-    tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
+    let allowed = state.acl().allowed(user, path, state.tpe(), append);
+    tracing::debug!(
+        "[auth] user: {user}, path: {path}, tpe: {:#?}, allowed: {allowed}",
+        state.tpe()
+    );
 
     match allowed {
         true => Ok(StatusCode::OK),
@@ -142,7 +144,7 @@ async fn create_dirs(
 
     tracing::debug!("[create_dirs] path: {path:?}");
 
-    check_auth_and_acl(&state, path, "", AccessType::Append)?;
+    check_auth_and_acl(state.clone(), path, AccessType::Append)?;
     let c: Create = params;
     match c.create {
         true => {
@@ -179,7 +181,7 @@ async fn list_files(
 
     tracing::debug!("[list_files] path: {path:?}, tpe: {tpe}");
 
-    check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
+    check_auth_and_acl(state.clone(), path, AccessType::Read)?;
 
     let read_dir = state.storage().read_dir(path, tpe);
 
@@ -232,7 +234,7 @@ async fn length(
     let path = StdPath::new(&path);
 
     check_name(tpe, name.as_str())?;
-    check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
+    check_auth_and_acl(state.clone(), path, AccessType::Read)?;
 
     let _file = state.storage().filename(path, tpe, name.as_str());
     Err(ErrorKind::NotImplemented.into())
@@ -253,7 +255,7 @@ async fn get_file(
 
     check_name(tpe, name.as_str())?;
     let path = StdPath::new(path);
-    check_auth_and_acl(&state, path, tpe, AccessType::Read)?;
+    check_auth_and_acl(state.clone(), path, AccessType::Read)?;
 
     let Ok(mut file) = state.storage().open_file(path, tpe, name.as_str()).await else {
         return Err(ErrorKind::FileNotFound(path.display().to_string()).into());
@@ -299,7 +301,8 @@ async fn get_file(
             Err(_) => return Err(ErrorKind::ConversionToU64Failed.into()),
         },
     );
-    let body = StreamBody::new(stream);
+
+    let body = Body::from_stream(stream);
 
     let headers = AppendHeaders([(header::CONTENT_TYPE, "application/octet-stream")]);
     Ok((status, headers, body))
@@ -307,11 +310,11 @@ async fn get_file(
 
 async fn save_body(
     mut file: impl AsyncWrite + Unpin + Finalizer,
-    stream: &mut BodyStream,
+    stream: &mut Body,
 ) -> Result<impl IntoResponse> {
-    // TODO!: Bodystream?
     let mut bytes_written_overall = 0_u64;
-    while let Some(chunk) = stream.next().await {
+
+    while let Some(chunk) = stream.into_data_stream().next().await {
         let Ok(chunk) = chunk else {
             return Err(ErrorKind::ReadingFromStreamFailed.into());
         };
@@ -344,7 +347,7 @@ async fn get_save_file(
         return Err(ErrorKind::FilenameNotAllowed(name).into());
     };
 
-    let Ok(_) = check_auth_and_acl(&state, path, tpe, AccessType::Append) else {
+    let Ok(_) = check_auth_and_acl(state.clone(), path, AccessType::Append) else {
         return Err(ErrorKind::PathNotAllowed(path.display().to_string()).into());
     };
 
@@ -368,7 +371,7 @@ async fn delete_file(
         return Err(ErrorKind::FilenameNotAllowed(name).into());
     };
 
-    let Ok(_) = check_auth_and_acl(&state, path, tpe, AccessType::Modify) else {
+    let Ok(_) = check_auth_and_acl(state.clone(), path, AccessType::Modify) else {
         return Err(ErrorKind::PathNotAllowed(path.display().to_string()).into());
     };
 
@@ -428,7 +431,7 @@ pub async fn main(
                     let PathExtract(name): PathExtract<String>;
                     let file = get_save_file(None, shared_state, name).await?;
 
-                    let mut async_body: BodyStream;
+                    let mut async_body: Body;
                     save_body(file, &mut async_body).await
                 })
                 .delete(delete_file),
@@ -450,7 +453,7 @@ pub async fn main(
                     let PathExtract(path): PathExtract<String>;
                     let file = get_save_file(Some(path), shared_state, name).await?;
 
-                    let mut async_body: BodyStream;
+                    let mut async_body: Body;
                     save_body(file, &mut async_body).await
                 })
                 .delete(delete_file),
@@ -465,7 +468,7 @@ pub async fn main(
                 shared_state.set_tpe(CONFIG_TYPE.to_string());
                 let file = get_save_file(None, shared_state, CONFIG_NAME.to_string()).await?;
 
-                let mut async_body: BodyStream;
+                let mut async_body: Body;
                 save_body(file, &mut async_body).await
             })
             .delete(delete_file),
@@ -480,7 +483,7 @@ pub async fn main(
                 shared_state.set_tpe(CONFIG_TYPE.to_string());
                 let file = get_save_file(Some(path), shared_state, CONFIG_NAME.to_string()).await?;
 
-                let mut async_body: BodyStream;
+                let mut async_body: Body;
                 save_body(file, &mut async_body).await
             })
             .delete(delete_file),
@@ -508,13 +511,10 @@ pub async fn main(
     tracing::debug!("listening on {}", addr);
     match config {
         Some(config) => axum_server::bind_rustls(addr, config)
-            .serve(app.into_make_service())
+            .serve(app)
             .await
             .unwrap(),
-        None => axum_server::bind(addr)
-            .serve(app.into_make_service())
-            .await
-            .unwrap(),
+        None => axum_server::bind(addr).serve(app).await.unwrap(),
     }
 
     Ok(())
