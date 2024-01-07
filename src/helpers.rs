@@ -6,13 +6,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::AsyncWrite;
-
-// used by IteratorAdapter
 use serde::{Serialize, Serializer};
 use std::cell::RefCell;
-
-// helper struct to make iterators serializable
-pub struct IteratorAdapter<I>(RefCell<I>);
 
 // helper struct which is like a async_std|tokio::fs::File but removes the file
 // if finalize() was not called.
@@ -74,6 +69,10 @@ impl Drop for WriteOrDeleteFile {
         }
     }
 }
+
+
+// helper struct to make iterators serializable
+pub struct IteratorAdapter<I>(RefCell<I>);
 
 impl<I> IteratorAdapter<I> {
     pub fn new(iterator: I) -> Self {

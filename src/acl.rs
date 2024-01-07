@@ -1,9 +1,27 @@
+use once_cell::sync::OnceCell;
 use anyhow::Result;
 use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use serde_derive::Deserialize;
+use crate::error::ErrorKind;
+use crate::web::TPE_LOCKS;
 
+//Static storage of our credentials
+pub static ACL:OnceCell<Acl> = OnceCell::new();
+
+pub(crate) fn init_acl( state: Acl ) -> Result<(), ErrorKind> {
+    if ACL.get().is_none() {
+        match ACL.set(state) {
+            Ok(_) => {}
+            Err(_) => {
+                return Err(ErrorKind::InternalError("Can not create ACL struct".to_string()));
+            }
+        }
+    }
+    Ok(())
+}
 // Access Types
 #[derive(Debug, Clone, PartialEq, PartialOrd, serde_derive::Deserialize)]
 pub enum AccessType {
@@ -19,16 +37,27 @@ pub(crate) enum AclCheckerEnum {
     Acl(Acl),
 }
 
+impl AclCheckerEnum {
+    pub fn acl_from_file(
+        append_only: bool,
+        private_repo: bool,
+        file_path: Option<PathBuf>,
+    ) -> Result<Self> {
+        let acl = Acl::from_file(append_only, private_repo, file_path)?;
+        Ok(AclCheckerEnum::Acl(acl))
+    }
+}
+
 #[enum_dispatch(AclCheckerEnum)]
 pub trait AclChecker: Send + Sync + 'static {
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool;
 }
 
 // ACL for a repo
-type RepoAcl = HashMap<&'static str, AccessType>;
+type RepoAcl = HashMap<String, AccessType>;
 
 // Acl holds ACLs for all repos
-#[derive(Debug, Clone)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Acl {
     repos: HashMap<String, RepoAcl>,
     append_only: bool,
@@ -39,8 +68,8 @@ impl Default for Acl {
     fn default() -> Self {
         Self {
             repos: HashMap::new(),
-            append_only: false,
-            private_repo: false,
+            append_only: true,
+            private_repo: true,
         }
     }
 }
@@ -83,7 +112,7 @@ impl AclChecker for Acl {
     // allowed yields whether these access to {path,tpe, access} is allowed by user
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool {
         // Access to locks is always treated as Read
-        let access = if tpe == "locks" {
+        let access = if tpe == TPE_LOCKS {
             AccessType::Read
         } else {
             access
@@ -139,26 +168,22 @@ mod tests {
 
     #[test]
     fn repo_acl() {
-        let mut acl = Acl {
-            repos: HashMap::new(),
-            append_only: true,
-            private_repo: true,
-        };
+        let mut acl = Acl::default();
 
         let mut acl_all = HashMap::new();
-        acl_all.insert("bob", Modify);
-        acl_all.insert("sam", Append);
-        acl_all.insert("paul", Read);
-        acl.repos.insert("all".to_owned(), acl_all);
+        acl_all.insert("bob".to_string(), Modify);
+        acl_all.insert("sam".to_string(), Append);
+        acl_all.insert("paul".to_string(), Read);
+        acl.repos.insert("all".to_string(), acl_all);
 
         let mut acl_bob = HashMap::new();
-        acl_bob.insert("bob", Modify);
-        acl.repos.insert("bob".to_owned(), acl_bob);
+        acl_bob.insert("bob".to_string(), Modify);
+        acl.repos.insert("bob".to_string(), acl_bob);
 
         let mut acl_sam = HashMap::new();
-        acl_sam.insert("sam", Append);
-        acl_sam.insert("bob", Read);
-        acl.repos.insert("sam".to_owned(), acl_sam);
+        acl_sam.insert("sam".to_string(), Append);
+        acl_sam.insert("bob".to_string(), Read);
+        acl.repos.insert("sam".to_string(), acl_sam);
 
         // test ACLs for repo all
         assert!(acl.allowed("bob", "all", "keys", Modify));

@@ -1,30 +1,22 @@
 use clap::Parser;
 use std::path::PathBuf;
-use tracing_subscriber::filter::LevelFilter;
 
 pub mod acl;
 pub mod auth;
 pub mod error;
 pub mod helpers;
 pub mod log;
-pub mod state;
 pub mod storage;
 pub mod web;
 
-/// A REST server build in rust for use with rustic and restic
+/// A REST server build in rust for use with restic
 #[derive(Parser)]
 #[command(name = "rustic-server")]
 #[command(bin_name = "rustic-server")]
 pub struct Opts {
     /// listen address
-    #[arg(short, long, default_value = "localhost")]
-    pub host: String,
-    /// listen port https
-    #[arg(short, long, default_value_t = 8000)]
-    pub https_port: u16,
-    /// listen port http
-    #[arg(short, long, default_value_t = 8080)]
-    pub http_port: u16,
+    #[arg(short, long, default_value = "localhost:8000")]
+    pub listen: String,
     /// data directory
     #[arg(short, long, default_value = "/tmp/restic")]
     pub path: PathBuf,
@@ -45,11 +37,11 @@ pub struct Opts {
     pub tls: bool,
     /// TLS certificate path
     #[arg(long)]
-    pub cert: Option<PathBuf>,
+    pub cert: Option<String>,
     /// TLS key path
     #[arg(long)]
-    pub key: Option<PathBuf>,
+    pub key: Option<String>,
     /// logging level (Off/Error/Warn/Info/Debug/Trace)
     #[arg(long, default_value = "Info")]
-    pub log: LevelFilter,
+    pub log: String,
 }

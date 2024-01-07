@@ -5,6 +5,7 @@ pub type Result<T> = std::result::Result<T, ErrorKind>;
 
 #[derive(Debug)]
 pub enum ErrorKind {
+    InternalError(String),
     FilenameNotAllowed(String),
     PathNotAllowed(String),
     InvalidPath(String),
@@ -21,13 +22,21 @@ pub enum ErrorKind {
     WritingToFileFailed,
     FinalizingFileFailed,
     GettingFileHandleFailed,
-    RemovingFileFailed,
+    RemovingFileFailed(String),
     ReadingFromStreamFailed,
+    RemovingRepositoryFailed(String),
+    AuthenticationHeaderError,
+    UserAuthenticationError(String)
 }
 
 impl IntoResponse for ErrorKind {
     fn into_response(self) -> Response {
         match self {
+            ErrorKind::InternalError(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Internal server error: {}", err),
+            )
+                .into_response(),
             ErrorKind::FilenameNotAllowed(filename) => (
                 StatusCode::FORBIDDEN,
                 format!("filename {filename} not allowed"),
@@ -93,9 +102,9 @@ impl IntoResponse for ErrorKind {
                 "error getting file handle".to_string(),
             )
                 .into_response(),
-            ErrorKind::RemovingFileFailed => (
+            ErrorKind::RemovingFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "error removing file".to_string(),
+                format!("error removing file: {:?}", err),
             )
                 .into_response(),
             ErrorKind::GeneralRange => {
@@ -104,6 +113,21 @@ impl IntoResponse for ErrorKind {
             ErrorKind::ReadingFromStreamFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error reading from stream".to_string(),
+            )
+                .into_response(),
+            ErrorKind::RemovingRepositoryFailed(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("error removing repository folder: {:?}", err),
+            )
+                .into_response(),
+            ErrorKind::AuthenticationHeaderError => (
+                StatusCode::FORBIDDEN,
+                format!("Bad authentication header"),
+            )
+                .into_response(),
+            ErrorKind::UserAuthenticationError(err) => (
+                StatusCode::FORBIDDEN,
+                format!("Failed to authenticate user: {:?}", err),
             )
                 .into_response(),
         }

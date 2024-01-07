@@ -1,16 +1,42 @@
+use once_cell::sync::OnceCell;
+use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
-
 use crate::helpers::WriteOrDeleteFile;
 use enum_dispatch::enum_dispatch;
 use std::io::Result as IoResult;
+use std::sync::Arc;
 use tokio::fs::File;
 use walkdir::WalkDir;
+use crate::error::ErrorKind;
+
+//Static storage of our credentials
+pub static STORAGE:OnceCell<Arc<dyn Storage>> = OnceCell::new();
+
+pub(crate) fn init_storage( state: impl Storage ) -> Result<(), ErrorKind> {
+    if STORAGE.get().is_none() {
+        let storage = Arc::new(state);
+        match STORAGE.set(storage) {
+            Ok(_) => {}
+            Err(_) => {
+                return Err(ErrorKind::InternalError("can not create storage struct".to_string()))
+            }
+        }
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone)]
 #[enum_dispatch]
 pub(crate) enum StorageEnum {
     LocalStorage(LocalStorage),
+}
+
+impl StorageEnum {
+    pub fn try_new_local(path: &Path) -> IoResult<Self> {
+        let storage = LocalStorage::try_new(path)?;
+        Ok(StorageEnum::LocalStorage(storage))
+    }
 }
 
 #[async_trait::async_trait]
@@ -22,6 +48,7 @@ pub trait Storage: Send + Sync + 'static {
     async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<File>;
     async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<WriteOrDeleteFile>;
     fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<()>;
+    fn remove_repository(&self, path: &Path) -> IoResult<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +76,6 @@ impl LocalStorage {
         })
     }
 }
-
 #[async_trait::async_trait]
 impl Storage for LocalStorage {
     fn create_dir(&self, path: &Path, tpe: &str) -> IoResult<()> {
@@ -93,5 +119,9 @@ impl Storage for LocalStorage {
     fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<()> {
         let file_path = self.filename(path, tpe, name);
         fs::remove_file(file_path)
+    }
+
+    fn remove_repository(&self, path: &Path) -> IoResult<()> {
+        fs::remove_dir_all(path)
     }
 }

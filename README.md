@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://media.githubusercontent.com/media/rustic-rs/assets/main/logos/readme_header_server.png" height="400" />
+<img src="https://raw.githubusercontent.com/rustic-rs/assets/main/logos/readme_header_server.png" height="400" />
 </p>
 <p align="center"><b>REST server for rustic</b></p>
 
@@ -30,6 +30,12 @@ Most features are already implemented.
 | Discord       | [![Discord](https://dcbadge.vercel.app/api/server/WRUWENZnzQ)](https://discord.gg/WRUWENZnzQ) |
 | Discussions   | [GitHub Discussions](https://github.com/rustic-rs/rustic/discussions)                         |
 
+## Dependencies
+
+Is built using [tide](https://github.com/http-rs/tide),
+[tide-rustls](https://github.com/http-rs/tide-rustls) and
+[tide-http-auth](https://github.com/chrisdickinson/tide-http-auth).
+
 ## Are binaries available?
 
 Yes, you can find them [here](https://rustic.cli.rs/docs/nightly_builds.html).
@@ -51,6 +57,22 @@ admin = "Modify"
 alex = "Modify"
 bob = "Append"
 ```
+
+## Contributing
+
+Tried rustic-server and not satisfied? Don't just walk away! You can help:
+
+- You can report issues or suggest new features on our
+  [Discord server](https://discord.gg/WRUWENZnzQ) or using
+  [Github Issues](https://github.com/rustic-rs/rustic_server/issues/new/choose)!
+
+Do you know how to code or got an idea for an improvement? Don't keep it to
+yourself!
+
+- Contribute fixes or new features via a pull requests!
+
+Please make sure, that you read the
+[contribution guide](https://rustic.cli.rs/docs/contributing-to-rustic.html).
 
 # License
 

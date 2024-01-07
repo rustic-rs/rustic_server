@@ -1,12 +1,41 @@
+use once_cell::sync::OnceCell;
+use anyhow::Result;
 use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{fs, io};
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
+use axum_auth::{AuthBasic};
+use crate::error::ErrorKind;
+use serde_derive::{Deserialize};
+
+//Static storage of our credentials
+pub static AUTH:OnceCell<Auth> = OnceCell::new();
+
+pub(crate) fn init_auth( state: Auth ) -> Result<(), ErrorKind> {
+    if AUTH.get().is_none() {
+        match AUTH.set(state) {
+            Ok(_) => {}
+            Err(_) => {
+                return Err(ErrorKind::InternalError("Can not create AUTH struct".to_string()));
+            }
+        }
+    }
+    Ok(())
+}
 
 #[enum_dispatch]
 #[derive(Debug, Clone)]
 pub(crate) enum AuthCheckerEnum {
     Auth(Auth),
+}
+
+impl AuthCheckerEnum {
+    pub fn auth_from_file(no_auth: bool, path: &PathBuf) -> io::Result<Self> {
+        let auth = Auth::from_file(no_auth, path)?;
+        Ok(AuthCheckerEnum::Auth(auth))
+    }
 }
 
 #[enum_dispatch(AuthCheckerEnum)]
@@ -61,5 +90,221 @@ impl AuthChecker for Auth {
             }
             None => true,
         }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct AuthFromRequest {
+    pub(crate) user: String
+}
+
+#[async_trait::async_trait]
+impl<S:Send+Sync> FromRequestParts<S> for AuthFromRequest {
+    type Rejection = ErrorKind;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> std::result::Result<Self, ErrorKind> {
+        let auth_result = AuthBasic::from_request_parts(parts, state).await;
+        let checker = AUTH.get().unwrap();
+        return match auth_result {
+            Ok(auth) => {
+                let AuthBasic((user, passw)) = auth;
+                let password = match passw {
+                    None => { "".to_string() }
+                    Some(p) => { p }
+                };
+                if checker.verify(user.as_str(), password.as_str() ) {
+                    Ok( Self{user})
+                } else {
+                    Err(ErrorKind::UserAuthenticationError(user))
+                }
+            }
+            Err(_) => {
+                let user = "".to_string();
+                if checker.verify("", "") {
+                    return Ok(Self{user})
+                }
+                Err(ErrorKind::AuthenticationHeaderError.into())
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use std::env;
+    use std::path::PathBuf;
+    use axum::http::StatusCode;
+    use axum::Router;
+    use axum::routing::get;
+    use std::net::SocketAddr;
+    use tokio::net::TcpListener;
+    use crate::auth::Auth;
+    use super::*;
+
+    #[test]
+    fn test_htaccess_account() -> Result<()>{
+        let cwd = env::current_dir()?;
+        let htaccess = PathBuf::new()
+            .join(cwd)
+            .join("test_data" )
+            .join("htaccess" );
+        let auth = Auth::from_file(false, &htaccess )?;
+        assert!( auth.verify("test", "test_pw"));
+        assert!( ! auth.verify("test", "__test_pw"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_static_access() {
+        let cwd = env::current_dir().unwrap();
+        let htaccess = PathBuf::new()
+            .join(cwd)
+            .join("test_data" )
+            .join("htaccess" );
+
+        dbg!(&htaccess);
+
+        let auth = Auth::from_file(false, &htaccess ).unwrap();
+        init_auth(auth).unwrap();
+
+        let auth = AUTH.get().unwrap();
+        assert!( auth.verify("test", "test_pw"));
+        assert!( ! auth.verify("test", "__test_pw"));
+    }
+
+    /// Launches spin-off axum instance
+    async fn launcher() {
+        // Make routes
+        let app = Router::new()
+            .route("/basic", get(tester_basic))
+            .route("/rustic_server", get(tester_rustic_server));
+
+        // Launch
+        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+
+        axum::serve(
+            TcpListener::bind(addr).await.unwrap(),
+            app.into_make_service(),
+        )
+            .await
+            .unwrap();
+
+        async fn tester_basic(AuthBasic((id, password)): AuthBasic) -> String {
+            format!("Got {} and {:?}", id, password)
+        }
+
+        async fn tester_rustic_server( auth:AuthFromRequest ) -> String {
+            format!("User = {}", auth.user )
+        }
+    }
+
+    fn url(end: &str) -> String {
+        format!("http://127.0.0.1:3000{}", end)
+    }
+
+
+    #[tokio::test]
+    async fn server_auth_tester() {
+        let cwd = env::current_dir().unwrap();
+        let htaccess = PathBuf::new()
+            .join(cwd)
+            .join("test_data" )
+            .join("htaccess" );
+
+        dbg!(&htaccess);
+
+        let auth = Auth::from_file(false, &htaccess ).unwrap();
+        init_auth(auth).unwrap();
+
+        // Launch axum instance
+        tokio::task::spawn(launcher());
+
+        // Wait for boot
+        tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
+
+        // Tests
+        good().await;
+        wrong_authentication().await;
+        nothing().await;
+    }
+
+    /// The requests which should be returned fine
+    async fn good() {
+        // Try good basic
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(url("/basic"))
+            .basic_auth("My Username", Some("My Password"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), StatusCode::OK.as_u16());
+        assert_eq!(
+            resp.text().await.unwrap(),
+            String::from("Got My Username and Some(\"My Password\")")
+        );
+
+        // Try good rustic_server
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(url("/rustic_server"))
+            .basic_auth("test", Some("test_pw"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), StatusCode::OK.as_u16());
+        assert_eq!(
+            resp.text().await.unwrap(),
+            String::from("User = test")
+        );
+    }
+
+    async fn wrong_authentication() {
+        // Try bearer  authetication method in basic
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(url("/basic"))
+            .bearer_auth("123124nfienrign")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), StatusCode::BAD_REQUEST.as_u16());
+        assert_eq!(
+            resp.text().await.unwrap(),
+            String::from("`Authorization` header must be for basic authentication")
+        );
+
+        // Try wrong password rustic_server
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(url("/rustic_server"))
+            .basic_auth("test", Some("__test_pw"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), StatusCode::FORBIDDEN.as_u16());
+        assert_eq!(
+            resp.text().await.unwrap(),
+            String::from("Failed to authenticate user: \"test\"")
+        );
+    }
+
+    /// Sees if we can get nothing from basic or bearer successfully
+    async fn nothing() {
+        // Try basic
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(url("/basic"))
+            .basic_auth("", Some(""))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), StatusCode::OK.as_u16());
+        assert_eq!(
+            resp.text().await.unwrap(),
+            String::from("Got  and Some(\"\")")
+        );
     }
 }
