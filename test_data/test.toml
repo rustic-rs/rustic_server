@@ -1,0 +1,13 @@
+[global]
+log-level="Info"
+log-file="/home/rvisser/rustic.log"
+
+[repository]
+repository="rest:http://rvisser:hottentot@wired_brutus.mundomundo.eu:8000/rvisser"
+password="test_pw"
+
+[backup]
+
+[[backup.sources]]
+source = "/home/rvisser/Software/rustic_server/test_data"
+#git-ignore = true
