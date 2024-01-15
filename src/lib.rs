@@ -4,10 +4,15 @@ use std::path::PathBuf;
 pub mod acl;
 pub mod auth;
 pub mod error;
-pub mod helpers;
 pub mod log;
 pub mod storage;
 pub mod web;
+pub mod server_config;
+pub mod config;
+pub mod handlers;
+
+#[cfg(test)]
+pub mod test_server;
 
 /// A REST server build in rust for use with restic
 #[derive(Parser)]

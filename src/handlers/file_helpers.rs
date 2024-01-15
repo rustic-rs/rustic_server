@@ -1,4 +1,3 @@
-// used by WriteOrDeleteFile
 use std::fs;
 use std::io::Result as IoResult;
 use std::path::PathBuf;

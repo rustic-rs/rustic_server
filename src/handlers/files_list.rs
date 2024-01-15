@@ -13,11 +13,12 @@ use axum_extra::headers::HeaderMap;
 use crate::{
     acl::{AccessType},
     error::{Result},
-    helpers::{ IteratorAdapter},
+    handlers::file_helpers::IteratorAdapter
 };
+use crate::handlers::access_check::check_auth_and_acl;
 use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path};
 use crate::storage::{STORAGE};
-use crate::web::{API_V1, API_V2, check_auth_and_acl, DEFAULT_PATH};
+use crate::web::{API_V1, API_V2, DEFAULT_PATH};
 
 
 
@@ -39,7 +40,7 @@ async fn list_files(
 ) -> Result<impl IntoResponse> {
 
     let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let archive_path = decompose_path(path_string);
+    let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     assert_ne!( archive_path.path_type, ArchivePathEnum::CONFIG);
@@ -95,7 +96,7 @@ mod test {
     use http_body_util::BodyExt;
     use axum::{ middleware, Router};
     use axum::routing::get;
-    use crate::handlers::list_files::{list_files, RepoPathEntry};
+    use crate::handlers::files_list::{list_files, RepoPathEntry};
     use crate::test_server::{basic_auth, init_test_environment, print_request_response};
     use crate::web::{API_V1, API_V2};
     use axum::{

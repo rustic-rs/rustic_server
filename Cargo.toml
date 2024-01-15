@@ -32,16 +32,21 @@ axum-auth = "0.7.0"
 axum-extra = { version = "0.9.1", features = ["typed-header", "query", "async-read-body", "typed-routing"] }
 axum-macros = "0.4.0"
 axum-server = { version = "0.6.0", features = ["tls-rustls"] }
+axum-range = "0.4.0"
 clap = { version = "4.4.2", features = ["derive"] }
 enum_dispatch = "0.3.12"
-futures-util = "0.3.28"
+futures = "0.3"
+futures-util = "0.3"
 htpasswd-verify = "0.3"
 http-range = "0.1"
+http-body-util = "0.1.0"
+pin-project = "1.1"
+rand = "0.8.5"
 serde = { version = "1", default-features=false, features = ["derive"] }
 serde_derive = "1"
 thiserror = "1.0.48"
 tokio = { version = "1", features = ["full"] }
-tokio-util = { version = "0.7.8", features = ["io-util"] }
+tokio-util = { version = "0.7.8", features = ["io", "io-util"] }
 toml = "0.8.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -90,3 +95,7 @@ codegen-units = 1
 
 [dev-dependencies]
 reqwest = "0.11.18"
+#serial_test = "*"
+serde_json = "*"
+tower = "*"
+base64 = "0.21.2"

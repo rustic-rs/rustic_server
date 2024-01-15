@@ -2,13 +2,14 @@ use once_cell::sync::OnceCell;
 use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::helpers::WriteOrDeleteFile;
 use enum_dispatch::enum_dispatch;
 use std::io::Result as IoResult;
 use std::sync::Arc;
 use tokio::fs::File;
 use walkdir::WalkDir;
 use crate::error::ErrorKind;
+use crate::handlers::file_helpers::WriteOrDeleteFile;
+
 
 //Static storage of our credentials
 pub static STORAGE:OnceCell<Arc<dyn Storage>> = OnceCell::new();
@@ -122,6 +123,42 @@ impl Storage for LocalStorage {
     }
 
     fn remove_repository(&self, path: &Path) -> IoResult<()> {
-        fs::remove_dir_all(path)
+        tracing::debug!("Deleting repository: {}", self.path.join(path).to_string_lossy() );
+        fs::remove_dir_all(&self.path.join(path).join(path))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::env;
+    use std::path::PathBuf;
+    use crate::storage::{init_storage, LocalStorage, STORAGE};
+
+    #[test]
+    fn test_static_storage_access() {
+        let cwd = env::current_dir().unwrap();
+        let repo_path = PathBuf::new()
+            .join(cwd)
+            .join("test_data")
+            .join("test_repos");
+
+        let local_storage = LocalStorage::try_new(&repo_path).unwrap();
+        init_storage(local_storage).unwrap();
+
+        let storage = STORAGE.get().unwrap();
+
+        // path must not start with slash !! that will skip the self.path from Storage!
+        let path = PathBuf::new().join("test_repo/");
+        let c = storage.read_dir(&path, "keys" );
+        let mut found = false;
+        for a in c.into_iter() {
+            let file_name = a.file_name().to_string_lossy();
+            if file_name == "2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5" {
+                found = true;
+                break;
+            }
+        }
+
+        assert!(found);
     }
 }

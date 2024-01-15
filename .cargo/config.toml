@@ -1,0 +1,4 @@
+# See https://doc.rust-lang.org/cargo/reference/config.html
+[env]
+RUST_LOG="DEBUG"
+TEST_NOCAPTURE="1"

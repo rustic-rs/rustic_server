@@ -95,7 +95,8 @@ impl AuthChecker for Auth {
 
 #[derive(Deserialize)]
 pub struct AuthFromRequest {
-    pub(crate) user: String
+    pub(crate) user: String,
+    pub(crate) password: String,
 }
 
 #[async_trait::async_trait]
@@ -105,6 +106,7 @@ impl<S:Send+Sync> FromRequestParts<S> for AuthFromRequest {
     async fn from_request_parts(parts: &mut Parts, state: &S) -> std::result::Result<Self, ErrorKind> {
         let auth_result = AuthBasic::from_request_parts(parts, state).await;
         let checker = AUTH.get().unwrap();
+        tracing::debug!("Got authentication result ...:{:?}", &auth_result);
         return match auth_result {
             Ok(auth) => {
                 let AuthBasic((user, passw)) = auth;
@@ -113,7 +115,7 @@ impl<S:Send+Sync> FromRequestParts<S> for AuthFromRequest {
                     Some(p) => { p }
                 };
                 if checker.verify(user.as_str(), password.as_str() ) {
-                    Ok( Self{user})
+                    Ok( Self{user, password})
                 } else {
                     Err(ErrorKind::UserAuthenticationError(user))
                 }
@@ -121,9 +123,9 @@ impl<S:Send+Sync> FromRequestParts<S> for AuthFromRequest {
             Err(_) => {
                 let user = "".to_string();
                 if checker.verify("", "") {
-                    return Ok(Self{user})
+                    return Ok(Self{user, password:"".to_string()})
                 }
-                Err(ErrorKind::AuthenticationHeaderError.into())
+                Err(ErrorKind::AuthenticationHeaderError)
             }
         }
     }
@@ -140,6 +142,7 @@ mod test {
     use std::net::SocketAddr;
     use tokio::net::TcpListener;
     use crate::auth::Auth;
+    use crate::test_server::{init_mutex, TestServer, WAIT_DELAY, WEB};
     use super::*;
 
     #[test]
@@ -157,7 +160,7 @@ mod test {
     }
 
     #[test]
-    fn test_static_access() {
+    fn test_static_htaccess() {
         let cwd = env::current_dir().unwrap();
         let htaccess = PathBuf::new()
             .join(cwd)
@@ -174,60 +177,37 @@ mod test {
         assert!( ! auth.verify("test", "__test_pw"));
     }
 
-    /// Launches spin-off axum instance
-    async fn launcher() {
-        // Make routes
+
+    #[tokio::test]
+    async fn server_auth_tester() -> Result<()> {
+
+        init_mutex();
+        let _r = WEB.get().take().unwrap();
+
         let app = Router::new()
             .route("/basic", get(tester_basic))
             .route("/rustic_server", get(tester_rustic_server));
 
-        // Launch
-        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-
-        axum::serve(
-            TcpListener::bind(addr).await.unwrap(),
-            app.into_make_service(),
-        )
-            .await
-            .unwrap();
-
-        async fn tester_basic(AuthBasic((id, password)): AuthBasic) -> String {
-            format!("Got {} and {:?}", id, password)
-        }
-
-        async fn tester_rustic_server( auth:AuthFromRequest ) -> String {
-            format!("User = {}", auth.user )
-        }
-    }
-
-    fn url(end: &str) -> String {
-        format!("http://127.0.0.1:3000{}", end)
-    }
-
-
-    #[tokio::test]
-    async fn server_auth_tester() {
-        let cwd = env::current_dir().unwrap();
-        let htaccess = PathBuf::new()
-            .join(cwd)
-            .join("test_data" )
-            .join("htaccess" );
-
-        dbg!(&htaccess);
-
-        let auth = Auth::from_file(false, &htaccess ).unwrap();
-        init_auth(auth).unwrap();
-
-        // Launch axum instance
-        tokio::task::spawn(launcher());
-
-        // Wait for boot
-        tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
+        let mut server = TestServer::new(app);
+        server.launch().await;
 
         // Tests
         good().await;
         wrong_authentication().await;
         nothing().await;
+
+       server.stop_server().await;
+
+        Ok(())
+    }
+
+
+    async fn tester_basic(AuthBasic((id, password)): AuthBasic) -> String {
+        format!("Got {} and {:?}", id, password)
+    }
+
+    async fn tester_rustic_server( auth:AuthFromRequest ) -> String {
+        format!("User = {}", auth.user )
     }
 
     /// The requests which should be returned fine
@@ -235,7 +215,7 @@ mod test {
         // Try good basic
         let client = reqwest::Client::new();
         let resp = client
-            .get(url("/basic"))
+            .get(TestServer::url("/basic"))
             .basic_auth("My Username", Some("My Password"))
             .send()
             .await
@@ -249,7 +229,7 @@ mod test {
         // Try good rustic_server
         let client = reqwest::Client::new();
         let resp = client
-            .get(url("/rustic_server"))
+            .get(TestServer::url("/rustic_server"))
             .basic_auth("test", Some("test_pw"))
             .send()
             .await
@@ -265,7 +245,7 @@ mod test {
         // Try bearer  authetication method in basic
         let client = reqwest::Client::new();
         let resp = client
-            .get(url("/basic"))
+            .get(TestServer::url("/basic"))
             .bearer_auth("123124nfienrign")
             .send()
             .await
@@ -279,7 +259,7 @@ mod test {
         // Try wrong password rustic_server
         let client = reqwest::Client::new();
         let resp = client
-            .get(url("/rustic_server"))
+            .get(TestServer::url("/rustic_server"))
             .basic_auth("test", Some("__test_pw"))
             .send()
             .await
@@ -296,7 +276,7 @@ mod test {
         // Try basic
         let client = reqwest::Client::new();
         let resp = client
-            .get(url("/basic"))
+            .get(TestServer::url("/basic"))
             .basic_auth("", Some(""))
             .send()
             .await

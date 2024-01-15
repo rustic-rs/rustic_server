@@ -31,10 +31,10 @@ impl HtAccess {
                     }
                 })
         }
-        return Ok(HtAccess {
+        Ok(HtAccess {
             path: pth.clone(),
             credentials: c,
-        });
+        })
     }
 
     pub fn get(&self, name: &str) -> Option<&Credential> {
@@ -70,7 +70,7 @@ impl HtAccess {
             .open(&self.path)?;
 
         for (_n, c) in self.credentials.iter() {
-            file.write(c.to_line().as_bytes()).unwrap();
+            let _e = file.write(c.to_line().as_bytes()).unwrap();
         }
         Ok(())
     }
@@ -116,11 +116,11 @@ impl Credential {
 
     pub fn to_line(&self) -> String {
         if self.hash_val.is_some() {
-            return format!(
+            format!(
                 "{}:{}\n",
                 self.name.as_str(),
                 self.hash_val.as_ref().unwrap()
-            );
+            )
         } else {
             "".into()
         }
@@ -129,13 +129,13 @@ impl Credential {
 
 impl Display for Credential {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Struct: Credential\n")?;
-        write!(f, "\tUser: {}\n", self.name.as_str())?;
-        write!(f, "\tHash: {}\n", self.hash_val.as_ref().unwrap())?;
+        writeln!(f, "Struct: Credential")?;
+        writeln!(f, "\tUser: {}", self.name.as_str())?;
+        writeln!(f, "\tHash: {}", self.hash_val.as_ref().unwrap())?;
         if self.pw.is_none() {
-            write!(f, "\tPassword: None\n")?;
+            writeln!(f, "\tPassword: None")?;
         } else {
-            write!(f, "\tPassword: {}\n", &self.pw.as_ref().unwrap())?;
+            writeln!(f, "\tPassword: {}", &self.pw.as_ref().unwrap())?;
         }
         Ok(())
     }

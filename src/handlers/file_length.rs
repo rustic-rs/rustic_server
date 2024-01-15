@@ -4,16 +4,17 @@ use axum::{
     response::{IntoResponse},
 };
 use std::path::{Path};
-use axum_auth::AuthBasic;
 use axum_extra::headers::HeaderMap;
 use crate::{
     acl::{AccessType},
     error::{Result},
 };
+use crate::auth::AuthFromRequest;
 use crate::error::ErrorKind;
+use crate::handlers::access_check::check_auth_and_acl;
 use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path};
 use crate::storage::{STORAGE};
-use crate::web::{check_auth_and_acl, DEFAULT_PATH};
+use crate::web::{ DEFAULT_PATH};
 
 //==============================================================================
 // Length
@@ -21,12 +22,12 @@ use crate::web::{check_auth_and_acl, DEFAULT_PATH};
 //==============================================================================
 
 async fn file_length(
-    AuthBasic((user, _password)): AuthBasic,
+    auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
 ) -> Result<impl IntoResponse> {
 
     let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let archive_path = decompose_path(path_string);
+    let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
@@ -34,7 +35,7 @@ async fn file_length(
     tracing::debug!("[length] path: {p_str}, tpe: {tpe}, name: {name}");
 
     let path = Path::new(&p_str);
-    check_auth_and_acl(user, tpe.as_str(), path, AccessType::Read)?;
+    check_auth_and_acl( auth.user, tpe.as_str(), path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = storage.filename(path, &tpe, &name);
@@ -67,14 +68,13 @@ async fn file_length(
 mod test {
     use http_body_util::BodyExt;
     use axum::{ middleware, Router};
-    use axum::routing::{get, head};
+    use axum::routing::{head};
     use crate::test_server::{basic_auth, init_test_environment, print_request_response};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
     use axum::http::{header, Method};
-    use axum::http::header::{ACCEPT, CONTENT_TYPE};
     use tower::{ServiceExt};
     use crate::handlers::file_length::file_length; // for `call`, `oneshot`, and `ready`
 
@@ -82,7 +82,9 @@ mod test {
     async fn server_file_length_tester() {
         init_test_environment();
 
-        //OK
+        // ----------------------------------
+        // File exists
+        // ----------------------------------
         let app = Router::new()
             .route( "/*path",head(file_length) )
             .layer(middleware::from_fn(print_request_response));
@@ -107,13 +109,16 @@ mod test {
         let b = resp.into_body().collect().await.unwrap().to_bytes().to_vec();
         assert!(b.is_empty());
 
-        //NOT OK
+        // ----------------------------------
+        // File does NOT exist
+        // ----------------------------------
         let app = Router::new()
             .route( "/*path",head(file_length) )
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
-            .uri("/test_repo/keys/__I_do_not_exist")
+            .uri("/test_repo/keys/__I_do_not_exist__")
+            .method(Method::HEAD)
             .header("Authorization",  basic_auth("test", Some("test_pw")))
             .body(Body::empty()).unwrap();
 
@@ -122,7 +127,7 @@ mod test {
             .await
             .unwrap();
 
-        assert_eq!(resp.status() , StatusCode::from_u16(404).unwrap());
+        assert_eq!(resp.status() , StatusCode::NOT_FOUND);
 
         let b = resp.into_body().collect().await.unwrap().to_bytes().to_vec();
         assert!(b.is_empty());
