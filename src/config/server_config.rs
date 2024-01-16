@@ -72,7 +72,7 @@ mod test {
     use super::Server;
     use std::fs;
     use std::path::Path;
-    use crate::server_config::{AccessControl, Authorization, Repos, ServerConfig, TLS};
+    use crate::config::server_config::{AccessControl, Authorization, Repos, ServerConfig, TLS};
 
     #[test]
     fn test_file_read() {
