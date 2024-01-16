@@ -2,7 +2,6 @@ use once_cell::sync::OnceCell;
 use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
-use enum_dispatch::enum_dispatch;
 use std::io::Result as IoResult;
 use std::sync::Arc;
 use tokio::fs::File;
@@ -27,21 +26,21 @@ pub(crate) fn init_storage( state: impl Storage ) -> Result<(), ErrorKind> {
     Ok(())
 }
 
-#[derive(Debug, Clone)]
-#[enum_dispatch]
-pub(crate) enum StorageEnum {
-    LocalStorage(LocalStorage),
-}
-
-impl StorageEnum {
-    pub fn try_new_local(path: &Path) -> IoResult<Self> {
-        let storage = LocalStorage::try_new(path)?;
-        Ok(StorageEnum::LocalStorage(storage))
-    }
-}
+// #[derive(Debug, Clone)]
+// #[enum_dispatch]
+// pub(crate) enum StorageEnum {
+//     LocalStorage(LocalStorage),
+// }
+//
+// impl StorageEnum {
+//     pub fn try_new_local(path: &Path) -> IoResult<Self> {
+//         let storage = LocalStorage::try_new(path)?;
+//         Ok(StorageEnum::LocalStorage(storage))
+//     }
+// }
 
 #[async_trait::async_trait]
-#[enum_dispatch(StorageEnum)]
+//#[enum_dispatch(StorageEnum)]
 pub trait Storage: Send + Sync + 'static {
     fn create_dir(&self, path: &Path, tpe: &str) -> IoResult<()>;
     fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
@@ -124,7 +123,7 @@ impl Storage for LocalStorage {
 
     fn remove_repository(&self, path: &Path) -> IoResult<()> {
         tracing::debug!("Deleting repository: {}", self.path.join(path).to_string_lossy() );
-        fs::remove_dir_all(&self.path.join(path).join(path))
+        fs::remove_dir_all(self.path.join(path))
     }
 }
 
@@ -158,7 +157,6 @@ mod test {
                 break;
             }
         }
-
         assert!(found);
     }
 }

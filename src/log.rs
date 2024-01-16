@@ -2,6 +2,9 @@ use std::sync::{Mutex};
 use once_cell::sync::OnceCell;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+//FIXME: The MUTEX is only here for the test environment. --> move to test code
+// , and execute without mutex here
+
 //When starting a server we fetch the mutex to force serial testing
 pub(crate) static TRACER:OnceCell<Mutex<usize>> = OnceCell::new();
 pub(crate) fn init_mutex() {

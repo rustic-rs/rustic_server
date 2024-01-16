@@ -1,6 +1,5 @@
 use once_cell::sync::OnceCell;
 use anyhow::Result;
-use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{fs, io};
@@ -25,20 +24,20 @@ pub(crate) fn init_auth( state: Auth ) -> Result<(), ErrorKind> {
     Ok(())
 }
 
-#[enum_dispatch]
-#[derive(Debug, Clone)]
-pub(crate) enum AuthCheckerEnum {
-    Auth(Auth),
-}
+// #[enum_dispatch]
+// #[derive(Debug, Clone)]
+// pub(crate) enum AuthCheckerEnum {
+//     Auth(Auth),
+// }
+//
+// impl AuthCheckerEnum {
+//     pub fn auth_from_file(no_auth: bool, path: &PathBuf) -> io::Result<Self> {
+//         let auth = Auth::from_file(no_auth, path)?;
+//         Ok(AuthCheckerEnum::Auth(auth))
+//     }
+// }
 
-impl AuthCheckerEnum {
-    pub fn auth_from_file(no_auth: bool, path: &PathBuf) -> io::Result<Self> {
-        let auth = Auth::from_file(no_auth, path)?;
-        Ok(AuthCheckerEnum::Auth(auth))
-    }
-}
-
-#[enum_dispatch(AuthCheckerEnum)]
+//#[enum_dispatch(AuthCheckerEnum)]
 pub trait AuthChecker: Send + Sync + 'static {
     fn verify(&self, user: &str, passwd: &str) -> bool;
 }

@@ -1,3 +1,8 @@
+/// FIXME: Should we keep the server to allow a test to run in the test folder
+/// For example using rustic to fill a backup over this web server to localhost??
+
+
+
 use axum::{body::{Body, Bytes}, extract::Request, middleware::{Next}, response::{IntoResponse, Response}, routing::post, Router, ServiceExt};
 use std::env;
 use std::net::SocketAddr;

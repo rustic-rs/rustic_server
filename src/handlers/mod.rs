@@ -6,7 +6,7 @@ pub(crate) mod file_exchange;
 pub(crate) mod file_config;
 
 // Support modules
-mod path_analysis;
+pub(crate) mod path_analysis;
 pub(crate) mod file_helpers;
 mod access_check;
 //mod ranged_stream;

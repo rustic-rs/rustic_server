@@ -8,14 +8,13 @@ use crate::{
     acl::{AccessType},
     error::{Result},
 };
-use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path};
+use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path, DEFAULT_PATH, TYPES};
 use axum::extract::Query;
 use serde_derive::{Deserialize};
 use crate::auth::AuthFromRequest;
 use crate::error::ErrorKind;
 use crate::handlers::access_check::check_auth_and_acl;
 use crate::storage::STORAGE;
-use crate::web::{DEFAULT_PATH, TYPES};
 
 
 //==============================================================================
@@ -41,9 +40,10 @@ pub(crate) async fn create_repository(
     let tpe = archive_path.tpe;
     assert_eq!( &archive_path.path_type, &ArchivePathEnum::NONE);
     assert_eq!( &tpe, "");
-    tracing::debug!("[create_dirs] path: {p_str:?}");
+    tracing::debug!("[create_repository] repo_path: {p_str:?}");
 
     let path = Path::new(&p_str);
+    //FIXME: Is Append the right access leven, or should we require Modify?
     check_auth_and_acl( auth.user, &tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
@@ -86,10 +86,11 @@ pub(crate) async fn delete_repository(
     let tpe = archive_path.tpe;
     assert_eq!( archive_path.path_type, ArchivePathEnum::NONE);
     assert_eq!( &tpe, "");
-    tracing::debug!("[delete_repository] path: {p_str:?}");
+    tracing::debug!("[delete_repository] repo_path: {p_str:?}");
 
     let path = Path::new(&p_str);
-    check_auth_and_acl(auth.user, "", path, AccessType::Append)?;
+    //FIXME: We surely need modify access to delete right??
+    check_auth_and_acl(auth.user, "", path, AccessType::Modify)?;
 
     let storage = STORAGE.get().unwrap();
     if let Err(e) = storage.remove_repository(path) {

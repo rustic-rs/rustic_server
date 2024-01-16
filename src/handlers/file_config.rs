@@ -7,8 +7,7 @@ use axum::extract::Request;
 use axum::http::HeaderMap;
 use crate::auth::AuthFromRequest;
 use crate::handlers::file_exchange::{check_name, get_file, get_save_file, save_body};
-use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path};
-use crate::web::{DEFAULT_PATH, TPE_CONFIG};
+use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path, DEFAULT_PATH};
 use crate::{
     error::{Result},
 };
@@ -21,7 +20,7 @@ use crate::storage::STORAGE;
 // has_config
 // Interface: HEAD {path}/config
 //==============================================================================
-async fn has_config(
+pub(crate) async fn has_config(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
 ) -> Result<impl IntoResponse> {
@@ -89,7 +88,6 @@ pub(crate)  async fn add_config(
     let tpe = archive_path.tpe;
     let name = archive_path.name;
     assert_eq!( &archive_path.path_type, &ArchivePathEnum::CONFIG);
-    assert_eq!( &tpe, TPE_CONFIG);
     assert_eq!( &name, "config");
     tracing::debug!("[add_config] path: {p_str}, tpe: {tpe}, name: {name}");
 
@@ -108,7 +106,7 @@ pub(crate)  async fn add_config(
 //==============================================================================
 
 //#[debug_handler]
-async fn delete_config(
+pub(crate) async fn delete_config(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
 ) -> Result<impl IntoResponse>
@@ -119,7 +117,6 @@ async fn delete_config(
     let tpe = archive_path.tpe;
     let name = archive_path.name;
     assert_eq!( &archive_path.path_type, &ArchivePathEnum::CONFIG);
-    assert_eq!( &tpe, TPE_CONFIG);
     tracing::debug!("[delete_config] path: {p_str}, tpe: {tpe}, name: {name}");
 
     check_name(tpe.as_str(), &name)?;
@@ -216,7 +213,7 @@ mod test {
         }
 
         // Create a new repository
-        let repo_name_uri = [ &repo, "?create=true"].concat();
+        let repo_name_uri = [ "/", &repo, "?create=true"].concat();
         let app = Router::new()
             .route( "/*path",post(create_repository) )
             .layer(middleware::from_fn(print_request_response));
@@ -231,6 +228,7 @@ mod test {
             .oneshot(request)
             .await
             .unwrap();
+
         assert_eq!(resp.status(), StatusCode::OK );
 
 
@@ -238,7 +236,7 @@ mod test {
         // ADD CONFIG
         // -----------------------
         let test_vec = "Fancy Config Content".to_string();
-        let uri = [&repo,"/data/config" ].concat();
+        let uri = ["/",  &repo, "/index/config" ].concat();
         let body = Body::new( test_vec.clone() );
 
         let app = Router::new()
@@ -258,7 +256,7 @@ mod test {
             .unwrap();
 
         assert_eq!( resp.status(), StatusCode::OK );
-        let conf_pth = path.join("data").join("config");
+        let conf_pth = path.join("index").join("config");
         assert!( conf_pth.exists() );
         let conf_str = fs::read_to_string(conf_pth).unwrap();
         assert_eq!(&conf_str, &test_vec);

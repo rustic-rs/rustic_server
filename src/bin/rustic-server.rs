@@ -1,22 +1,21 @@
-use axum::extract::State;
+use std::net::SocketAddr;
+use std::str::FromStr;
 use clap::Parser;
 use anyhow::Result;
 use rustic_server::{acl::Acl, auth::Auth, storage::LocalStorage, web, Opts};
+use rustic_server::log::init_tracing;
 
-// #[async_std::main]
-// async fn main() -> tide::Result<()> {
-//     let opts = Opts::parse();
-//
-//     tide::log::with_level(opts.log);
-//
-//     let storage = LocalStorage::try_new(&opts.path)?;
-//     let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))?;
-//     let acl = Acl::from_file(opts.append_only, opts.private_repo, opts.acl)?;
-//
-//     web::main(acl, auth, storage, opts.listen, opts.tls, opts.cert, opts.key).await
-// }
+#[tokio::main]
+async fn main() -> Result<()> {
+    let opts = Opts::parse();
 
-fn main() -> Result<()> {
-    println!("main: implement me");
+    init_tracing();
+
+    let storage = LocalStorage::try_new(&opts.path)?;
+    let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))?;
+    let acl = Acl::from_file(opts.append_only, opts.private_repo, opts.acl)?;
+
+    let sa = SocketAddr::from_str(&opts.listen)?;
+    web::web_browser(acl, auth, storage, sa, opts.tls, opts.cert, opts.key).await.unwrap();
     Ok(())
 }

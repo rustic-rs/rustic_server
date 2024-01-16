@@ -8,19 +8,19 @@ use axum_macros::debug_handler;
 use serde_derive::{Serialize, Deserialize};
 use std::path::{Path};
 use axum::http::header::AUTHORIZATION;
-use axum_auth::AuthBasic;
 use axum_extra::headers::HeaderMap;
 use crate::{
     acl::{AccessType},
     error::{Result},
     handlers::file_helpers::IteratorAdapter
 };
+use crate::auth::AuthFromRequest;
 use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path};
+use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path, DEFAULT_PATH};
 use crate::storage::{STORAGE};
-use crate::web::{API_V1, API_V2, DEFAULT_PATH};
 
-
+pub(crate) const API_V1:&str = "application/vnd.x.restic.rest.v1";
+pub(crate) const API_V2:&str = "application/vnd.x.restic.rest.v2";
 
 //==============================================================================
 // List files
@@ -33,8 +33,8 @@ struct RepoPathEntry {
 }
 
 #[debug_handler]
-async fn list_files(
-    AuthBasic((user, _password)): AuthBasic,
+pub(crate) async fn list_files(
+    auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse> {
@@ -49,7 +49,7 @@ async fn list_files(
 
 
     let pth = Path::new(&p_str);
-    check_auth_and_acl(user, tpe.as_str(), pth, AccessType::Read)?;
+    check_auth_and_acl(auth.user, tpe.as_str(), pth, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let read_dir = storage.read_dir(pth, tpe.as_str());
@@ -96,9 +96,8 @@ mod test {
     use http_body_util::BodyExt;
     use axum::{ middleware, Router};
     use axum::routing::get;
-    use crate::handlers::files_list::{list_files, RepoPathEntry};
+    use crate::handlers::files_list::{API_V1, API_V2, list_files, RepoPathEntry};
     use crate::test_server::{basic_auth, init_test_environment, print_request_response};
-    use crate::web::{API_V1, API_V2};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -159,8 +158,20 @@ mod test {
         let body = std::str::from_utf8(&b).unwrap();
         let r : Vec<RepoPathEntry> = serde_json::from_str(body).unwrap();
         assert!(!r.is_empty());
-        let rr = r.first().unwrap();
-        assert_eq!( rr.name, "2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5");
-        assert_eq!(rr.size, 363);
+
+        let mut found = false;
+
+        for rpe in r {
+            if rpe.name == "2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5" {
+                assert_eq!(rpe.size, 363);
+                found = true;
+            }
+        }
+        assert!(found);
+
+        // We may have more files, this does not work...
+        // let rr = r.first().unwrap();
+        // assert_eq!( rr.name, "2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5");
+        // assert_eq!(rr.size, 363);
     }
 }

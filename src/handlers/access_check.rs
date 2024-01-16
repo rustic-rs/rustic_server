@@ -2,11 +2,11 @@ use crate::acl::{AccessType, ACL, AclChecker};
 use std::path::{Path};
 use axum::http::{StatusCode};
 use axum::response::IntoResponse;
-use crate::web::{TYPES};
 use crate::{
     error::{Result},
 };
 use crate::error::ErrorKind;
+use crate::handlers::path_analysis::TYPES;
 
 
 pub(crate) fn check_auth_and_acl(

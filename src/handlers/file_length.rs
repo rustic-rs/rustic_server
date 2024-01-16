@@ -12,16 +12,15 @@ use crate::{
 use crate::auth::AuthFromRequest;
 use crate::error::ErrorKind;
 use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path};
+use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path, DEFAULT_PATH};
 use crate::storage::{STORAGE};
-use crate::web::{ DEFAULT_PATH};
 
 //==============================================================================
 // Length
 // Interface: HEAD {path}/{type}/{name}
 //==============================================================================
 
-async fn file_length(
+pub(crate) async fn file_length(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
 ) -> Result<impl IntoResponse> {

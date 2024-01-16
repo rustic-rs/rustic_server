@@ -1,11 +1,22 @@
 use std::fmt::{Display, Formatter};
-use crate::handlers::path_analysis::ArchivePathEnum::{CONFIG, DATA, INDEX, KEYS, LOCKS, NONE, SNAPSHOTS};
-use crate::web::{TPE_CONFIG, TPE_DATA, TPE_INDEX, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TYPES};
 use crate::error::Result;
 use crate::error::ErrorKind;
 
+pub(crate) const DEFAULT_PATH: &str = "";
+
+// TPE_LOCKS is is defined, but outside this types[] array.
+// This allow us to loop over the types[] when generating "routes"
+pub(crate) const TPE_DATA:&str = "data";
+pub(crate) const TPE_KEYS:&str = "keys";
+pub(crate) const TPE_LOCKS:&str = "locks";
+pub(crate) const TPE_SNAPSHOTS:&str = "snapshots";
+pub(crate) const TPE_INDEX:&str = "index";
+pub(crate) const TPE_CONFIG: &str = "config";
+pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TPE_INDEX];
+
 #[derive(Debug, PartialEq)]
 pub(crate) enum ArchivePathEnum { DATA, KEYS, LOCKS, SNAPSHOTS, INDEX, CONFIG, NONE }
+
 pub(crate) struct ArchivePath{
     pub(crate) path_type: ArchivePathEnum,
     pub(crate) tpe: String,
@@ -36,7 +47,7 @@ pub(crate)  fn decompose_path(path:String) -> Result<ArchivePath> {
     tracing::debug!("[decompose_path] elem = {:?}", &elem);
 
     let mut ap = ArchivePath{
-        path_type: NONE,
+        path_type: ArchivePathEnum::NONE,
         tpe: "".to_string(),
         path: "".to_string(),
         name: "".to_string(),
@@ -50,7 +61,7 @@ pub(crate)  fn decompose_path(path:String) -> Result<ArchivePath> {
     // Analyse tail of the path to find name and type values
     let tmp= elem.pop().unwrap();
     let (tpe, name) = if tmp.eq( TPE_CONFIG ) {
-        ap.path_type = CONFIG;
+        ap.path_type = ArchivePathEnum::CONFIG;
         tracing::debug!("[decompose_path] ends with config");
         if length > 1 {
             let tpe = elem.pop().unwrap();
@@ -73,13 +84,13 @@ pub(crate)  fn decompose_path(path:String) -> Result<ArchivePath> {
             ap.path_type = get_path_type(&tpe);
             (tpe, tmp)                        // path = /:path/:tpe/:name
         } else {
-            ap.path_type = NONE;
+            ap.path_type = ArchivePathEnum::NONE;
             elem.push(tpe);
             elem.push(tmp);
             ("".to_string(), "".to_string())  // path = /:path --> with length (>1)
         }
     } else {
-        ap.path_type = NONE;
+        ap.path_type = ArchivePathEnum::NONE;
         elem.push(tmp);
         ("".to_string(), "".to_string())      // path = /:path --> with length (1)
     };
@@ -95,20 +106,19 @@ pub(crate)  fn decompose_path(path:String) -> Result<ArchivePath> {
 
 fn get_path_type(s:&str) -> ArchivePathEnum {
     match s {
-        TPE_CONFIG => {CONFIG},
-        TPE_DATA => { DATA  },
-        TPE_KEYS  => { KEYS },
-        TPE_LOCKS => { LOCKS },
-        TPE_SNAPSHOTS => { SNAPSHOTS },
-        TPE_INDEX => { INDEX },
-        _ => {NONE}
+        TPE_CONFIG => {ArchivePathEnum::CONFIG},
+        TPE_DATA => { ArchivePathEnum::DATA  },
+        TPE_KEYS  => { ArchivePathEnum::KEYS },
+        TPE_LOCKS => { ArchivePathEnum::LOCKS },
+        TPE_SNAPSHOTS => { ArchivePathEnum::SNAPSHOTS },
+        TPE_INDEX => { ArchivePathEnum::INDEX },
+        _ => {ArchivePathEnum::NONE}
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::handlers::path_analysis::decompose_path;
-    use crate::web::{TPE_CONFIG, TPE_DATA, TPE_LOCKS};
+    use crate::handlers::path_analysis::{decompose_path, TPE_DATA, TPE_LOCKS};
     use crate::error::Result;
     use crate::handlers::path_analysis::ArchivePathEnum::CONFIG;
     use crate::log::init_tracing;

@@ -4,7 +4,7 @@ use axum::{
     extract::{Request},
     http::StatusCode,
     response::{IntoResponse},
-    BoxError, Router,
+    BoxError,
 };
 use futures_util::pin_mut;
 use ::futures::{Stream, TryStreamExt};
@@ -18,9 +18,8 @@ use http_range::HttpRange;
 use tokio::io::{AsyncSeekExt, AsyncWrite};
 use tokio_util::io::{ReaderStream, StreamReader};
 use crate::error::ErrorKind;
-use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path};
+use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path, DEFAULT_PATH};
 use crate::storage::{STORAGE};
-use crate::web::{DEFAULT_PATH};
 use crate::{
     acl::{AccessType},
     error::{Result},
@@ -29,13 +28,10 @@ use crate::auth::AuthFromRequest;
 use crate::handlers::access_check::check_auth_and_acl;
 use crate::handlers::file_helpers::Finalizer;
 
-//==============================================================================
-// add_file
-// Interface: POST {path}/{type}/{name}
-// Background info: https://github.com/tokio-rs/axum/blob/main/examples/stream-to-file/src/main.rs
-// Future on ranges: https://www.rfc-editor.org/rfc/rfc9110.html#name-partial-put
-//==============================================================================
-
+/// add_file
+/// Interface: POST {path}/{type}/{name}
+/// Background info: https://github.com/tokio-rs/axum/blob/main/examples/stream-to-file/src/main.rs
+/// Future on ranges: https://www.rfc-editor.org/rfc/rfc9110.html#name-partial-put
 pub(crate) async fn add_file(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -62,11 +58,8 @@ pub(crate) async fn add_file(
     Ok(())
 }
 
-//==============================================================================
-// delete_file
-// Interface: DELETE {path}/{type}/{name}
-//==============================================================================
-
+/// delete_file
+/// Interface: DELETE {path}/{type}/{name}
 pub(crate) async fn delete_file(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -77,8 +70,6 @@ pub(crate) async fn delete_file(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_ne!( archive_path.path_type, ArchivePathEnum::CONFIG);
-    assert_ne!( &name, "");
     tracing::debug!("[delete_file] path: {p_str}, tpe: {tpe}, name: {name}");
 
     check_name(tpe.as_str(), name.as_str())?;
@@ -95,11 +86,8 @@ pub(crate) async fn delete_file(
     Ok(())
 }
 
-//==============================================================================
-// get_file
-// Interface: GET {path}/{type}/{name}
-//==============================================================================
-
+/// get_file
+/// Interface: GET {path}/{type}/{name}
 pub(crate) async fn get_file(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -111,8 +99,6 @@ pub(crate) async fn get_file(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_ne!( archive_path.path_type, ArchivePathEnum::CONFIG);
-    assert_ne!( &name, "");
     tracing::debug!("[get_file] path: {p_str}, tpe: {tpe}, name: {name}");
 
     check_name(tpe.as_str(), name.as_str())?;

@@ -1,12 +1,11 @@
 use once_cell::sync::OnceCell;
 use anyhow::Result;
-use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use serde_derive::Deserialize;
 use crate::error::ErrorKind;
-use crate::web::TPE_LOCKS;
+use crate::handlers::path_analysis::TPE_LOCKS;
 
 //Static storage of our credentials
 pub static ACL:OnceCell<Acl> = OnceCell::new();
@@ -31,24 +30,24 @@ pub enum AccessType {
     Modify,
 }
 
-#[derive(Debug, Clone)]
-#[enum_dispatch]
-pub(crate) enum AclCheckerEnum {
-    Acl(Acl),
-}
+// #[derive(Debug, Clone)]
+// #[enum_dispatch]
+// pub(crate) enum AclCheckerEnum {
+//     Acl(Acl),
+// }
+//
+// impl AclCheckerEnum {
+//     pub fn acl_from_file(
+//         append_only: bool,
+//         private_repo: bool,
+//         file_path: Option<PathBuf>,
+//     ) -> Result<Self> {
+//         let acl = Acl::from_file(append_only, private_repo, file_path)?;
+//         Ok(AclCheckerEnum::Acl(acl))
+//     }
+// }
 
-impl AclCheckerEnum {
-    pub fn acl_from_file(
-        append_only: bool,
-        private_repo: bool,
-        file_path: Option<PathBuf>,
-    ) -> Result<Self> {
-        let acl = Acl::from_file(append_only, private_repo, file_path)?;
-        Ok(AclCheckerEnum::Acl(acl))
-    }
-}
-
-#[enum_dispatch(AclCheckerEnum)]
+//#[enum_dispatch(AclCheckerEnum)]
 pub trait AclChecker: Send + Sync + 'static {
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool;
 }
@@ -153,8 +152,8 @@ mod tests {
         init_acl(auth).unwrap();
 
         let acl = ACL.get().unwrap();
-        assert!( acl.private_repo);
-        assert!( ! acl.append_only );
+        assert!( &acl.private_repo);
+        assert!( ! &acl.append_only );
         let access = acl.repos.get("test_repo").unwrap();
         let access_type = access.get("test").unwrap();
         assert_eq!( access_type, &Append );

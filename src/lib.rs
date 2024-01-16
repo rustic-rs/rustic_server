@@ -7,7 +7,6 @@ pub mod error;
 pub mod log;
 pub mod storage;
 pub mod web;
-pub mod server_config;
 pub mod config;
 pub mod handlers;
 
