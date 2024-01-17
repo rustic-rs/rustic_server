@@ -144,10 +144,10 @@ impl Display for Credential {
 #[cfg(test)]
 mod test {
     use crate::auth::{Auth, AuthChecker};
+    use crate::config::auth_file::HtAccess;
     use anyhow::Result;
     use std::fs;
     use std::path::Path;
-    use crate::config::auth_file::HtAccess;
 
     #[test]
     fn test_htaccess() -> Result<()> {

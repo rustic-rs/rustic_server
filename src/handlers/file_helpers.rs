@@ -1,3 +1,5 @@
+use serde::{Serialize, Serializer};
+use std::cell::RefCell;
 use std::fs;
 use std::io::Result as IoResult;
 use std::path::PathBuf;
@@ -5,8 +7,6 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::AsyncWrite;
-use serde::{Serialize, Serializer};
-use std::cell::RefCell;
 
 // helper struct which is like a async_std|tokio::fs::File but removes the file
 // if finalize() was not called.
@@ -68,7 +68,6 @@ impl Drop for WriteOrDeleteFile {
         }
     }
 }
-
 
 // helper struct to make iterators serializable
 pub struct IteratorAdapter<I>(RefCell<I>);

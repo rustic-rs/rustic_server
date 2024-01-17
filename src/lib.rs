@@ -3,12 +3,12 @@ use std::path::PathBuf;
 
 pub mod acl;
 pub mod auth;
+pub mod config;
 pub mod error;
+pub mod handlers;
 pub mod log;
 pub mod storage;
 pub mod web;
-pub mod config;
-pub mod handlers;
 
 #[cfg(test)]
 pub mod test_server;

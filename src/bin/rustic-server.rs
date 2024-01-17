@@ -1,9 +1,9 @@
+use anyhow::Result;
+use clap::Parser;
+use rustic_server::log::init_tracing;
+use rustic_server::{acl::Acl, auth::Auth, storage::LocalStorage, web, Opts};
 use std::net::SocketAddr;
 use std::str::FromStr;
-use clap::Parser;
-use anyhow::Result;
-use rustic_server::{acl::Acl, auth::Auth, storage::LocalStorage, web, Opts};
-use rustic_server::log::init_tracing;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -16,6 +16,8 @@ async fn main() -> Result<()> {
     let acl = Acl::from_file(opts.append_only, opts.private_repo, opts.acl)?;
 
     let sa = SocketAddr::from_str(&opts.listen)?;
-    web::web_browser(acl, auth, storage, sa, opts.tls, opts.cert, opts.key).await.unwrap();
+    web::web_browser(acl, auth, storage, sa, opts.tls, opts.cert, opts.key)
+        .await
+        .unwrap();
     Ok(())
 }

@@ -1,25 +1,26 @@
-use once_cell::sync::OnceCell;
+use crate::error::ErrorKind;
+use crate::handlers::file_helpers::WriteOrDeleteFile;
 use anyhow::Result;
+use once_cell::sync::OnceCell;
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::io::Result as IoResult;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::File;
 use walkdir::WalkDir;
-use crate::error::ErrorKind;
-use crate::handlers::file_helpers::WriteOrDeleteFile;
-
 
 //Static storage of our credentials
-pub static STORAGE:OnceCell<Arc<dyn Storage>> = OnceCell::new();
+pub static STORAGE: OnceCell<Arc<dyn Storage>> = OnceCell::new();
 
-pub(crate) fn init_storage( state: impl Storage ) -> Result<(), ErrorKind> {
+pub(crate) fn init_storage(state: impl Storage) -> Result<(), ErrorKind> {
     if STORAGE.get().is_none() {
         let storage = Arc::new(state);
         match STORAGE.set(storage) {
             Ok(_) => {}
             Err(_) => {
-                return Err(ErrorKind::InternalError("can not create storage struct".to_string()))
+                return Err(ErrorKind::InternalError(
+                    "can not create storage struct".to_string(),
+                ))
             }
         }
     }
@@ -122,16 +123,19 @@ impl Storage for LocalStorage {
     }
 
     fn remove_repository(&self, path: &Path) -> IoResult<()> {
-        tracing::debug!("Deleting repository: {}", self.path.join(path).to_string_lossy() );
+        tracing::debug!(
+            "Deleting repository: {}",
+            self.path.join(path).to_string_lossy()
+        );
         fs::remove_dir_all(self.path.join(path))
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::storage::{init_storage, LocalStorage, STORAGE};
     use std::env;
     use std::path::PathBuf;
-    use crate::storage::{init_storage, LocalStorage, STORAGE};
 
     #[test]
     fn test_static_storage_access() {
@@ -148,7 +152,7 @@ mod test {
 
         // path must not start with slash !! that will skip the self.path from Storage!
         let path = PathBuf::new().join("test_repo/");
-        let c = storage.read_dir(&path, "keys" );
+        let c = storage.read_dir(&path, "keys");
         let mut found = false;
         for a in c.into_iter() {
             let file_name = a.file_name().to_string_lossy();

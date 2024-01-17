@@ -1,17 +1,14 @@
-use crate::acl::{AccessType, ACL, AclChecker};
-use std::path::{Path};
-use axum::http::{StatusCode};
-use axum::response::IntoResponse;
-use crate::{
-    error::{Result},
-};
+use crate::acl::{AccessType, AclChecker, ACL};
 use crate::error::ErrorKind;
+use crate::error::Result;
 use crate::handlers::path_analysis::TYPES;
-
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use std::path::Path;
 
 pub(crate) fn check_auth_and_acl(
-    user:String,
-    tpe:&str,
+    user: String,
+    tpe: &str,
     path: &Path,
     append: AccessType,
 ) -> Result<impl IntoResponse> {
@@ -30,14 +27,11 @@ pub(crate) fn check_auth_and_acl(
     let acl = ACL.get().unwrap();
     let path = if let Some(path) = path.to_str() {
         path
-    }
-    else {
+    } else {
         return Err(ErrorKind::NonUnicodePath(path.display().to_string()));
     };
     let allowed = acl.allowed(user.as_str(), path, tpe, append);
-    tracing::debug!(
-        "[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}"
-    );
+    tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
 
     match allowed {
         true => Ok(StatusCode::OK),

@@ -1,32 +1,23 @@
-use axum::{
-    body::Bytes,
-    extract::{Path as PathExtract},
-    extract::{Request},
-    http::StatusCode,
-    response::{IntoResponse},
-    BoxError,
-};
-use futures_util::pin_mut;
-use ::futures::{Stream, TryStreamExt};
-use std::io;
-use std::io::SeekFrom::Start;
-use std::path::{Path, PathBuf};
-use axum::body::Body;
-use axum::http::{header, HeaderMap};
-use axum::response::AppendHeaders;
-use http_range::HttpRange;
-use tokio::io::{AsyncSeekExt, AsyncWrite};
-use tokio_util::io::{ReaderStream, StreamReader};
-use crate::error::ErrorKind;
-use crate::handlers::path_analysis::{ArchivePathEnum, decompose_path, DEFAULT_PATH};
-use crate::storage::{STORAGE};
-use crate::{
-    acl::{AccessType},
-    error::{Result},
-};
 use crate::auth::AuthFromRequest;
+use crate::error::ErrorKind;
 use crate::handlers::access_check::check_auth_and_acl;
 use crate::handlers::file_helpers::Finalizer;
+use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum, DEFAULT_PATH};
+use crate::storage::STORAGE;
+use crate::{acl::AccessType, error, error::Result};
+use ::futures::{Stream, TryStreamExt};
+use axum::{
+    body::Bytes, extract::Path as PathExtract, extract::Request, response::IntoResponse, BoxError,
+};
+use axum_extra::headers::Range;
+use axum_extra::TypedHeader;
+use axum_range::KnownSize;
+use axum_range::Ranged;
+use futures_util::pin_mut;
+use std::io;
+use std::path::{Path, PathBuf};
+use tokio::io::AsyncWrite;
+use tokio_util::io::StreamReader;
 
 /// add_file
 /// Interface: POST {path}/{type}/{name}
@@ -36,15 +27,14 @@ pub(crate) async fn add_file(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
     request: Request,
-)    -> Result<impl IntoResponse>
-{
+) -> Result<impl IntoResponse> {
     let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_ne!( archive_path.path_type, ArchivePathEnum::CONFIG);
-    assert_ne!( &name, "");
+    assert_ne!(archive_path.path_type, ArchivePathEnum::CONFIG);
+    assert_ne!(&name, "");
     tracing::debug!("[get_file] path: {p_str}, tpe: {tpe}, name: {name}");
 
     //credential & access check executed in get_save_file()
@@ -63,8 +53,7 @@ pub(crate) async fn add_file(
 pub(crate) async fn delete_file(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
-) -> Result<impl IntoResponse>
-{
+) -> Result<impl IntoResponse> {
     let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
@@ -76,7 +65,7 @@ pub(crate) async fn delete_file(
     let pth = Path::new(&p_str);
     check_auth_and_acl(auth.user, tpe.as_str(), pth, AccessType::Append)?;
 
-    let storage= STORAGE.get().unwrap();
+    let storage = STORAGE.get().unwrap();
     let pth = Path::new(&p_str);
 
     if let Err(e) = storage.remove_file(pth, tpe.as_str(), name.as_str()) {
@@ -91,9 +80,8 @@ pub(crate) async fn delete_file(
 pub(crate) async fn get_file(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
-    headers: HeaderMap,
-)  -> Result<impl IntoResponse>
-{
+    range: Option<TypedHeader<Range>>,
+) -> error::Result<impl IntoResponse> {
     let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
@@ -107,55 +95,59 @@ pub(crate) async fn get_file(
     check_auth_and_acl(auth.user, tpe.as_str(), pth, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let mut file = match storage.open_file(&pth, &tpe, &name).await {
-        Ok(file) => {file}
+    let file = match storage.open_file(&pth, &tpe, &name).await {
+        Ok(file) => file,
         Err(_) => {
             return Err(ErrorKind::FileNotFound(p_str));
         }
     };
 
-    let mut len = match file.metadata().await {
-        Ok(val) => val.len(),
-        Err(_) => {
-            return Err(ErrorKind::GettingFileMetadataFailed);
-        }
-    };
+    let body = KnownSize::file(file).await.unwrap();
+    let range = range.map(|TypedHeader(range)| range);
+    Ok(Ranged::new(range, body).into_response())
 
-    let mut status = StatusCode::OK;
-    if let Some(header_value) = headers.get(header::RANGE) {
-        let header_value = match header_value.to_str() {
-            Ok(val) => val,
-            Err(_) => return Err(ErrorKind::RangeNotValid)
-        };
-        match HttpRange::parse(header_value, len, ) {
-            Ok(range) if range.len() == 1 => {
-                tracing::debug!("[get_file] range: {:?}", &range[0]);
-                if file.seek(Start(range[0].start)).await.is_err() {
-                    return Err(ErrorKind::SeekingFileFailed);
-                };
-                len = range[0].length;
-                status = StatusCode::PARTIAL_CONTENT;
-            }
-            Ok(_) => return Err(ErrorKind::MultipartRangeNotImplemented),
-            Err(_) => return Err(ErrorKind::GeneralRange),
-        }
-    };
-
-    tracing::debug!("[get_file] length: {:?}", &len);
-
-    // From: https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
-    let stream = ReaderStream::with_capacity(
-        file,
-        match len.try_into() {
-            Ok(val) => val,
-            Err(_) => return Err(ErrorKind::ConversionToU64Failed),
-        },
-    );
-
-    let body = Body::from_stream(stream);
-
-    let headers = AppendHeaders([(header::CONTENT_TYPE, "application/octet-stream")]);
-    Ok((status, headers, body))
+    // let mut len = match file.metadata().await {
+    //     Ok(val) => val.len(),
+    //     Err(_) => {
+    //         return Err(ErrorKind::GettingFileMetadataFailed);
+    //     }
+    // };
+    //
+    // let mut status = StatusCode::OK;
+    // if let Some(header_value) = headers.get(header::RANGE) {
+    //     let header_value = match header_value.to_str() {
+    //         Ok(val) => val,
+    //         Err(_) => return Err(ErrorKind::RangeNotValid)
+    //     };
+    //     match HttpRange::parse(header_value, len, ) {
+    //         Ok(range) if range.len() == 1 => {
+    //             tracing::debug!("[get_file] range: {:?}", &range[0]);
+    //             if file.seek(Start(range[0].start)).await.is_err() {
+    //                 return Err(ErrorKind::SeekingFileFailed);
+    //             };
+    //             len = range[0].length;
+    //             status = StatusCode::PARTIAL_CONTENT;
+    //         }
+    //         Ok(_) => return Err(ErrorKind::MultipartRangeNotImplemented),
+    //         Err(_) => return Err(ErrorKind::GeneralRange),
+    //     }
+    // };
+    //
+    // tracing::debug!("[get_file] length: {:?}", &len);
+    //
+    // // From: https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
+    // let stream = ReaderStream::with_capacity(
+    //     file,
+    //     match len.try_into() {
+    //         Ok(val) => val,
+    //         Err(_) => return Err(ErrorKind::ConversionToU64Failed),
+    //     },
+    // );
+    //
+    // let body = Body::from_stream(stream);
+    //
+    // let headers = AppendHeaders([(header::CONTENT_TYPE, "application/octet-stream")]);
+    // Ok((status, headers, body))
 }
 
 //==============================================================================
@@ -164,9 +156,12 @@ pub(crate) async fn get_file(
 //==============================================================================
 
 /// Returns a stream for the given path in the repository.
-pub(crate) async fn get_save_file(user:String, path: PathBuf, tpe: &str, name: String, )
-                       -> Result<impl AsyncWrite + Unpin + Finalizer>
-{
+pub(crate) async fn get_save_file(
+    user: String,
+    path: PathBuf,
+    tpe: &str,
+    name: String,
+) -> Result<impl AsyncWrite + Unpin + Finalizer> {
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
     if check_name(tpe, name.as_str()).is_err() {
@@ -178,7 +173,7 @@ pub(crate) async fn get_save_file(user:String, path: PathBuf, tpe: &str, name: S
     }
 
     let storage = STORAGE.get().unwrap();
-    let file_writer = match storage.create_file(&path, tpe, &name).await{
+    let file_writer = match storage.create_file(&path, tpe, &name).await {
         Ok(w) => w,
         Err(_) => {
             return Err(ErrorKind::GettingFileHandleFailed);
@@ -189,20 +184,21 @@ pub(crate) async fn get_save_file(user:String, path: PathBuf, tpe: &str, name: S
 }
 
 /// saves the content in the HTML request body to a file stream.
-pub(crate) async fn save_body<S, E>(mut write_stream: impl AsyncWrite + Unpin + Finalizer, stream: S, )
-                         -> Result<impl IntoResponse>
-    where
-        S: Stream<Item = std::result::Result<Bytes, E>>,
-        E: Into<BoxError>,
+pub(crate) async fn save_body<S, E>(
+    mut write_stream: impl AsyncWrite + Unpin + Finalizer,
+    stream: S,
+) -> Result<impl IntoResponse>
+where
+    S: Stream<Item = std::result::Result<Bytes, E>>,
+    E: Into<BoxError>,
 {
     // Convert the stream into an `AsyncRead`.
-    let body_with_io_error = stream
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+    let body_with_io_error = stream.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
     let body_reader = StreamReader::new(body_with_io_error);
     pin_mut!(body_reader);
     let byte_count = match tokio::io::copy(&mut body_reader, &mut write_stream).await {
-        Ok(b) => {b},
-        Err(_) => return Err(ErrorKind::FinalizingFileFailed)
+        Ok(b) => b,
+        Err(_) => return Err(ErrorKind::FinalizingFileFailed),
     };
 
     tracing::debug!("[file written] bytes: {byte_count}");
@@ -214,7 +210,9 @@ pub(crate) async fn save_body<S, E>(mut write_stream: impl AsyncWrite + Unpin + 
 }
 
 #[cfg(test)]
-fn check_string_sha256(name: &str) -> bool {true}
+fn check_string_sha256(name: &str) -> bool {
+    true
+}
 
 #[cfg(not(test))]
 fn check_string_sha256(name: &str) -> bool {
@@ -240,19 +238,19 @@ pub(crate) fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse> {
 
 #[cfg(test)]
 mod test {
-    use std::{env, fs};
-    use std::path::PathBuf;
-    use http_body_util::{BodyExt};
-    use axum::{ middleware, Router};
-    use axum::routing::{put, get, delete};
+    use crate::handlers::file_exchange::{add_file, delete_file, get_file};
     use crate::test_server::{basic_auth, init_test_environment, print_request_response};
+    use axum::http::{header, Method};
+    use axum::routing::{delete, get, put};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
-    use axum::http::{header, Method};
-    use tower::{ServiceExt};
-    use crate::handlers::file_exchange::{add_file, delete_file, get_file};
+    use axum::{middleware, Router};
+    use http_body_util::BodyExt;
+    use std::path::PathBuf;
+    use std::{env, fs};
+    use tower::ServiceExt;
 
     #[tokio::test]
     async fn server_add_delete_file_tester() {
@@ -266,9 +264,9 @@ mod test {
             .join(cwd)
             .join("test_data")
             .join("test_repos")
-            .join( "test_repo")
-            .join( "keys" )
-            .join( file_name );
+            .join("test_repo")
+            .join("keys")
+            .join(file_name);
         if path.exists() {
             fs::remove_file(&path).unwrap();
             assert!(!path.exists());
@@ -278,50 +276,46 @@ mod test {
         // Write a complete file
         //----------------------------------------------
         let app = Router::new()
-            .route( "/*path",put(add_file) )
+            .route("/*path", put(add_file))
             .layer(middleware::from_fn(print_request_response));
 
         let test_vec = "Hello World".to_string();
-        let body = Body::new( test_vec.clone() );
+        let body = Body::new(test_vec.clone());
         let uri = ["/test_repo/keys/", file_name].concat();
         let request = Request::builder()
             .uri(uri)
             .method(Method::PUT)
-            .header("Authorization",  basic_auth("test", Some("test_pw")))
-            .body(body).unwrap();
-
-        let resp = app
-            .oneshot(request)
-            .await
+            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .body(body)
             .unwrap();
 
-        assert_eq!( resp.status(), StatusCode::OK );
-        assert!( path.exists() );
+        let resp = app.oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(path.exists());
 
         let body = fs::read_to_string(&path).unwrap();
-        assert_eq!( body, test_vec );
+        assert_eq!(body, test_vec);
 
         //----------------------------------------------
         // Delete a complete file
         //----------------------------------------------
         let app = Router::new()
-            .route( "/*path",delete(delete_file) )
+            .route("/*path", delete(delete_file))
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
         let request = Request::builder()
             .uri(uri)
             .method(Method::DELETE)
-            .header("Authorization",  basic_auth("test", Some("test_pw")))
-            .body(body).unwrap();
-
-        let resp = app
-            .oneshot(request)
-            .await
+            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .body(body)
             .unwrap();
 
-        assert_eq!( resp.status(), StatusCode::OK );
-        assert!( !path.exists() );
+        let resp = app.oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(!path.exists());
 
         // // Just to be sure ...
         // fs::remove_file(&path).unwrap();
@@ -332,68 +326,64 @@ mod test {
     async fn server_get_file_tester() {
         init_test_environment();
 
-        let file_name = "__add_file_test_adds_this_two__";
+        let file_name = "__get_file_test_adds_this_two__";
         //Start with a clean slate ...
         let cwd = env::current_dir().unwrap();
         let path = PathBuf::new()
             .join(cwd)
             .join("test_data")
             .join("test_repos")
-            .join( "test_repo")
-            .join( "keys" )
-            .join( file_name );
+            .join("test_repo")
+            .join("keys")
+            .join(file_name);
         if path.exists() {
+            tracing::debug!("[server_get_file_tester] test file found and removed");
             fs::remove_file(&path).unwrap();
             assert!(!path.exists());
         }
 
         // Start with creating the file before we can test
         let app = Router::new()
-            .route( "/*path",put(add_file) )
+            .route("/*path", put(add_file))
             .layer(middleware::from_fn(print_request_response));
 
         let test_vec = "Hello Sweet World".to_string();
-        let body = Body::new( test_vec.clone() );
+        let body = Body::new(test_vec.clone());
         let uri = ["/test_repo/keys/", file_name].concat();
         let request = Request::builder()
             .uri(uri)
             .method(Method::PUT)
-            .header("Authorization",  basic_auth("test", Some("test_pw")))
-            .body(body).unwrap();
-
-        let resp = app
-            .oneshot(request)
-            .await
+            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .body(body)
             .unwrap();
 
-        assert_eq!( resp.status(), StatusCode::OK );
-        assert!( path.exists() );
-        let body = fs::read_to_string(&path).unwrap();
-        assert_eq!( body, test_vec );
+        let resp = app.oneshot(request).await.unwrap();
 
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(path.exists());
+        let body = fs::read_to_string(&path).unwrap();
+        assert_eq!(body, test_vec);
 
         // Now we can start to test
         //----------------------------------------
         // Fetch the complete file
         //----------------------------------------
         let app = Router::new()
-            .route( "/*path",get(get_file) )
+            .route("/*path", get(get_file))
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
         let request = Request::builder()
             .uri(uri)
             .method(Method::GET)
-            .header("Authorization",  basic_auth("test", Some("test_pw")))
-            .body(body).unwrap();
-
-        let resp = app.clone()
-            .oneshot(request)
-            .await
+            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .body(body)
             .unwrap();
 
-        assert_eq!( resp.status(), StatusCode::OK );
-        let (_parts, body) = resp.into_parts() ;
+        let resp = app.clone().oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let (_parts, body) = resp.into_parts();
         let byte_vec = body.collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(byte_vec.to_vec()).unwrap();
         assert_eq!(body_str, test_vec);
@@ -401,31 +391,47 @@ mod test {
         //----------------------------------------
         // Read a partial file
         //----------------------------------------
+        //  let test_vec = "Hello Sweet World".to_string();
+
         let uri = ["/test_repo/keys/", file_name].concat();
         let request = Request::builder()
             .uri(uri)
             .method(Method::GET)
-            .header( header::RANGE, "bytes=6-7")
-            .header("Authorization",  basic_auth("test", Some("test_pw")))
-            .body(Body::empty()).unwrap();
-
-        let resp = app.clone()
-            .oneshot(request)
-            .await
+            .header(header::RANGE, "bytes=6-12")
+            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .body(Body::empty())
             .unwrap();
 
-        let test_vec = "Sweet W".to_string();  // bytes 6 - 13 from in the file
+        let resp = app.clone().oneshot(request).await.unwrap();
 
-        assert_eq!( resp.status(), StatusCode::PARTIAL_CONTENT );
-        let (_parts, body) = resp.into_parts() ;
+        let test_vec = "Sweet W".to_string(); // bytes 6 - 13 from in the file
+
+        assert_eq!(resp.status(), StatusCode::PARTIAL_CONTENT);
+        let (_parts, body) = resp.into_parts();
         let byte_vec = body.collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(byte_vec.to_vec()).unwrap();
         assert_eq!(body_str, test_vec);
 
-        // Cleaning up
-        fs::remove_file(&path).unwrap();
-        assert!( !path.exists() );
+        //----------------------------------------------
+        // Clean up -> Delete test file
+        //----------------------------------------------
+        // fs::remove_file(&path).unwrap();
+        // assert!( !path.exists() );
+        let app = Router::new()
+            .route("/*path", delete(delete_file))
+            .layer(middleware::from_fn(print_request_response));
 
+        let uri = ["/test_repo/keys/", file_name].concat();
+        let request = Request::builder()
+            .uri(uri)
+            .method(Method::DELETE)
+            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .body(Body::empty())
+            .unwrap();
 
+        let resp = app.oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(!path.exists());
     }
 }

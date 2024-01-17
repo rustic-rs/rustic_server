@@ -1,4 +1,3 @@
-use std::fmt::{Formatter};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 
@@ -28,7 +27,7 @@ pub enum ErrorKind {
     ReadingFromStreamFailed,
     RemovingRepositoryFailed(String),
     AuthenticationHeaderError,
-    UserAuthenticationError(String)
+    UserAuthenticationError(String),
 }
 
 impl IntoResponse for ErrorKind {
@@ -127,11 +126,9 @@ impl IntoResponse for ErrorKind {
                 format!("error removing repository folder: {:?}", err),
             )
                 .into_response(),
-            ErrorKind::AuthenticationHeaderError => (
-                StatusCode::FORBIDDEN,
-                format!("Bad authentication header"),
-            )
-                .into_response(),
+            ErrorKind::AuthenticationHeaderError => {
+                (StatusCode::FORBIDDEN, format!("Bad authentication header")).into_response()
+            }
             ErrorKind::UserAuthenticationError(err) => (
                 StatusCode::FORBIDDEN,
                 format!("Failed to authenticate user: {:?}", err),
@@ -140,79 +137,3 @@ impl IntoResponse for ErrorKind {
         }
     }
 }
-
-// impl Display for ErrorKind {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             ErrorKind::InternalError(e) => {
-//                 write!(f, "Error( code=InternalError, Message={e}")
-//             }
-//             ErrorKind::BadRequest(e) => {
-//                 write!(f, "Error( code=BadRequest, Message={e}")
-//             }
-//             ErrorKind::FilenameNotAllowed(e) => {
-//                 write!(f, "Error( code=FilenameNotAllowed, Message={e}")
-//             }
-//             ErrorKind::PathNotAllowed(e) => {
-//                 write!(f, "Error( code=PathNotAllowed, Message={e}")
-//             }
-//             ErrorKind::InvalidPath(e) => {
-//                 write!(f, "Error( code=InvalidPath, Message={e}")
-//             }
-//             ErrorKind::NonUnicodePath(e) => {
-//                 write!(f, "Error( code=InternalError, Message={e}")
-//             }
-//             ErrorKind::CreatingDirectoryFailed(e) => {
-//                 write!(f, "Error( code=InternalError, Message={e}")
-//             }
-//             ErrorKind::NotImplemented => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::FileNotFound(e) => {
-//                 write!(f, "Error( code=InternalError, Message={e}")
-//             }
-//             ErrorKind::GettingFileMetadataFailed => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::RangeNotValid => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::SeekingFileFailed => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::MultipartRangeNotImplemented => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::GeneralRange => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::ConversionToU64Failed => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::WritingToFileFailed => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::FinalizingFileFailed => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::GettingFileHandleFailed => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::RemovingFileFailed(e) => {
-//                 write!(f, "Error( code=InternalError, Message={e}")
-//             }
-//             ErrorKind::ReadingFromStreamFailed => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::RemovingRepositoryFailed(e) => {
-//                 write!(f, "Error( code=InternalError, Message={e}")
-//             }
-//             ErrorKind::AuthenticationHeaderError => {
-//                 write!(f, "Error( code=InternalError")
-//             }
-//             ErrorKind::UserAuthenticationError(e) => {
-//                 write!(f, "Error( code=InternalError, Message={e}")
-//             }
-//         }
-//     }
-// }

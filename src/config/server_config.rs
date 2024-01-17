@@ -70,15 +70,15 @@ impl ServerConfig {
 #[cfg(test)]
 mod test {
     use super::Server;
+    use crate::config::server_config::{AccessControl, Authorization, Repos, ServerConfig, TLS};
     use std::fs;
     use std::path::Path;
-    use crate::config::server_config::{AccessControl, Authorization, Repos, ServerConfig, TLS};
 
     #[test]
     fn test_file_read() {
         let config_path = Path::new("test_data").join("rustic_server.toml");
         let config = ServerConfig::from_file(&config_path);
-        assert!( config.is_ok());
+        assert!(config.is_ok());
 
         let config = config.unwrap();
         assert_eq!(config.server.host_dns_name, "127.0.0.1");

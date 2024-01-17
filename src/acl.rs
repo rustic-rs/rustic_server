@@ -1,21 +1,23 @@
-use once_cell::sync::OnceCell;
+use crate::error::ErrorKind;
+use crate::handlers::path_analysis::TPE_LOCKS;
 use anyhow::Result;
+use once_cell::sync::OnceCell;
+use serde_derive::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use serde_derive::Deserialize;
-use crate::error::ErrorKind;
-use crate::handlers::path_analysis::TPE_LOCKS;
 
 //Static storage of our credentials
-pub static ACL:OnceCell<Acl> = OnceCell::new();
+pub static ACL: OnceCell<Acl> = OnceCell::new();
 
-pub fn init_acl( state: Acl ) -> Result<(), ErrorKind> {
+pub fn init_acl(state: Acl) -> Result<(), ErrorKind> {
     if ACL.get().is_none() {
         match ACL.set(state) {
             Ok(_) => {}
             Err(_) => {
-                return Err(ErrorKind::InternalError("Can not create ACL struct".to_string()));
+                return Err(ErrorKind::InternalError(
+                    "Can not create ACL struct".to_string(),
+                ));
             }
         }
     }
@@ -134,31 +136,27 @@ impl AclChecker for Acl {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use super::AccessType::*;
     use super::*;
+    use std::env;
 
     #[test]
     fn test_static_acl_access() {
         let cwd = env::current_dir().unwrap();
-        let acl = PathBuf::new()
-            .join(cwd)
-            .join("test_data" )
-            .join("acl.toml" );
+        let acl = PathBuf::new().join(cwd).join("test_data").join("acl.toml");
 
         dbg!(&acl);
 
-        let auth = Acl::from_file(false, true, Some(acl) ).unwrap();
+        let auth = Acl::from_file(false, true, Some(acl)).unwrap();
         init_acl(auth).unwrap();
 
         let acl = ACL.get().unwrap();
-        assert!( &acl.private_repo);
-        assert!( ! &acl.append_only );
+        assert!(&acl.private_repo);
+        assert!(!&acl.append_only);
         let access = acl.repos.get("test_repo").unwrap();
         let access_type = access.get("test").unwrap();
-        assert_eq!( access_type, &Append );
+        assert_eq!(access_type, &Append);
     }
-
 
     #[test]
     fn allowed_flags() {
