@@ -11,7 +11,6 @@ use axum::{
     Json,
 };
 use axum_extra::headers::HeaderMap;
-use axum_macros::debug_handler;
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -26,7 +25,6 @@ struct RepoPathEntry {
     size: u64,
 }
 
-#[debug_handler]
 pub(crate) async fn list_files(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -36,7 +34,7 @@ pub(crate) async fn list_files(
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
-    assert_ne!(archive_path.path_type, ArchivePathEnum::CONFIG);
+    assert_ne!(archive_path.path_type, ArchivePathEnum::Config);
     assert_eq!(archive_path.name, "".to_string());
     tracing::debug!("[list_files] path: {p_str}, tpe: {tpe}");
 
@@ -88,7 +86,9 @@ pub(crate) async fn list_files(
 #[cfg(test)]
 mod test {
     use crate::handlers::files_list::{list_files, RepoPathEntry, API_V1, API_V2};
-    use crate::test_server::{basic_auth, init_test_environment, print_request_response};
+    use crate::test_helpers::{
+        basic_auth_header_value, init_test_environment, print_request_response,
+    };
     use axum::http::header::{ACCEPT, CONTENT_TYPE};
     use axum::routing::get;
     use axum::{
@@ -111,7 +111,10 @@ mod test {
         let request = Request::builder()
             .uri("/test_repo/keys")
             .header(ACCEPT, API_V1)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -151,7 +154,10 @@ mod test {
         let requrest = Request::builder()
             .uri("/test_repo/keys")
             .header(ACCEPT, API_V2)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 

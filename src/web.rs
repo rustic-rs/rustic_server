@@ -8,7 +8,7 @@
 // auth    - for user authentication
 // acl     - for access control
 
-use axum::routing::{delete, get, head, post};
+use axum::routing::{get, head, post};
 use axum::Router;
 use axum_server::tls_rustls::RustlsConfig;
 use std::net::SocketAddr;
@@ -26,7 +26,7 @@ use crate::storage::init_storage;
 use crate::{error::Result, storage::Storage};
 
 /// FIXME: Routes are checked in order of adding them to the Router (right?)
-pub async fn web_browser(
+pub async fn start_web_server(
     acl: Acl,
     auth: Auth,
     storage: impl Storage,

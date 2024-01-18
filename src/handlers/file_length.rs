@@ -8,11 +8,8 @@ use axum::{extract::Path as PathExtract, http::header, response::IntoResponse};
 use axum_extra::headers::HeaderMap;
 use std::path::Path;
 
-//==============================================================================
-// Length
-// Interface: HEAD {path}/{type}/{name}
-//==============================================================================
-
+/// Length
+/// Interface: HEAD {path}/{type}/{name}
 pub(crate) async fn file_length(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -22,7 +19,7 @@ pub(crate) async fn file_length(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_ne!(archive_path.path_type, ArchivePathEnum::CONFIG);
+    assert_ne!(archive_path.path_type, ArchivePathEnum::Config);
     tracing::debug!("[length] path: {p_str}, tpe: {tpe}, name: {name}");
 
     let path = Path::new(&p_str);
@@ -55,7 +52,9 @@ pub(crate) async fn file_length(
 #[cfg(test)]
 mod test {
     use crate::handlers::file_length::file_length;
-    use crate::test_server::{basic_auth, init_test_environment, print_request_response};
+    use crate::test_helpers::{
+        basic_auth_header_value, init_test_environment, print_request_response,
+    };
     use axum::http::{header, Method};
     use axum::routing::head;
     use axum::{
@@ -80,7 +79,10 @@ mod test {
         let request = Request::builder()
             .uri("/test_repo/keys/2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5")
             .method(Method::HEAD)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -116,7 +118,10 @@ mod test {
         let request = Request::builder()
             .uri("/test_repo/keys/__I_do_not_exist__")
             .method(Method::HEAD)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 

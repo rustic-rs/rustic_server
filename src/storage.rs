@@ -12,9 +12,9 @@ use walkdir::WalkDir;
 //Static storage of our credentials
 pub static STORAGE: OnceCell<Arc<dyn Storage>> = OnceCell::new();
 
-pub(crate) fn init_storage(state: impl Storage) -> Result<(), ErrorKind> {
+pub(crate) fn init_storage(storage: impl Storage) -> Result<(), ErrorKind> {
     if STORAGE.get().is_none() {
-        let storage = Arc::new(state);
+        let storage = Arc::new(storage);
         match STORAGE.set(storage) {
             Ok(_) => {}
             Err(_) => {

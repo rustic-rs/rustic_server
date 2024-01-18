@@ -7,16 +7,13 @@ use crate::handlers::file_exchange::{check_name, get_file, get_save_file, save_b
 use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum, DEFAULT_PATH};
 use crate::storage::STORAGE;
 use axum::extract::Request;
-use axum::http::HeaderMap;
 use axum::{extract::Path as PathExtract, response::IntoResponse};
 use axum_extra::headers::Range;
 use axum_extra::TypedHeader;
 use std::path::{Path, PathBuf};
 
-//==============================================================================
-// has_config
-// Interface: HEAD {path}/config
-//==============================================================================
+/// has_config
+/// Interface: HEAD {path}/config
 pub(crate) async fn has_config(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -44,11 +41,8 @@ pub(crate) async fn has_config(
     }
 }
 
-//==============================================================================
-// get_config
-// Interface: GET {path}/config
-//==============================================================================
-
+/// get_config
+/// Interface: GET {path}/config
 pub(crate) async fn get_config(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -62,14 +56,11 @@ pub(crate) async fn get_config(
     // assert_eq!( &tpe, TPE_CONFIG);
     // tracing::debug!("[get_config] path: {p_str:?}, tpe: {tpe}, name: config");
 
-    return get_file(auth, path, range).await;
+    get_file(auth, path, range).await
 }
 
-//==============================================================================
-// add_config
-// Interface: POST {path}/config
-//==============================================================================
-
+/// add_config
+/// Interface: POST {path}/config
 pub(crate) async fn add_config(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -80,7 +71,7 @@ pub(crate) async fn add_config(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_eq!(&archive_path.path_type, &ArchivePathEnum::CONFIG);
+    assert_eq!(&archive_path.path_type, &ArchivePathEnum::Config);
     assert_eq!(&name, "config");
     tracing::debug!("[add_config] path: {p_str}, tpe: {tpe}, name: {name}");
 
@@ -92,13 +83,9 @@ pub(crate) async fn add_config(
     Ok(())
 }
 
-//==============================================================================
-// delete_config
-// Interface: DELETE {path}/config
-// FIXME: The original restic spec does not define delete_config --> but rustic did ??
-//==============================================================================
-
-//#[debug_handler]
+/// delete_config
+/// Interface: DELETE {path}/config
+/// FIXME: The original restic spec does not define delete_config --> but rustic did ??
 pub(crate) async fn delete_config(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -108,7 +95,7 @@ pub(crate) async fn delete_config(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_eq!(&archive_path.path_type, &ArchivePathEnum::CONFIG);
+    assert_eq!(&archive_path.path_type, &ArchivePathEnum::Config);
     tracing::debug!("[delete_config] path: {p_str}, tpe: {tpe}, name: {name}");
 
     check_name(tpe.as_str(), &name)?;
@@ -127,7 +114,9 @@ pub(crate) async fn delete_config(
 mod test {
     use crate::handlers::file_config::{add_config, delete_config, get_config, has_config};
     use crate::handlers::repository::{create_repository, delete_repository};
-    use crate::test_server::{basic_auth, init_test_environment, print_request_response};
+    use crate::test_helpers::{
+        basic_auth_header_value, init_test_environment, print_request_response,
+    };
     use axum::http::Method;
     use axum::routing::{delete, get, head, post};
     use axum::{
@@ -135,8 +124,6 @@ mod test {
         http::{Request, StatusCode},
     };
     use axum::{middleware, Router};
-    use axum_extra::headers::Range;
-    use axum_extra::TypedHeader;
     use http_body_util::BodyExt;
     use std::path::PathBuf;
     use std::{env, fs};
@@ -156,7 +143,10 @@ mod test {
         let request = Request::builder()
             .uri("/test_repo/data/config")
             .method(Method::HEAD)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -174,7 +164,10 @@ mod test {
         let request = Request::builder()
             .uri("/test_repo/config")
             .method(Method::HEAD)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -214,7 +207,10 @@ mod test {
         let request = Request::builder()
             .uri(&repo_name_uri)
             .method(Method::POST)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -236,7 +232,10 @@ mod test {
         let request = Request::builder()
             .uri(&uri)
             .method(Method::POST)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(body)
             .unwrap();
 
@@ -258,7 +257,10 @@ mod test {
         let request = Request::builder()
             .uri(&uri)
             .method(Method::GET)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -281,7 +283,10 @@ mod test {
         let request = Request::builder()
             .uri(&uri)
             .method(Method::HEAD)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -299,7 +304,10 @@ mod test {
         let request = Request::builder()
             .uri(&uri)
             .method(Method::DELETE)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -320,7 +328,10 @@ mod test {
         let request = Request::builder()
             .uri(&repo_name_uri)
             .method(Method::POST)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 

@@ -9,10 +9,8 @@ use axum::{extract::Path as PathExtract, http::StatusCode, response::IntoRespons
 use serde_derive::Deserialize;
 use std::path::Path;
 
-//==============================================================================
-// Create_repository
-// Interface: POST {path}?create=true
-//==============================================================================
+/// Create_repository
+/// Interface: POST {path}?create=true
 #[derive(Default, Deserialize)]
 #[serde(default)]
 pub(crate) struct Create {
@@ -29,7 +27,7 @@ pub(crate) async fn create_repository(
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
-    assert_eq!(&archive_path.path_type, &ArchivePathEnum::NONE);
+    assert_eq!(&archive_path.path_type, &ArchivePathEnum::None);
     assert_eq!(&tpe, "");
     tracing::debug!("[create_repository] repo_path: {p_str:?}");
 
@@ -58,12 +56,9 @@ pub(crate) async fn create_repository(
     }
 }
 
-//==============================================================================
-// Delete_repository
-// Interface: Delete {path}
-//==============================================================================
-
-// FIXME: The input path should at least NOT point to a file in any repository
+/// Delete_repository
+/// Interface: Delete {path}
+/// FIXME: The input path should at least NOT point to a file in any repository
 pub(crate) async fn delete_repository(
     auth: AuthFromRequest,
     path: Option<PathExtract<String>>,
@@ -72,7 +67,7 @@ pub(crate) async fn delete_repository(
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
-    assert_eq!(archive_path.path_type, ArchivePathEnum::NONE);
+    assert_eq!(archive_path.path_type, ArchivePathEnum::None);
     assert_eq!(&tpe, "");
     tracing::debug!("[delete_repository] repo_path: {p_str:?}");
 
@@ -94,7 +89,9 @@ pub(crate) async fn delete_repository(
 #[cfg(test)]
 mod test {
     use crate::handlers::repository::{create_repository, delete_repository};
-    use crate::test_server::{basic_auth, init_test_environment, print_request_response};
+    use crate::test_helpers::{
+        basic_auth_header_value, init_test_environment, print_request_response,
+    };
     use axum::http::Method;
     use axum::routing::post;
     use axum::{
@@ -104,7 +101,7 @@ mod test {
     use axum::{middleware, Router};
     use std::path::PathBuf;
     use std::{env, fs};
-    use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
+    use tower::ServiceExt;
 
     /// The acl.toml test allows the create of "repo_remove_me"
     /// for user test with the correct password
@@ -146,7 +143,10 @@ mod test {
         let request = Request::builder()
             .uri(&repo_name_uri)
             .method(Method::POST)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -166,7 +166,10 @@ mod test {
         let request = Request::builder()
             .uri(&repo_name_uri)
             .method(Method::POST)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -188,7 +191,7 @@ mod test {
             .method(Method::POST)
             .header(
                 "Authorization",
-                basic_auth("test", Some("__wrong_password__")),
+                basic_auth_header_value("test", Some("__wrong_password__")),
             )
             .body(Body::empty())
             .unwrap();
@@ -210,7 +213,10 @@ mod test {
         let request = Request::builder()
             .uri(&repo_name_uri)
             .method(Method::POST)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 

@@ -1,8 +1,8 @@
 use crate::error::ErrorKind;
 use crate::handlers::path_analysis::TPE_LOCKS;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use once_cell::sync::OnceCell;
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -24,7 +24,7 @@ pub fn init_acl(state: Acl) -> Result<(), ErrorKind> {
     Ok(())
 }
 // Access Types
-#[derive(Debug, Clone, PartialEq, PartialOrd, serde_derive::Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum AccessType {
     Nothing,
     Read,
@@ -32,24 +32,6 @@ pub enum AccessType {
     Modify,
 }
 
-// #[derive(Debug, Clone)]
-// #[enum_dispatch]
-// pub(crate) enum AclCheckerEnum {
-//     Acl(Acl),
-// }
-//
-// impl AclCheckerEnum {
-//     pub fn acl_from_file(
-//         append_only: bool,
-//         private_repo: bool,
-//         file_path: Option<PathBuf>,
-//     ) -> Result<Self> {
-//         let acl = Acl::from_file(append_only, private_repo, file_path)?;
-//         Ok(AclCheckerEnum::Acl(acl))
-//     }
-// }
-
-//#[enum_dispatch(AclCheckerEnum)]
 pub trait AclChecker: Send + Sync + 'static {
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool;
 }
@@ -58,7 +40,7 @@ pub trait AclChecker: Send + Sync + 'static {
 type RepoAcl = HashMap<String, AccessType>;
 
 // Acl holds ACLs for all repos
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Acl {
     repos: HashMap<String, RepoAcl>,
     append_only: bool,
@@ -106,6 +88,37 @@ impl Acl {
             private_repo,
             repos,
         })
+    }
+
+    // The default repo has not been removed from the self.repos list, so we do not need to add here
+    // But we still need to remove the ""-tag that was added during the from_file()
+    pub fn to_file(&self, pth: &PathBuf) -> Result<()> {
+        let mut clone = self.repos.clone();
+        clone.remove("");
+        let toml_string =
+            toml::to_string(&clone).context("Could not serialize ACL config to TOML value")?;
+        fs::write(&pth, toml_string).context("Could not write ACL file!")?;
+        Ok(())
+    }
+
+    // If we do not have a key with ""-value then "default" is also not a key
+    // Since we guarantee this during the reading of a acl-file
+    pub fn default_repo_access(&mut self, user: &str, access: AccessType) {
+        if !self.repos.contains_key("") {
+            let mut acl = RepoAcl::new();
+            acl.insert(user.into(), access);
+            self.repos.insert("default".to_owned(), acl.clone());
+            self.repos.insert("".to_owned(), acl);
+        } else {
+            self.repos
+                .get_mut("default")
+                .unwrap()
+                .insert(user.into(), access.clone());
+            self.repos
+                .get_mut("")
+                .unwrap()
+                .insert(user.into(), access.clone());
+        }
     }
 }
 

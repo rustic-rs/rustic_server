@@ -16,13 +16,13 @@ pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOT
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum ArchivePathEnum {
-    DATA,
-    KEYS,
-    LOCKS,
-    SNAPSHOTS,
-    INDEX,
-    CONFIG,
-    NONE,
+    Data,
+    Keys,
+    Locks,
+    Snapshots,
+    Index,
+    Config,
+    None,
 }
 
 pub(crate) struct ArchivePath {
@@ -53,7 +53,7 @@ pub(crate) fn decompose_path(path: String) -> Result<ArchivePath> {
     tracing::debug!("[decompose_path] elem = {:?}", &elem);
 
     let mut ap = ArchivePath {
-        path_type: ArchivePathEnum::NONE,
+        path_type: ArchivePathEnum::None,
         tpe: "".to_string(),
         path: "".to_string(),
         name: "".to_string(),
@@ -67,7 +67,7 @@ pub(crate) fn decompose_path(path: String) -> Result<ArchivePath> {
     // Analyse tail of the path to find name and type values
     let tmp = elem.pop().unwrap();
     let (tpe, name) = if tmp.eq(TPE_CONFIG) {
-        ap.path_type = ArchivePathEnum::CONFIG;
+        ap.path_type = ArchivePathEnum::Config;
         tracing::debug!("[decompose_path] ends with config");
         if length > 1 {
             let tpe = elem.pop().unwrap();
@@ -90,13 +90,13 @@ pub(crate) fn decompose_path(path: String) -> Result<ArchivePath> {
             ap.path_type = get_path_type(&tpe);
             (tpe, tmp) // path = /:path/:tpe/:name
         } else {
-            ap.path_type = ArchivePathEnum::NONE;
+            ap.path_type = ArchivePathEnum::None;
             elem.push(tpe);
             elem.push(tmp);
             ("".to_string(), "".to_string()) // path = /:path --> with length (>1)
         }
     } else {
-        ap.path_type = ArchivePathEnum::NONE;
+        ap.path_type = ArchivePathEnum::None;
         elem.push(tmp);
         ("".to_string(), "".to_string()) // path = /:path --> with length (1)
     };
@@ -112,22 +112,22 @@ pub(crate) fn decompose_path(path: String) -> Result<ArchivePath> {
 
 fn get_path_type(s: &str) -> ArchivePathEnum {
     match s {
-        TPE_CONFIG => ArchivePathEnum::CONFIG,
-        TPE_DATA => ArchivePathEnum::DATA,
-        TPE_KEYS => ArchivePathEnum::KEYS,
-        TPE_LOCKS => ArchivePathEnum::LOCKS,
-        TPE_SNAPSHOTS => ArchivePathEnum::SNAPSHOTS,
-        TPE_INDEX => ArchivePathEnum::INDEX,
-        _ => ArchivePathEnum::NONE,
+        TPE_CONFIG => ArchivePathEnum::Config,
+        TPE_DATA => ArchivePathEnum::Data,
+        TPE_KEYS => ArchivePathEnum::Keys,
+        TPE_LOCKS => ArchivePathEnum::Locks,
+        TPE_SNAPSHOTS => ArchivePathEnum::Snapshots,
+        TPE_INDEX => ArchivePathEnum::Index,
+        _ => ArchivePathEnum::None,
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::error::Result;
-    use crate::handlers::path_analysis::ArchivePathEnum::CONFIG;
+    use crate::handlers::path_analysis::ArchivePathEnum::Config;
     use crate::handlers::path_analysis::{decompose_path, TPE_DATA, TPE_LOCKS};
-    use crate::log::init_tracing;
+    use crate::test_helpers::init_tracing;
 
     #[test]
     fn archive_path_struct() -> Result<()> {
@@ -159,21 +159,21 @@ mod test {
 
         let path = "/a/b/data/config".to_string();
         let ap = decompose_path(path)?;
-        assert_eq!(ap.path_type, CONFIG);
+        assert_eq!(ap.path_type, Config);
         assert_eq!(ap.tpe, TPE_DATA);
         assert_eq!(ap.name, "config".to_string());
         assert_eq!(ap.path, "a/b");
 
         let path = "/a/b/config".to_string();
         let ap = decompose_path(path)?;
-        assert_eq!(ap.path_type, CONFIG);
+        assert_eq!(ap.path_type, Config);
         assert_eq!(ap.tpe, "".to_string());
         assert_eq!(ap.name, "config".to_string());
         assert_eq!(ap.path, "a/b");
 
         let path = "/config".to_string();
         let ap = decompose_path(path)?;
-        assert_eq!(ap.path_type, CONFIG);
+        assert_eq!(ap.path_type, Config);
         assert_eq!(ap.tpe, "".to_string());
         assert_eq!(ap.name, "config".to_string());
         assert_eq!(ap.path, "");

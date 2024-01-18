@@ -33,7 +33,7 @@ pub(crate) async fn add_file(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_ne!(archive_path.path_type, ArchivePathEnum::CONFIG);
+    assert_ne!(archive_path.path_type, ArchivePathEnum::Config);
     assert_ne!(&name, "");
     tracing::debug!("[get_file] path: {p_str}, tpe: {tpe}, name: {name}");
 
@@ -105,49 +105,6 @@ pub(crate) async fn get_file(
     let body = KnownSize::file(file).await.unwrap();
     let range = range.map(|TypedHeader(range)| range);
     Ok(Ranged::new(range, body).into_response())
-
-    // let mut len = match file.metadata().await {
-    //     Ok(val) => val.len(),
-    //     Err(_) => {
-    //         return Err(ErrorKind::GettingFileMetadataFailed);
-    //     }
-    // };
-    //
-    // let mut status = StatusCode::OK;
-    // if let Some(header_value) = headers.get(header::RANGE) {
-    //     let header_value = match header_value.to_str() {
-    //         Ok(val) => val,
-    //         Err(_) => return Err(ErrorKind::RangeNotValid)
-    //     };
-    //     match HttpRange::parse(header_value, len, ) {
-    //         Ok(range) if range.len() == 1 => {
-    //             tracing::debug!("[get_file] range: {:?}", &range[0]);
-    //             if file.seek(Start(range[0].start)).await.is_err() {
-    //                 return Err(ErrorKind::SeekingFileFailed);
-    //             };
-    //             len = range[0].length;
-    //             status = StatusCode::PARTIAL_CONTENT;
-    //         }
-    //         Ok(_) => return Err(ErrorKind::MultipartRangeNotImplemented),
-    //         Err(_) => return Err(ErrorKind::GeneralRange),
-    //     }
-    // };
-    //
-    // tracing::debug!("[get_file] length: {:?}", &len);
-    //
-    // // From: https://github.com/tokio-rs/axum/discussions/608#discussioncomment-1789020
-    // let stream = ReaderStream::with_capacity(
-    //     file,
-    //     match len.try_into() {
-    //         Ok(val) => val,
-    //         Err(_) => return Err(ErrorKind::ConversionToU64Failed),
-    //     },
-    // );
-    //
-    // let body = Body::from_stream(stream);
-    //
-    // let headers = AppendHeaders([(header::CONTENT_TYPE, "application/octet-stream")]);
-    // Ok((status, headers, body))
 }
 
 //==============================================================================
@@ -210,7 +167,7 @@ where
 }
 
 #[cfg(test)]
-fn check_string_sha256(name: &str) -> bool {
+fn check_string_sha256(_name: &str) -> bool {
     true
 }
 
@@ -239,7 +196,9 @@ pub(crate) fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse> {
 #[cfg(test)]
 mod test {
     use crate::handlers::file_exchange::{add_file, delete_file, get_file};
-    use crate::test_server::{basic_auth, init_test_environment, print_request_response};
+    use crate::test_helpers::{
+        basic_auth_header_value, init_test_environment, print_request_response,
+    };
     use axum::http::{header, Method};
     use axum::routing::{delete, get, put};
     use axum::{
@@ -285,7 +244,10 @@ mod test {
         let request = Request::builder()
             .uri(uri)
             .method(Method::PUT)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(body)
             .unwrap();
 
@@ -308,7 +270,10 @@ mod test {
         let request = Request::builder()
             .uri(uri)
             .method(Method::DELETE)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(body)
             .unwrap();
 
@@ -353,7 +318,10 @@ mod test {
         let request = Request::builder()
             .uri(uri)
             .method(Method::PUT)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(body)
             .unwrap();
 
@@ -376,7 +344,10 @@ mod test {
         let request = Request::builder()
             .uri(uri)
             .method(Method::GET)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(body)
             .unwrap();
 
@@ -398,7 +369,10 @@ mod test {
             .uri(uri)
             .method(Method::GET)
             .header(header::RANGE, "bytes=6-12")
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
@@ -425,7 +399,10 @@ mod test {
         let request = Request::builder()
             .uri(uri)
             .method(Method::DELETE)
-            .header("Authorization", basic_auth("test", Some("test_pw")))
+            .header(
+                "Authorization",
+                basic_auth_header_value("test", Some("test_pw")),
+            )
             .body(Body::empty())
             .unwrap();
 
