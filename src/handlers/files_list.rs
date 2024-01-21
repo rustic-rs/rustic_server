@@ -14,8 +14,8 @@ use axum_extra::headers::HeaderMap;
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
 
-pub(crate) const API_V1: &str = "application/vnd.x.restic.rest.v1";
-pub(crate) const API_V2: &str = "application/vnd.x.restic.rest.v2";
+const API_V1: &str = "application/vnd.x.restic.rest.v1";
+const API_V2: &str = "application/vnd.x.restic.rest.v2";
 
 /// List files
 /// Interface: GET {path}/{type}/

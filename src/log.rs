@@ -24,6 +24,10 @@ pub fn init_trace_from(level: &str) {
         .init();
 }
 
+/// router middleware function to print additional information on the request, and response.
+/// Usage:
+///       app = app.layer(middleware::from_fn(print_request_response))
+///
 pub async fn print_request_response(
     req: Request,
     next: Next,

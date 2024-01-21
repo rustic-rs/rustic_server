@@ -62,7 +62,7 @@ impl HtAccess {
     }
 
     /// FIXME: Nicer error logging for when we can not write file ...
-    pub fn to_file(&mut self) -> Result<()> {
+    pub fn to_file(&self) -> Result<()> {
         let mut file = fs::OpenOptions::new()
             .create(true)
             .truncate(false)
@@ -158,7 +158,7 @@ mod test {
 
         let mut ht = HtAccess::from_file(&ht_file)?;
         ht.update("Administrator", "stuff");
-        ht.update("backup-user", "itsme");
+        ht.update("backup-user", "its_me");
         ht.to_file()?;
 
         let ht = HtAccess::from_file(&ht_file)?;
@@ -167,7 +167,7 @@ mod test {
 
         let auth = Auth::from_file(false, &ht_file).unwrap();
         assert!(auth.verify("Administrator", "stuff"));
-        assert!(auth.verify("backup-user", "itsme"));
+        assert!(auth.verify("backup-user", "its_me"));
 
         Ok(())
     }

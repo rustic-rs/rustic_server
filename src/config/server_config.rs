@@ -129,7 +129,7 @@ mod test {
             authorization: auth,
             accesscontrol: access,
         };
-        let config_file = server_path.join("rustic_server.test.toml");
+        let config_file = server_path.join("rustic_server.rustic_config.toml");
         config.to_file(&config_file).unwrap();
 
         // Try to read

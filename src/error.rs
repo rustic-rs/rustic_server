@@ -127,7 +127,7 @@ impl IntoResponse for ErrorKind {
             )
                 .into_response(),
             ErrorKind::AuthenticationHeaderError => {
-                (StatusCode::FORBIDDEN, format!("Bad authentication header")).into_response()
+                (StatusCode::FORBIDDEN, "Bad authentication header").into_response()
             }
             ErrorKind::UserAuthenticationError(err) => (
                 StatusCode::FORBIDDEN,

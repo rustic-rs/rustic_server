@@ -145,16 +145,6 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
-        // let request = Request::builder()
-        //     .uri(&repo_name_uri)
-        //     .method(Method::POST)
-        //     .header(
-        //         "Authorization",
-        //         basic_auth_header_value("test", Some("test_pw")),
-        //     )
-        //     .body(Body::empty())
-        //     .unwrap();
-
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
@@ -169,16 +159,6 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
-        // let request = Request::builder()
-        //     .uri(&repo_name_uri)
-        //     .method(Method::POST)
-        //     .header(
-        //         "Authorization",
-        //         basic_auth_header_value("test", Some("test_pw")),
-        //     )
-        //     .body(Body::empty())
-        //     .unwrap();
-
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
@@ -217,16 +197,6 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::DELETE);
-        // let request = Request::builder()
-        //     .uri(&repo_name_uri)
-        //     .method(Method::DELETE)
-        //     .header(
-        //         "Authorization",
-        //         basic_auth_header_value("test", Some("test_pw")),
-        //     )
-        //     .body(Body::empty())
-        //     .unwrap();
-
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);

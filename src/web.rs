@@ -8,7 +8,7 @@
 // auth    - for user authentication
 // acl     - for access control
 //
-//
+// FIXME: decide either to keep, or change. Then remove the remarks below
 // During the rout table creation, we loop over types. Rationale:
 // We can not distinguish paths using `:tpe` matching in the router.
 // The routing path would then become "/:path/:tpe/:name

@@ -9,7 +9,11 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-/// For testing we do repeated requests, using a password that should
+// ------------------------------------------------
+// test facility prevent repeated calls in tests
+// ------------------------------------------------
+
+/// Common requests, using a password that should
 /// be recognized as OK for the repository we are trying to access.
 pub fn request_uri_for_test(uri: &str, method: Method) -> axum::http::Request<Body> {
     axum::http::Request::builder()
@@ -23,31 +27,12 @@ pub fn request_uri_for_test(uri: &str, method: Method) -> axum::http::Request<Bo
         .unwrap()
 }
 
-pub fn test_init_static_htaccess() {
-    let cwd = env::current_dir().unwrap();
-    let htaccess = PathBuf::new().join(cwd).join("test_data").join("htaccess");
+// ------------------------------------------------
+// test facility for tracing
+// ------------------------------------------------
 
-    let auth = Auth::from_file(false, &htaccess).unwrap();
-    init_auth(auth).unwrap();
-}
-
-pub fn test_init_static_auth() {
-    let cwd = env::current_dir().unwrap();
-    let acl_path = PathBuf::new().join(cwd).join("test_data").join("acl.toml");
-
-    let acl = Acl::from_file(false, true, Some(acl_path)).unwrap();
-    init_acl(acl).unwrap();
-}
-
-pub fn test_init_static_storage() {
-    let cwd = env::current_dir().unwrap();
-    let repo_path = PathBuf::new()
-        .join(cwd)
-        .join("test_data")
-        .join("test_repos");
-
-    let local_storage = LocalStorage::try_new(&repo_path).unwrap();
-    init_storage(local_storage).unwrap();
+pub(crate) fn init_tracing() {
+    init_mutex();
 }
 
 /// When we initialise the global tracing subscriber, this must only happen once.
@@ -68,11 +53,11 @@ pub(crate) fn init_mutex() {
     });
 }
 
-pub fn init_tracing() {
-    init_mutex();
-}
+// ------------------------------------------------
+// test facility for creating a minimum test environment
+// ------------------------------------------------
 
-pub fn init_test_environment() {
+pub(crate) fn init_test_environment() {
     init_mutex();
 
     test_init_static_htaccess();
@@ -80,7 +65,40 @@ pub fn init_test_environment() {
     test_init_static_storage();
 }
 
-pub fn basic_auth_header_value<U, P>(username: U, password: Option<P>) -> HeaderValue
+fn test_init_static_htaccess() {
+    let cwd = env::current_dir().unwrap();
+    let htaccess = PathBuf::new().join(cwd).join("test_data").join("htaccess");
+
+    let auth = Auth::from_file(false, &htaccess).unwrap();
+    init_auth(auth).unwrap();
+}
+
+fn test_init_static_auth() {
+    let cwd = env::current_dir().unwrap();
+    let acl_path = PathBuf::new().join(cwd).join("test_data").join("acl.toml");
+
+    let acl = Acl::from_file(false, true, Some(acl_path)).unwrap();
+    init_acl(acl).unwrap();
+}
+
+fn test_init_static_storage() {
+    let cwd = env::current_dir().unwrap();
+    let repo_path = PathBuf::new()
+        .join(cwd)
+        .join("test_data")
+        .join("test_repos");
+
+    let local_storage = LocalStorage::try_new(&repo_path).unwrap();
+    init_storage(local_storage).unwrap();
+}
+
+// ------------------------------------------------
+// test facility for authentication
+// ------------------------------------------------
+
+/// Creates a header value from a username, and password.
+/// Copy for the reqwest crate;
+pub(crate) fn basic_auth_header_value<U, P>(username: U, password: Option<P>) -> HeaderValue
 where
     U: std::fmt::Display,
     P: std::fmt::Display,
