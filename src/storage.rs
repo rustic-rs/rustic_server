@@ -129,6 +129,8 @@ mod test {
         let cwd = env::current_dir().unwrap();
         let repo_path = PathBuf::new()
             .join(cwd)
+            .join("tests")
+            .join("fixtures")
             .join("test_data")
             .join("test_repos");
 
@@ -156,6 +158,8 @@ mod test {
         let cwd = env::current_dir().unwrap();
         let repo_path = PathBuf::new()
             .join(cwd)
+            .join("tests")
+            .join("fixtures")
             .join("test_data")
             .join("test_repos");
 

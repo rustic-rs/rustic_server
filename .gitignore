@@ -10,6 +10,6 @@ Cargo.lock
 **/*.rs.bk
 
 # Test data created may accidentally be included
-/test_data/test_repos/repo_remove_me
-/test_data/test_repos/repo_remove_me_2
+/tests/test_data/test_repos/repo_remove_me
+/tests/test_data/test_repos/repo_remove_me_2
 /tmp_test_data

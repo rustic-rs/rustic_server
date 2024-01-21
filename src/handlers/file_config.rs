@@ -185,6 +185,8 @@ mod test {
         let cwd = env::current_dir().unwrap();
         let path = PathBuf::new()
             .join(cwd)
+            .join("tests")
+            .join("fixtures")
             .join("test_data")
             .join("test_repos")
             .join(&repo);
@@ -192,6 +194,7 @@ mod test {
             fs::remove_dir_all(&path).unwrap();
             assert!(!path.exists());
         }
+        tracing::debug!("[test_add_delete_config] repo: {:?}", &path);
 
         // -----------------------
         // Create a new repository

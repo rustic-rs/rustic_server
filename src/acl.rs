@@ -156,7 +156,12 @@ mod tests {
     #[test]
     fn test_static_acl_access() {
         let cwd = env::current_dir().unwrap();
-        let acl = PathBuf::new().join(cwd).join("test_data").join("acl.toml");
+        let acl = PathBuf::new()
+            .join(cwd)
+            .join("tests")
+            .join("fixtures")
+            .join("test_data")
+            .join("acl.toml");
 
         dbg!(&acl);
 

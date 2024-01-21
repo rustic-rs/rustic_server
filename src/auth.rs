@@ -138,7 +138,12 @@ mod test {
     #[test]
     fn test_auth() -> Result<()> {
         let cwd = env::current_dir()?;
-        let htaccess = PathBuf::new().join(cwd).join("test_data").join("htaccess");
+        let htaccess = PathBuf::new()
+            .join(cwd)
+            .join("tests")
+            .join("fixtures")
+            .join("test_data")
+            .join("htaccess");
         let auth = Auth::from_file(false, &htaccess)?;
         assert!(auth.verify("test", "test_pw"));
         assert!(!auth.verify("test", "__test_pw"));
@@ -149,7 +154,12 @@ mod test {
     #[test]
     fn test_auth_from_file() {
         let cwd = env::current_dir().unwrap();
-        let htaccess = PathBuf::new().join(cwd).join("test_data").join("htaccess");
+        let htaccess = PathBuf::new()
+            .join(cwd)
+            .join("tests")
+            .join("fixtures")
+            .join("test_data")
+            .join("htaccess");
 
         dbg!(&htaccess);
 

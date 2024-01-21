@@ -40,7 +40,7 @@ pub(crate) fn init_tracing() {
 /// This means that the init() call must be robust for this.
 /// Since we do not need this in production code, it is located in the test code.
 static TRACER: OnceCell<Mutex<usize>> = OnceCell::new();
-pub(crate) fn init_mutex() {
+fn init_mutex() {
     TRACER.get_or_init(|| {
         tracing_subscriber::registry()
             .with(
@@ -58,8 +58,7 @@ pub(crate) fn init_mutex() {
 // ------------------------------------------------
 
 pub(crate) fn init_test_environment() {
-    init_mutex();
-
+    init_tracing();
     test_init_static_htaccess();
     test_init_static_auth();
     test_init_static_storage();
@@ -67,16 +66,26 @@ pub(crate) fn init_test_environment() {
 
 fn test_init_static_htaccess() {
     let cwd = env::current_dir().unwrap();
-    let htaccess = PathBuf::new().join(cwd).join("test_data").join("htaccess");
-
+    let htaccess = PathBuf::new()
+        .join(cwd)
+        .join("tests")
+        .join("fixtures")
+        .join("test_data")
+        .join("htaccess");
+    tracing::debug!("[test_init_static_storage] repo: {:?}", &htaccess);
     let auth = Auth::from_file(false, &htaccess).unwrap();
     init_auth(auth).unwrap();
 }
 
 fn test_init_static_auth() {
     let cwd = env::current_dir().unwrap();
-    let acl_path = PathBuf::new().join(cwd).join("test_data").join("acl.toml");
-
+    let acl_path = PathBuf::new()
+        .join(cwd)
+        .join("tests")
+        .join("fixtures")
+        .join("test_data")
+        .join("acl.toml");
+    tracing::debug!("[test_init_static_storage] repo: {:?}", &acl_path);
     let acl = Acl::from_file(false, true, Some(acl_path)).unwrap();
     init_acl(acl).unwrap();
 }
@@ -85,9 +94,11 @@ fn test_init_static_storage() {
     let cwd = env::current_dir().unwrap();
     let repo_path = PathBuf::new()
         .join(cwd)
+        .join("tests")
+        .join("fixtures")
         .join("test_data")
         .join("test_repos");
-
+    tracing::debug!("[test_init_static_storage] repo: {:?}", &repo_path);
     let local_storage = LocalStorage::try_new(&repo_path).unwrap();
     init_storage(local_storage).unwrap();
 }

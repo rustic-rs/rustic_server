@@ -29,7 +29,7 @@ pub(crate) async fn create_repository(
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
-    assert_eq!(&archive_path.path_type, &ArchivePathEnum::None);
+    assert_eq!(&archive_path.path_type, &ArchivePathEnum::Repo);
     assert_eq!(&tpe, "");
     tracing::debug!("[create_repository] repo_path: {p_str:?}");
 
@@ -70,7 +70,7 @@ pub(crate) async fn delete_repository(
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
-    assert_eq!(archive_path.path_type, ArchivePathEnum::None);
+    assert_eq!(archive_path.path_type, ArchivePathEnum::Repo);
     assert_eq!(&tpe, "");
     tracing::debug!("[delete_repository] repo_path: {p_str:?}");
 
@@ -117,6 +117,8 @@ mod test {
         let cwd = env::current_dir().unwrap();
         let path = PathBuf::new()
             .join(cwd)
+            .join("tests")
+            .join("fixtures")
             .join("test_data")
             .join("test_repos")
             .join("repo_remove_me");
@@ -128,6 +130,8 @@ mod test {
         let cwd = env::current_dir().unwrap();
         let not_allowed_path = PathBuf::new()
             .join(cwd)
+            .join("tests")
+            .join("fixtures")
             .join("test_data")
             .join("test_repos")
             .join("repo_not_allowed");

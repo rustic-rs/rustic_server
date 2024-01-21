@@ -42,8 +42,6 @@ pub struct Authorization {
 pub struct Server {
     pub host_dns_name: String,
     pub port: usize,
-    //HTTP, or HTTPS
-    pub protocol: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -77,7 +75,10 @@ mod test {
 
     #[test]
     fn test_file_read() {
-        let config_path = Path::new("test_data").join("rustic_server.toml");
+        let config_path = Path::new("tests")
+            .join("fixtures")
+            .join("test_data")
+            .join("rustic_server.toml");
         //let config_path = Path::new("/data/rustic/rustic_server.toml");
         let config = ServerConfig::from_file(&config_path);
         assert!(config.is_ok());
@@ -95,7 +96,6 @@ mod test {
         let server = Server {
             host_dns_name: "127.0.0.1".to_string(),
             port: 2222,
-            protocol: "HTTP".to_string(),
         };
 
         let tls: Option<TLS> = Some(TLS {

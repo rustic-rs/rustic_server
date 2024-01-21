@@ -14,15 +14,18 @@ pub(crate) const TPE_INDEX: &str = "index";
 pub(crate) const TPE_CONFIG: &str = "config";
 pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TPE_INDEX];
 
+/// ArchivePathEnum hints what kind of path we received from the user.
+///  - ArchivePathEnum::Repo points to the root of the repository.
+///  - All other enum values point to data_type inside the repository
 #[derive(Debug, PartialEq)]
 pub(crate) enum ArchivePathEnum {
+    Repo,
     Data,
     Keys,
     Locks,
     Snapshots,
     Index,
     Config,
-    None,
 }
 
 pub(crate) struct ArchivePath {
@@ -55,7 +58,7 @@ pub(crate) fn decompose_path(path: &str) -> Result<ArchivePath> {
     tracing::debug!("[decompose_path] elem = {:?}", &elem);
 
     let mut ap = ArchivePath {
-        path_type: ArchivePathEnum::None,
+        path_type: ArchivePathEnum::Repo, //will be overwritten later
         tpe: "".to_string(),
         path: "".to_string(),
         name: "".to_string(),
@@ -91,13 +94,13 @@ pub(crate) fn decompose_path(path: &str) -> Result<ArchivePath> {
             ap.path_type = get_path_type(&tpe);
             (tpe, tmp) // path = /:path/:tpe/:name
         } else {
-            ap.path_type = ArchivePathEnum::None;
+            ap.path_type = ArchivePathEnum::Repo;
             elem.push(tpe);
             elem.push(tmp);
             ("".to_string(), "".to_string()) // path = /:path --> with length (>1)
         }
     } else {
-        ap.path_type = ArchivePathEnum::None;
+        ap.path_type = ArchivePathEnum::Repo;
         elem.push(tmp);
         ("".to_string(), "".to_string()) // path = /:path --> with length (1)
     };
@@ -119,7 +122,7 @@ fn get_path_type(s: &str) -> ArchivePathEnum {
         TPE_LOCKS => ArchivePathEnum::Locks,
         TPE_SNAPSHOTS => ArchivePathEnum::Snapshots,
         TPE_INDEX => ArchivePathEnum::Index,
-        _ => ArchivePathEnum::None,
+        _ => ArchivePathEnum::Repo,
     }
 }
 
