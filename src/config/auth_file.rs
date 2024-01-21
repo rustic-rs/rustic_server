@@ -42,8 +42,7 @@ impl HtAccess {
     }
 
     pub fn users(&self) -> Vec<String> {
-        let ret: Vec<String> = self.credentials.keys().cloned().collect();
-        return ret;
+        self.credentials.keys().cloned().collect()
     }
 
     /// Update can be used for both new, and existing credentials
@@ -91,7 +90,7 @@ impl Credential {
             .map(char::from)
             .collect();
         let hash = md5_apr1_encode(pass, salt.as_str());
-        let hash = format_hash(&hash.as_str(), &salt.as_str());
+        let hash = format_hash(hash.as_str(), salt.as_str());
 
         Credential {
             name: name.into(),
@@ -106,7 +105,7 @@ impl Credential {
         let spl: Vec<&str> = line.split(':').collect();
         if !spl.is_empty() {
             return Some(Credential {
-                name: spl.get(0).unwrap().to_string(),
+                name: spl.first().unwrap().to_string(),
                 hash_val: Some(spl.get(1).unwrap().to_string()),
                 pw: None,
             });

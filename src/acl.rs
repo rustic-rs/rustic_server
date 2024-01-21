@@ -97,7 +97,7 @@ impl Acl {
         clone.remove("");
         let toml_string =
             toml::to_string(&clone).context("Could not serialize ACL config to TOML value")?;
-        fs::write(&pth, toml_string).context("Could not write ACL file!")?;
+        fs::write(pth, toml_string).context("Could not write ACL file!")?;
         Ok(())
     }
 

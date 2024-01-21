@@ -15,7 +15,7 @@ use std::str::FromStr;
 pub async fn serve(opts: Opts) -> Result<()> {
     match &opts.config {
         Some(config) => {
-            let config_path = PathBuf::new().join(&config);
+            let config_path = PathBuf::new().join(config);
             let server_config =
                 ServerConfig::from_file(&config_path).unwrap_or_else(|e| panic!("{}", e));
 

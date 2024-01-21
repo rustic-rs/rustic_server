@@ -63,7 +63,7 @@ impl ServerConfig {
     pub fn to_file(&self, pth: &Path) -> Result<()> {
         let toml_string =
             toml::to_string(&self).context("Could not serialize SeverConfig to TOML value")?;
-        fs::write(&pth, toml_string).context("Could not write ServerConfig to file!")?;
+        fs::write(pth, toml_string).context("Could not write ServerConfig to file!")?;
         Ok(())
     }
 }
