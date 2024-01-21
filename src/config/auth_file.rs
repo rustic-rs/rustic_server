@@ -88,7 +88,7 @@ impl Credential {
     pub fn new(name: &str, pass: &str) -> Self {
         let salt: String = thread_rng()
             .sample_iter(&Alphanumeric)
-            .take(SALT_LEN)
+            .take(constants::SALT_LEN)
             .map(char::from)
             .collect();
         let hash = md5_apr1_encode(pass, salt.as_str());
