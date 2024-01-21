@@ -154,7 +154,7 @@ mod test {
         let htaccess_pth = Path::new("tmp_test_data").join("rustic");
         fs::create_dir_all(&htaccess_pth).unwrap();
 
-        let ht_file = htaccess_pth.join(".htaccess");
+        let ht_file = htaccess_pth.join("htaccess");
 
         let mut ht = HtAccess::from_file(&ht_file)?;
         ht.update("Administrator", "stuff");
@@ -162,12 +162,12 @@ mod test {
         ht.to_file()?;
 
         let ht = HtAccess::from_file(&ht_file)?;
-        assert!(ht.get(&"Administrator").is_some());
-        assert!(ht.get(&"backup-user").is_some());
+        assert!(ht.get("Administrator").is_some());
+        assert!(ht.get("backup-user").is_some());
 
         let auth = Auth::from_file(false, &ht_file).unwrap();
         assert!(auth.verify("Administrator", "stuff"));
-        assert!(auth.verify(&"backup-user", "itsme"));
+        assert!(auth.verify("backup-user", "itsme"));
 
         Ok(())
     }

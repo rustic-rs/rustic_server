@@ -84,12 +84,14 @@ pub struct AuthFromRequest {
 impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
     type Rejection = ErrorKind;
 
+    // FIXME: We also have a configuration flag do run without authentication
+    // This must be handled here too ... otherwise we get an Auth header missing error.
     async fn from_request_parts(
         parts: &mut Parts,
         state: &S,
     ) -> std::result::Result<Self, ErrorKind> {
-        let auth_result = AuthBasic::from_request_parts(parts, state).await;
         let checker = AUTH.get().unwrap();
+        let auth_result = AuthBasic::from_request_parts(parts, state).await;
         tracing::debug!("Got authentication result ...:{:?}", &auth_result);
         return match auth_result {
             Ok(auth) => {
@@ -253,10 +255,6 @@ mod test {
         let request = Request::builder()
             .uri("/rustic_server")
             .method(Method::GET)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("__test_pw")),
-            )
             .body(Body::empty())
             .unwrap();
 

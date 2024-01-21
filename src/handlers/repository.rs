@@ -1,11 +1,12 @@
 use crate::auth::AuthFromRequest;
 use crate::error::ErrorKind;
 use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum, DEFAULT_PATH, TYPES};
+use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum, TYPES};
 use crate::storage::STORAGE;
 use crate::{acl::AccessType, error::Result};
+use axum::extract::OriginalUri;
 use axum::extract::Query;
-use axum::{extract::Path as PathExtract, http::StatusCode, response::IntoResponse};
+use axum::{http::StatusCode, response::IntoResponse};
 use serde_derive::Deserialize;
 use std::path::Path;
 
@@ -20,10 +21,11 @@ pub(crate) struct Create {
 // FIXME: The input path should be 1 folder deep (right??)
 pub(crate) async fn create_repository(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
     Query(params): Query<Create>,
 ) -> Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = uri.path();
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
@@ -61,9 +63,10 @@ pub(crate) async fn create_repository(
 /// FIXME: The input path should at least NOT point to a file in any repository
 pub(crate) async fn delete_repository(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
 ) -> Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = uri.path();
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
@@ -89,11 +92,12 @@ pub(crate) async fn delete_repository(
 #[cfg(test)]
 mod test {
     use crate::handlers::repository::{create_repository, delete_repository};
+    use crate::log::print_request_response;
     use crate::test_helpers::{
-        basic_auth_header_value, init_test_environment, print_request_response,
+        basic_auth_header_value, init_test_environment, request_uri_for_test,
     };
     use axum::http::Method;
-    use axum::routing::post;
+    use axum::routing::{delete, post};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -140,15 +144,16 @@ mod test {
             .route("/*path", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
-        let request = Request::builder()
-            .uri(&repo_name_uri)
-            .method(Method::POST)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
+        let request = request_uri_for_test(&repo_name_uri, Method::POST);
+        // let request = Request::builder()
+        //     .uri(&repo_name_uri)
+        //     .method(Method::POST)
+        //     .header(
+        //         "Authorization",
+        //         basic_auth_header_value("test", Some("test_pw")),
+        //     )
+        //     .body(Body::empty())
+        //     .unwrap();
 
         let resp = app.oneshot(request).await.unwrap();
 
@@ -163,15 +168,16 @@ mod test {
             .route("/*path", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
-        let request = Request::builder()
-            .uri(&repo_name_uri)
-            .method(Method::POST)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
+        let request = request_uri_for_test(&repo_name_uri, Method::POST);
+        // let request = Request::builder()
+        //     .uri(&repo_name_uri)
+        //     .method(Method::POST)
+        //     .header(
+        //         "Authorization",
+        //         basic_auth_header_value("test", Some("test_pw")),
+        //     )
+        //     .body(Body::empty())
+        //     .unwrap();
 
         let resp = app.oneshot(request).await.unwrap();
 
@@ -207,18 +213,19 @@ mod test {
         assert!(path.exists()); // pre condition: repo exists
         let repo_name_uri = "/repo_remove_me".to_string();
         let app = Router::new()
-            .route("/*path", post(delete_repository))
+            .route("/*path", delete(delete_repository))
             .layer(middleware::from_fn(print_request_response));
 
-        let request = Request::builder()
-            .uri(&repo_name_uri)
-            .method(Method::POST)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
+        let request = request_uri_for_test(&repo_name_uri, Method::DELETE);
+        // let request = Request::builder()
+        //     .uri(&repo_name_uri)
+        //     .method(Method::DELETE)
+        //     .header(
+        //         "Authorization",
+        //         basic_auth_header_value("test", Some("test_pw")),
+        //     )
+        //     .body(Body::empty())
+        //     .unwrap();
 
         let resp = app.oneshot(request).await.unwrap();
 

@@ -7,12 +7,30 @@
 // storage - to access the file system
 // auth    - for user authentication
 // acl     - for access control
+//
+//
+// During the rout table creation, we loop over types. Rationale:
+// We can not distinguish paths using `:tpe` matching in the router.
+// The routing path would then become "/:path/:tpe/:name
+// This seems not supported by the Serde parser (I assume that is what is used under the hood)
+//
+// So, instead, we loop over the types, and create a route path for each "explicit" type.
+// The handlers will then analyse the path to determine (path, type, name/config).
+
+// An alternative design might be that we create helper functions like so:
+//   - get_file_data()  --> calls get_file( ..., "data")
+//   - get_file_config() --> calls get_file( ..., "config")
+//   - get_file_keys()  --> calls get_file( ..., "keys")
+//      etc, etc,
+// When adding these to the router, we can use the Axum::Path to get the path without having
+// to re-analyse the URI like we do now. TBI: does this speed up the server?
 
 use axum::routing::{get, head, post};
-use axum::Router;
+use axum::{middleware, Router};
 use axum_server::tls_rustls::RustlsConfig;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
+use tracing::level_filters::LevelFilter;
 
 use crate::acl::{init_acl, Acl};
 use crate::auth::{init_auth, Auth};
@@ -22,10 +40,11 @@ use crate::handlers::file_length::file_length;
 use crate::handlers::files_list::list_files;
 use crate::handlers::path_analysis::TYPES;
 use crate::handlers::repository::{create_repository, delete_repository};
+use crate::log::print_request_response;
 use crate::storage::init_storage;
 use crate::{error::Result, storage::Storage};
 
-/// FIXME: Routes are checked in order of adding them to the Router (right?)
+/// FIXME: original Restic interface seems not to provide a "delete repository" interface.
 pub async fn start_web_server(
     acl: Acl,
     auth: Auth,
@@ -39,7 +58,9 @@ pub async fn start_web_server(
     init_auth(auth)?;
     init_storage(storage)?;
 
+    // -------------------------------------
     // Create routing structure
+    // -------------------------------------
     let mut app = Router::new().route(
         "/:path/config",
         head(has_config)
@@ -48,11 +69,7 @@ pub async fn start_web_server(
             .delete(delete_config),
     );
 
-    // Loop over types. Rationale:
-    // We can not distinguish these 2 paths using :tpe in the router:
-    // Like: "/:path/:tpe/:name
-    // So we loop over the types, and create a route for each type.
-    // The handlers will then analyse the path to determine (path, type, name/config)
+    // Fixme: Are we faster by creating a "function" per type and skip analysing the path in each call?
     for tpe in TYPES.into_iter() {
         let path1 = format!("/:path/{}/", &tpe);
         let path2 = format!("/:path/{}/:name", &tpe);
@@ -65,17 +82,22 @@ pub async fn start_web_server(
         );
     }
 
-    // FIXME: original restic interface does not have a delete repo (right?); rustic_server did ...
-    // Creating the repositories is done by sending a path
-    // This path can be anything for the router except the
-    // paths defined in the previous routes, added above.
-    app = app.route(
-        "/:path/",
-        post(create_repository)
-            .delete(delete_repository)
-            .post(create_repository),
-    );
+    app = app.route("/:path/", post(create_repository).delete(delete_repository));
 
+    // -----------------------------------------------
+    // Extra logging requested. Handlers will log too
+    // ----------------------------------------------
+    let level_filter = LevelFilter::current();
+    match level_filter {
+        LevelFilter::TRACE | LevelFilter::DEBUG | LevelFilter::INFO => {
+            app = app.layer(middleware::from_fn(print_request_response));
+        }
+        _ => {}
+    };
+
+    // -----------------------------------------------
+    // Start server with or without TLS
+    // -----------------------------------------------
     match tls {
         false => {
             println!("rustic_server listening on {}", &socket_address);

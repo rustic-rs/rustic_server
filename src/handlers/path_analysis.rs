@@ -2,7 +2,7 @@ use crate::error::ErrorKind;
 use crate::error::Result;
 use std::fmt::{Display, Formatter};
 
-pub(crate) const DEFAULT_PATH: &str = "";
+//pub(crate) const DEFAULT_PATH: &str = "";
 
 // TPE_LOCKS is is defined, but outside this types[] array.
 // This allow us to loop over the types[] when generating "routes"
@@ -42,7 +42,9 @@ impl Display for ArchivePath {
     }
 }
 
-pub(crate) fn decompose_path(path: String) -> Result<ArchivePath> {
+pub(crate) fn decompose_path(path: &str) -> Result<ArchivePath> {
+    tracing::debug!("[decompose_path] received path: {}", &path);
+
     // Collect to a list of non empty path elements
     let mut elem: Vec<String> = path
         .split('/')
@@ -61,24 +63,23 @@ pub(crate) fn decompose_path(path: String) -> Result<ArchivePath> {
 
     if length == 0 {
         tracing::debug!("[decompose_path] Empty path!");
-        return Err(ErrorKind::FilenameNotAllowed(path));
+        return Err(ErrorKind::FilenameNotAllowed(path.into()));
     }
 
     // Analyse tail of the path to find name and type values
     let tmp = elem.pop().unwrap();
     let (tpe, name) = if tmp.eq(TPE_CONFIG) {
         ap.path_type = ArchivePathEnum::Config;
-        tracing::debug!("[decompose_path] ends with config");
         if length > 1 {
             let tpe = elem.pop().unwrap();
             if TYPES.contains(&tpe.as_str()) {
                 (tpe, tmp) // path = /:path/:tpe/:config
             } else {
                 elem.push(tpe);
-                ("".to_string(), tmp) // path = /:path/:config
+                (TPE_CONFIG.to_string(), tmp) // path = /:path/:config
             }
         } else {
-            ("".to_string(), tmp) // path = /:config
+            (TPE_CONFIG.to_string(), tmp) // path = /:config
         }
     } else if TYPES.contains(&tmp.as_str()) {
         ap.path_type = get_path_type(&tmp);
@@ -133,48 +134,57 @@ mod test {
     fn archive_path_struct() -> Result<()> {
         init_tracing();
 
-        let path = "/a/b/data/name".to_string();
+        let path = "/a/b/data/name";
         let ap = decompose_path(path)?;
         assert_eq!(ap.tpe, TPE_DATA);
         assert_eq!(ap.name, "name".to_string());
         assert_eq!(ap.path, "a/b");
 
-        let path = "/data/name".to_string();
+        let path = "/data/name";
         let ap = decompose_path(path)?;
         assert_eq!(ap.tpe, TPE_DATA);
         assert_eq!(ap.name, "name".to_string());
         assert_eq!(ap.path, "");
 
-        let path = "/a/b/locks".to_string();
+        let path = "/a/b/locks";
         let ap = decompose_path(path)?;
         assert_eq!(ap.tpe, TPE_LOCKS);
         assert_eq!(ap.name, "".to_string());
         assert_eq!(ap.path, "a/b");
 
-        let path = "/data".to_string();
+        let path = "/data";
         let ap = decompose_path(path)?;
         assert_eq!(ap.tpe, TPE_DATA);
         assert_eq!(ap.name, "".to_string());
         assert_eq!(ap.path, "");
 
-        let path = "/a/b/data/config".to_string();
+        let path = "/a/b/data/config";
         let ap = decompose_path(path)?;
         assert_eq!(ap.path_type, Config);
         assert_eq!(ap.tpe, TPE_DATA);
         assert_eq!(ap.name, "config".to_string());
         assert_eq!(ap.path, "a/b");
 
-        let path = "/a/b/config".to_string();
+        // pub(crate) fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse>
+        // requires that we have type config --> keep similar with "old" rustic server implementation
+        let path = "/a/b/config";
         let ap = decompose_path(path)?;
         assert_eq!(ap.path_type, Config);
-        assert_eq!(ap.tpe, "".to_string());
+        assert_eq!(ap.tpe, "config".to_string());
         assert_eq!(ap.name, "config".to_string());
         assert_eq!(ap.path, "a/b");
 
-        let path = "/config".to_string();
+        let path = "/a/config";
         let ap = decompose_path(path)?;
         assert_eq!(ap.path_type, Config);
-        assert_eq!(ap.tpe, "".to_string());
+        assert_eq!(ap.tpe, "config".to_string());
+        assert_eq!(ap.name, "config".to_string());
+        assert_eq!(ap.path, "a");
+
+        let path = "/config";
+        let ap = decompose_path(path)?;
+        assert_eq!(ap.path_type, Config);
+        assert_eq!(ap.tpe, "config".to_string());
         assert_eq!(ap.name, "config".to_string());
         assert_eq!(ap.path, "");
 

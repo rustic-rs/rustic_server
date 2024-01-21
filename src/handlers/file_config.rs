@@ -4,10 +4,11 @@ use crate::error::ErrorKind;
 use crate::error::Result;
 use crate::handlers::access_check::check_auth_and_acl;
 use crate::handlers::file_exchange::{check_name, get_file, get_save_file, save_body};
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum, DEFAULT_PATH};
+use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum};
 use crate::storage::STORAGE;
-use axum::extract::Request;
-use axum::{extract::Path as PathExtract, response::IntoResponse};
+use axum::body::Body;
+use axum::extract::{OriginalUri, Request};
+use axum::response::IntoResponse;
 use axum_extra::headers::Range;
 use axum_extra::TypedHeader;
 use std::path::{Path, PathBuf};
@@ -16,17 +17,18 @@ use std::path::{Path, PathBuf};
 /// Interface: HEAD {path}/config
 pub(crate) async fn has_config(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    req: Request<Body>,
 ) -> Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let archive_path = decompose_path(path_string.clone())?;
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = req.uri().path();
+    let archive_path = decompose_path(path_string)?;
     tracing::debug!("[has_config] archive_path: {}", &archive_path);
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
     // assert_eq!( &archive_path.path_type, &ArchivePathEnum::CONFIG); --> Correct assert, but interferes with our tests
     // assert_eq!( &tpe, TPE_CONFIG); --> Correct assert, but interferes with our tests
-    assert_eq!(&name, "config");
+    //assert_eq!(&name, "config");
     tracing::debug!("[has_config] path: {p_str}, tpe: {tpe}, name: {name}");
 
     let path = Path::new(&p_str);
@@ -45,29 +47,22 @@ pub(crate) async fn has_config(
 /// Interface: GET {path}/config
 pub(crate) async fn get_config(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
     range: Option<TypedHeader<Range>>,
 ) -> Result<impl IntoResponse> {
-    // let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    // let archive_path = decompose_path(path_string.clone());
-    // let p_str = archive_path.path;
-    // let tpe = archive_path.tpe;
-    // assert_eq!( &archive_path.path_type, &ArchivePathEnum::CONFIG);
-    // assert_eq!( &tpe, TPE_CONFIG);
-    // tracing::debug!("[get_config] path: {p_str:?}, tpe: {tpe}, name: config");
-
-    get_file(auth, path, range).await
+    get_file(auth, uri, range).await
 }
 
 /// add_config
 /// Interface: POST {path}/config
 pub(crate) async fn add_config(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
     request: Request,
 ) -> Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let archive_path = decompose_path(path_string.clone())?;
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = uri.path();
+    let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
@@ -88,10 +83,11 @@ pub(crate) async fn add_config(
 /// FIXME: The original restic spec does not define delete_config --> but rustic did ??
 pub(crate) async fn delete_config(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
 ) -> Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let archive_path = decompose_path(path_string.clone())?;
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = uri.path();
+    let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
@@ -114,8 +110,9 @@ pub(crate) async fn delete_config(
 mod test {
     use crate::handlers::file_config::{add_config, delete_config, get_config, has_config};
     use crate::handlers::repository::{create_repository, delete_repository};
+    use crate::log::print_request_response;
     use crate::test_helpers::{
-        basic_auth_header_value, init_test_environment, print_request_response,
+        basic_auth_header_value, init_test_environment, request_uri_for_test,
     };
     use axum::http::Method;
     use axum::routing::{delete, get, head, post};
@@ -204,16 +201,7 @@ mod test {
             .route("/*path", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
-        let request = Request::builder()
-            .uri(&repo_name_uri)
-            .method(Method::POST)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
-
+        let request = request_uri_for_test(&repo_name_uri, Method::POST);
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
@@ -254,16 +242,7 @@ mod test {
             .route("/*path", get(get_config))
             .layer(middleware::from_fn(print_request_response));
 
-        let request = Request::builder()
-            .uri(&uri)
-            .method(Method::GET)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
-
+        let request = request_uri_for_test(&uri, Method::GET);
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
@@ -280,16 +259,7 @@ mod test {
             .route("/*path", head(has_config))
             .layer(middleware::from_fn(print_request_response));
 
-        let request = Request::builder()
-            .uri(&uri)
-            .method(Method::HEAD)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
-
+        let request = request_uri_for_test(&uri, Method::HEAD);
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
@@ -301,16 +271,7 @@ mod test {
             .route("/*path", delete(delete_config))
             .layer(middleware::from_fn(print_request_response));
 
-        let request = Request::builder()
-            .uri(&uri)
-            .method(Method::DELETE)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
-
+        let request = request_uri_for_test(&uri, Method::DELETE);
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
@@ -325,16 +286,7 @@ mod test {
             .route("/*path", post(delete_repository))
             .layer(middleware::from_fn(print_request_response));
 
-        let request = Request::builder()
-            .uri(&repo_name_uri)
-            .method(Method::POST)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
-
+        let request = request_uri_for_test(&repo_name_uri, Method::POST);
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);

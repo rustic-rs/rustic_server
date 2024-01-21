@@ -2,24 +2,28 @@ use crate::acl::Acl;
 use crate::auth::Auth;
 use crate::config::server_config::ServerConfig;
 use crate::error::{ErrorKind, Result};
-use crate::log::init_tracing;
+use crate::log::{init_trace_from, init_tracing};
 use crate::storage::LocalStorage;
 use crate::web::start_web_server;
 use clap::Parser;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
 use std::str::FromStr;
 
 // FIXME: we should not return crate::error::Result here; maybe anyhow::Result,
 
 pub async fn serve(opts: Opts) -> Result<()> {
-    init_tracing();
-
     match &opts.config {
         Some(config) => {
             let config_path = PathBuf::new().join(&config);
-            let server_config = ServerConfig::from_file(&config_path)
-                .unwrap_or_else(|_| panic!("Can not load server configuration file: {}", &config));
+            let server_config =
+                ServerConfig::from_file(&config_path).unwrap_or_else(|e| panic!("{}", e));
+
+            if let Some(level) = server_config.log_level {
+                init_trace_from(&level);
+            } else {
+                init_tracing();
+            }
 
             // Repository storage
             let storage_path = PathBuf::new().join(server_config.repos.storage_path);
@@ -49,10 +53,15 @@ pub async fn serve(opts: Opts) -> Result<()> {
             };
 
             // Server definition
-            let socket = SocketAddr::from_str(&opts.listen).unwrap();
+            let s_addr = server_config.server;
+            let s_str = format!("{}:{}", s_addr.host_dns_name, s_addr.port);
+            tracing::debug!("[serve] Serving address: {}", &s_str);
+            let socket = s_str.to_socket_addrs().unwrap().next().unwrap();
             start_web_server(acl, auth, storage, socket, false, None, opts.key).await
         }
         None => {
+            init_trace_from(&opts.log);
+
             let storage = match LocalStorage::try_new(&opts.path) {
                 Ok(s) => s,
                 Err(e) => return Err(ErrorKind::InternalError(e.to_string())),

@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use rustic_server::commands::serve::{serve, Opts};
-use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<()> {

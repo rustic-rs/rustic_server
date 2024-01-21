@@ -31,10 +31,10 @@ impl HtAccess {
                     }
                 })
         }
-        return Ok(HtAccess {
+        Ok(HtAccess {
             path: pth.clone(),
             credentials: c,
-        });
+        })
     }
 
     pub fn get(&self, name: &str) -> Option<&Credential> {
@@ -42,8 +42,7 @@ impl HtAccess {
     }
 
     pub fn users(&self) -> Vec<String> {
-        let ret: Vec<String> = self.credentials.keys().cloned().collect();
-        return ret;
+        self.credentials.keys().cloned().collect()
     }
 
     /// Update can be used for both new, and existing credentials
@@ -62,7 +61,7 @@ impl HtAccess {
     }
 
     /// FIXME: Nicer error logging for when we can not write file ...
-    pub fn to_file(&mut self) -> Result<()> {
+    pub fn to_file(&self) -> Result<()> {
         let mut file = fs::OpenOptions::new()
             .create(true)
             .truncate(false)
@@ -70,7 +69,7 @@ impl HtAccess {
             .open(&self.path)?;
 
         for (_n, c) in self.credentials.iter() {
-            file.write(c.to_line().as_bytes()).unwrap();
+            let _ = file.write(c.to_line().as_bytes()).unwrap();
         }
         Ok(())
     }

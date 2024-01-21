@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use serde_derive::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServerConfig {
@@ -10,6 +10,7 @@ pub struct ServerConfig {
     pub tls: Option<TLS>,
     pub authorization: Authorization,
     pub accesscontrol: AccessControl,
+    pub log_level: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -52,14 +53,14 @@ pub struct TLS {
 }
 
 impl ServerConfig {
-    pub fn from_file(pth: &PathBuf) -> Result<Self> {
-        let s = fs::read_to_string(&pth).context("Can not read server configuration file")?;
+    pub fn from_file(pth: &Path) -> Result<Self> {
+        let s = fs::read_to_string(pth).context("Can not read server configuration file")?;
         let config: ServerConfig =
             toml::from_str(&s).context("Can not convert file to server configuration")?;
         Ok(config)
     }
 
-    pub fn to_file(&self, pth: &PathBuf) -> Result<()> {
+    pub fn to_file(&self, pth: &Path) -> Result<()> {
         let toml_string =
             toml::to_string(&self).context("Could not serialize SeverConfig to TOML value")?;
         fs::write(&pth, toml_string).context("Could not write ServerConfig to file!")?;
@@ -77,6 +78,7 @@ mod test {
     #[test]
     fn test_file_read() {
         let config_path = Path::new("test_data").join("rustic_server.toml");
+        //let config_path = Path::new("/data/rustic/rustic_server.toml");
         let config = ServerConfig::from_file(&config_path);
         assert!(config.is_ok());
 
@@ -116,8 +118,11 @@ mod test {
             append_only: true,
         };
 
+        let log = "debug".to_string();
+
         // Try to write
         let config = ServerConfig {
+            log_level: Some(log),
             server,
             repos,
             tls,

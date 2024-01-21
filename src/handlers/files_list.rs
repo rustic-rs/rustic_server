@@ -1,11 +1,11 @@
 use crate::auth::AuthFromRequest;
 use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum, DEFAULT_PATH};
+use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum};
 use crate::storage::STORAGE;
 use crate::{acl::AccessType, error::Result, handlers::file_helpers::IteratorAdapter};
+use axum::extract::OriginalUri;
 use axum::http::header::AUTHORIZATION;
 use axum::{
-    extract::Path as PathExtract,
     http::{header, StatusCode},
     response::IntoResponse,
     Json,
@@ -27,10 +27,11 @@ struct RepoPathEntry {
 
 pub(crate) async fn list_files(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = uri.path();
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
@@ -86,9 +87,8 @@ pub(crate) async fn list_files(
 #[cfg(test)]
 mod test {
     use crate::handlers::files_list::{list_files, RepoPathEntry, API_V1, API_V2};
-    use crate::test_helpers::{
-        basic_auth_header_value, init_test_environment, print_request_response,
-    };
+    use crate::log::print_request_response;
+    use crate::test_helpers::{basic_auth_header_value, init_test_environment};
     use axum::http::header::{ACCEPT, CONTENT_TYPE};
     use axum::routing::get;
     use axum::{

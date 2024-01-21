@@ -2,13 +2,12 @@ use crate::auth::AuthFromRequest;
 use crate::error::ErrorKind;
 use crate::handlers::access_check::check_auth_and_acl;
 use crate::handlers::file_helpers::Finalizer;
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum, DEFAULT_PATH};
+use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum};
 use crate::storage::STORAGE;
-use crate::{acl::AccessType, error, error::Result};
+use crate::{acl::AccessType, error::Result};
 use ::futures::{Stream, TryStreamExt};
-use axum::{
-    body::Bytes, extract::Path as PathExtract, extract::Request, response::IntoResponse, BoxError,
-};
+use axum::extract::OriginalUri;
+use axum::{body::Bytes, extract::Request, response::IntoResponse, BoxError};
 use axum_extra::headers::Range;
 use axum_extra::TypedHeader;
 use axum_range::KnownSize;
@@ -25,10 +24,11 @@ use tokio_util::io::StreamReader;
 /// Future on ranges: https://www.rfc-editor.org/rfc/rfc9110.html#name-partial-put
 pub(crate) async fn add_file(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
     request: Request,
 ) -> Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = uri.path();
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
@@ -52,9 +52,10 @@ pub(crate) async fn add_file(
 /// Interface: DELETE {path}/{type}/{name}
 pub(crate) async fn delete_file(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
 ) -> Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = uri.path();
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
@@ -79,10 +80,11 @@ pub(crate) async fn delete_file(
 /// Interface: GET {path}/{type}/{name}
 pub(crate) async fn get_file(
     auth: AuthFromRequest,
-    path: Option<PathExtract<String>>,
+    uri: OriginalUri,
     range: Option<TypedHeader<Range>>,
-) -> error::Result<impl IntoResponse> {
-    let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+) -> Result<impl IntoResponse> {
+    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
+    let path_string = uri.path();
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
@@ -95,7 +97,7 @@ pub(crate) async fn get_file(
     check_auth_and_acl(auth.user, tpe.as_str(), pth, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = match storage.open_file(&pth, &tpe, &name).await {
+    let file = match storage.open_file(pth, &tpe, &name).await {
         Ok(file) => file,
         Err(_) => {
             return Err(ErrorKind::FileNotFound(p_str));
@@ -121,13 +123,8 @@ pub(crate) async fn get_save_file(
 ) -> Result<impl AsyncWrite + Unpin + Finalizer> {
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
-    if check_name(tpe, name.as_str()).is_err() {
-        return Err(ErrorKind::FilenameNotAllowed(name));
-    }
-
-    if check_auth_and_acl(user, tpe, path.as_path(), AccessType::Append).is_err() {
-        return Err(ErrorKind::PathNotAllowed(path.display().to_string()));
-    }
+    check_name(tpe, name.as_str())?;
+    check_auth_and_acl(user, tpe, path.as_path(), AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
     let file_writer = match storage.create_file(&path, tpe, &name).await {
@@ -196,8 +193,9 @@ pub(crate) fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse> {
 #[cfg(test)]
 mod test {
     use crate::handlers::file_exchange::{add_file, delete_file, get_file};
+    use crate::log::print_request_response;
     use crate::test_helpers::{
-        basic_auth_header_value, init_test_environment, print_request_response,
+        basic_auth_header_value, init_test_environment, request_uri_for_test,
     };
     use axum::http::{header, Method};
     use axum::routing::{delete, get, put};
@@ -341,16 +339,7 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
-        let request = Request::builder()
-            .uri(uri)
-            .method(Method::GET)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(body)
-            .unwrap();
-
+        let request = request_uri_for_test(&uri, Method::GET);
         let resp = app.clone().oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
@@ -396,19 +385,38 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
-        let request = Request::builder()
-            .uri(uri)
-            .method(Method::DELETE)
-            .header(
-                "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
-            )
-            .body(Body::empty())
-            .unwrap();
-
+        let request = request_uri_for_test(&uri, Method::DELETE);
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
         assert!(!path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_get_config() {
+        init_test_environment();
+
+        let cwd = env::current_dir().unwrap();
+        let path = PathBuf::new()
+            .join(cwd)
+            .join("test_data")
+            .join("test_repos")
+            .join("test_repo")
+            .join("config");
+        let test_vec = fs::read(path).unwrap();
+
+        let app = Router::new()
+            .route("/*path", get(get_file))
+            .layer(middleware::from_fn(print_request_response));
+
+        let uri = "/test_repo/config";
+        let request = request_uri_for_test(&uri, Method::GET);
+        let resp = app.clone().oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let (_parts, body) = resp.into_parts();
+        let byte_vec = body.collect().await.unwrap().to_bytes();
+        let body_str = byte_vec.to_vec();
+        assert_eq!(body_str, test_vec);
     }
 }

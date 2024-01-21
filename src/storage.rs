@@ -27,19 +27,6 @@ pub(crate) fn init_storage(storage: impl Storage) -> Result<(), ErrorKind> {
     Ok(())
 }
 
-// #[derive(Debug, Clone)]
-// #[enum_dispatch]
-// pub(crate) enum StorageEnum {
-//     LocalStorage(LocalStorage),
-// }
-//
-// impl StorageEnum {
-//     pub fn try_new_local(path: &Path) -> IoResult<Self> {
-//         let storage = LocalStorage::try_new(path)?;
-//         Ok(StorageEnum::LocalStorage(storage))
-//     }
-// }
-
 #[async_trait::async_trait]
 //#[enum_dispatch(StorageEnum)]
 pub trait Storage: Send + Sync + 'static {
@@ -138,7 +125,7 @@ mod test {
     use std::path::PathBuf;
 
     #[test]
-    fn test_static_storage_access() {
+    fn test_file_access() {
         let cwd = env::current_dir().unwrap();
         let repo_path = PathBuf::new()
             .join(cwd)
@@ -162,5 +149,24 @@ mod test {
             }
         }
         assert!(found);
+    }
+
+    #[tokio::test]
+    async fn test_config_access() {
+        let cwd = env::current_dir().unwrap();
+        let repo_path = PathBuf::new()
+            .join(cwd)
+            .join("test_data")
+            .join("test_repos");
+
+        let local_storage = LocalStorage::try_new(&repo_path).unwrap();
+        init_storage(local_storage).unwrap();
+
+        let storage = STORAGE.get().unwrap();
+
+        // path must not start with slash !! that will skip the self.path from Storage!
+        let path = PathBuf::new().join("test_repo/");
+        let c = storage.open_file(&path, "", "config").await;
+        assert!(c.is_ok())
     }
 }
