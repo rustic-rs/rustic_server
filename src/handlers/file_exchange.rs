@@ -416,7 +416,7 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri = "/test_repo/config";
-        let request = request_uri_for_test(&uri, Method::GET);
+        let request = request_uri_for_test(uri, Method::GET);
         let resp = app.clone().oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
