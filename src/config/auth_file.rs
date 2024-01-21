@@ -9,7 +9,9 @@ use std::fs::read_to_string;
 use std::io::Write;
 use std::path::PathBuf;
 
-const SALT_LEN: usize = 8;
+pub mod constants {
+    pub(super) const SALT_LEN: usize = 8;
+}
 
 #[derive(Clone)]
 pub struct HtAccess {
