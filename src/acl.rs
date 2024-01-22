@@ -1,13 +1,23 @@
-use enum_dispatch::enum_dispatch;
-use serde_derive::Deserialize;
+use crate::handlers::path_analysis::TPE_LOCKS;
+use anyhow::{Context, Result};
+use once_cell::sync::OnceCell;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::Result;
+//Static storage of our credentials
+pub static ACL: OnceCell<Acl> = OnceCell::new();
+
+pub fn init_acl(state: Acl) -> Result<()> {
+    if ACL.get().is_none() {
+        ACL.set(state).unwrap()
+    }
+    Ok(())
+}
 
 // Access Types
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum AccessType {
     Nothing,
     Read,
@@ -15,13 +25,6 @@ pub enum AccessType {
     Modify,
 }
 
-#[derive(Debug, Clone)]
-#[enum_dispatch]
-pub(crate) enum AclCheckerEnum {
-    Acl(Acl),
-}
-
-#[enum_dispatch(AclCheckerEnum)]
 pub trait AclChecker: Send + Sync + 'static {
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool;
 }
@@ -30,7 +33,7 @@ pub trait AclChecker: Send + Sync + 'static {
 type RepoAcl = HashMap<String, AccessType>;
 
 // Acl holds ACLs for all repos
-#[derive(Clone, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Acl {
     repos: HashMap<String, RepoAcl>,
     append_only: bool,
@@ -79,13 +82,44 @@ impl Acl {
             repos,
         })
     }
+
+    // The default repo has not been removed from the self.repos list, so we do not need to add here
+    // But we still need to remove the ""-tag that was added during the from_file()
+    pub fn to_file(&self, pth: &PathBuf) -> Result<()> {
+        let mut clone = self.repos.clone();
+        clone.remove("");
+        let toml_string =
+            toml::to_string(&clone).context("Could not serialize ACL config to TOML value")?;
+        fs::write(pth, toml_string).context("Could not write ACL file!")?;
+        Ok(())
+    }
+
+    // If we do not have a key with ""-value then "default" is also not a key
+    // Since we guarantee this during the reading of a acl-file
+    pub fn default_repo_access(&mut self, user: &str, access: AccessType) {
+        if !self.repos.contains_key("") {
+            let mut acl = RepoAcl::new();
+            acl.insert(user.into(), access);
+            self.repos.insert("default".to_owned(), acl.clone());
+            self.repos.insert("".to_owned(), acl);
+        } else {
+            self.repos
+                .get_mut("default")
+                .unwrap()
+                .insert(user.into(), access.clone());
+            self.repos
+                .get_mut("")
+                .unwrap()
+                .insert(user.into(), access.clone());
+        }
+    }
 }
 
 impl AclChecker for Acl {
     // allowed yields whether these access to {path,tpe, access} is allowed by user
     fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool {
         // Access to locks is always treated as Read
-        let access = if tpe == "locks" {
+        let access = if tpe == TPE_LOCKS {
             AccessType::Read
         } else {
             access
@@ -110,6 +144,30 @@ impl AclChecker for Acl {
 mod tests {
     use super::AccessType::*;
     use super::*;
+    use std::env;
+
+    #[test]
+    fn test_static_acl_access() {
+        let cwd = env::current_dir().unwrap();
+        let acl = PathBuf::new()
+            .join(cwd)
+            .join("tests")
+            .join("fixtures")
+            .join("test_data")
+            .join("acl.toml");
+
+        dbg!(&acl);
+
+        let auth = Acl::from_file(false, true, Some(acl)).unwrap();
+        init_acl(auth).unwrap();
+
+        let acl = ACL.get().unwrap();
+        assert!(&acl.private_repo);
+        assert!(!&acl.append_only);
+        let access = acl.repos.get("test_repo").unwrap();
+        let access_type = access.get("test").unwrap();
+        assert_eq!(access_type, &Append);
+    }
 
     #[test]
     fn allowed_flags() {

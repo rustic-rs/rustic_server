@@ -1,75 +1,51 @@
-use clap::Parser;
-use rustic_server::{
-    acl::Acl,
-    auth::Auth,
-    log,
-    storage::LocalStorage,
-    web,
-    web::{AppState, Ports},
-    Opts,
-};
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+use rustic_server::commands::serve::{serve, Opts};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    log::init_tracing();
-
-    let opts = Opts::parse();
-
-    let ports = Ports {
-        http: opts.http_port,
-        https: opts.https_port,
-    };
-
-    // spawn a second server to redirect http requests to this server
-    match (opt.cert, opt.key) {
-        (Some(cert), Some(key)) => {
-            tracing::info!("TLS is enabled, http requests will be redirected to https");
-            tokio::spawn(redirect_http_to_https(ports));
-        }
-        _ => {
-            tracing::warn!("TLS is not enabled, http requests will not be redirected to https");
-        }
-    }
-
-    let storage = LocalStorage::try_new(&opts.path)?;
-    let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))?;
-    let acl = Acl::from_file(opts.append_only, opts.private_repo, opts.acl)?;
-
-    let new_state = AppState::new(auth, acl, storage);
-
-    web::main(new_state, opts.listen, ports, opts.tls, opts.cert, opts.key).await
+async fn main() -> Result<()> {
+    let cmd = RusticServer::parse();
+    cmd.exec().await?;
+    Ok(())
 }
 
-async fn redirect_http_to_https(ports: Ports) {
-    fn make_https(host: String, uri: Uri, ports: Ports) -> Result<Uri, BoxError> {
-        let mut parts = uri.into_parts();
+/// rustic_server
+/// A REST server built in rust for use with rustic and restic.
+#[derive(Parser)]
+#[command(version, bin_name = "rustic_server", disable_help_subcommand = false)]
+struct RusticServer {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-        parts.scheme = Some(axum::http::uri::Scheme::HTTPS);
+#[derive(Subcommand)]
+enum Commands {
+    /// Start the REST web-server.
+    Serve(Opts),
+    // Modify credentials in the .htaccess file.
+    //Auth(HtAccessCmd),
+    // Create a configuration from scratch.
+    //Config,
+}
 
-        if parts.path_and_query.is_none() {
-            parts.path_and_query = Some("/".parse().unwrap());
-        }
-
-        let https_host = host.replace(&ports.http.to_string(), &ports.https.to_string());
-        parts.authority = Some(https_host.parse()?);
-
-        Ok(Uri::from_parts(parts)?)
-    }
-
-    let redirect = move |Host(host): Host, uri: Uri| async move {
-        match make_https(host, uri, ports) {
-            Ok(uri) => Ok(Redirect::permanent(&uri.to_string())),
-            Err(error) => {
-                tracing::warn!(%error, "failed to convert URI to HTTPS");
-                Err(StatusCode::BAD_REQUEST)
+/// The server configuration file should point us to the `.htaccess` file.
+/// If not we complain to the user.
+///
+/// To be nice, if the `.htaccess` file pointed to does not exist, then we create it.
+/// We do so, even if it is not called `.htaccess`.
+impl RusticServer {
+    pub async fn exec(self) -> Result<()> {
+        match self.command {
+            // Commands::Auth(cmd) => {
+            //     cmd.exec()?;
+            // }
+            // Commands::Config => {
+            //     rustic_server_configuration()?;
+            // }
+            Commands::Serve(opts) => {
+                serve(opts).await.unwrap();
             }
         }
-    };
-
-    let addr = SocketAddr::from(([127, 0, 0, 1], ports.http));
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    tracing::debug!("listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, redirect.into_make_service())
-        .await
-        .unwrap();
+        Ok(())
+    }
 }

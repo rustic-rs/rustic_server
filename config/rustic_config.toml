@@ -1,0 +1,14 @@
+# Adapt to your own configuration
+[global]
+log-level = "Info"
+log-file = "~/rustic.log"
+
+[repository]
+repository = "rest:http://test:test_pw@localhost:8000/test_repo"
+password = "test_pw"
+
+[backup]
+
+[[backup.sources]]
+source = "~/your_path/rustic_server/test_data"
+# git-ignore = true
