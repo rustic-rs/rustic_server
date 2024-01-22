@@ -1,4 +1,3 @@
-use crate::error::ErrorKind;
 use crate::handlers::file_helpers::WriteOrDeleteFile;
 use anyhow::Result;
 use once_cell::sync::OnceCell;
@@ -12,17 +11,10 @@ use walkdir::WalkDir;
 //Static storage of our credentials
 pub static STORAGE: OnceCell<Arc<dyn Storage>> = OnceCell::new();
 
-pub(crate) fn init_storage(storage: impl Storage) -> Result<(), ErrorKind> {
+pub(crate) fn init_storage(storage: impl Storage) -> Result<()> {
     if STORAGE.get().is_none() {
         let storage = Arc::new(storage);
-        match STORAGE.set(storage) {
-            Ok(_) => {}
-            Err(_) => {
-                return Err(ErrorKind::InternalError(
-                    "can not create storage struct".to_string(),
-                ))
-            }
-        }
+        let _ = STORAGE.set(storage);
     }
     Ok(())
 }

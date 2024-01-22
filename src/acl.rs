@@ -1,4 +1,3 @@
-use crate::error::ErrorKind;
 use crate::handlers::path_analysis::TPE_LOCKS;
 use anyhow::{Context, Result};
 use once_cell::sync::OnceCell;
@@ -10,19 +9,13 @@ use std::path::PathBuf;
 //Static storage of our credentials
 pub static ACL: OnceCell<Acl> = OnceCell::new();
 
-pub fn init_acl(state: Acl) -> Result<(), ErrorKind> {
+pub fn init_acl(state: Acl) -> Result<()> {
     if ACL.get().is_none() {
-        match ACL.set(state) {
-            Ok(_) => {}
-            Err(_) => {
-                return Err(ErrorKind::InternalError(
-                    "Can not create ACL struct".to_string(),
-                ));
-            }
-        }
+        ACL.set(state).unwrap()
     }
     Ok(())
 }
+
 // Access Types
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum AccessType {

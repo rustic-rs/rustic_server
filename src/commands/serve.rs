@@ -1,10 +1,10 @@
 use crate::acl::Acl;
 use crate::auth::Auth;
 use crate::config::server_config::ServerConfig;
-use crate::error::{ErrorKind, Result};
 use crate::log::{init_trace_from, init_tracing};
 use crate::storage::LocalStorage;
 use crate::web::start_web_server;
+use anyhow::Result;
 use clap::Parser;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
@@ -27,10 +27,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
 
             // Repository storage
             let storage_path = PathBuf::new().join(server_config.repos.storage_path);
-            let storage = match LocalStorage::try_new(&storage_path) {
-                Ok(s) => s,
-                Err(e) => return Err(ErrorKind::InternalError(e.to_string())),
-            };
+            let storage = LocalStorage::try_new(&storage_path)?;
 
             // Authorization user/password
             let auth_config = server_config.authorization;
@@ -39,41 +36,26 @@ pub async fn serve(opts: Opts) -> Result<()> {
                 None => PathBuf::new(),
                 Some(p) => PathBuf::new().join(p),
             };
-            let auth = match Auth::from_file(no_auth, &path) {
-                Ok(s) => s,
-                Err(e) => return Err(ErrorKind::InternalError(e.to_string())),
-            };
+            let auth = Auth::from_file(no_auth, &path)?;
 
             // Access control to the repositories
             let acl_config = server_config.accesscontrol;
             let path = acl_config.acl_path.map(|p| PathBuf::new().join(p));
-            let acl = match Acl::from_file(acl_config.append_only, acl_config.private_repo, path) {
-                Ok(s) => s,
-                Err(e) => return Err(ErrorKind::InternalError(e.to_string())),
-            };
+            let acl = Acl::from_file(acl_config.append_only, acl_config.private_repo, path)?;
 
             // Server definition
             let s_addr = server_config.server;
             let s_str = format!("{}:{}", s_addr.host_dns_name, s_addr.port);
             tracing::debug!("[serve] Serving address: {}", &s_str);
             let socket = s_str.to_socket_addrs().unwrap().next().unwrap();
-            start_web_server(acl, auth, storage, socket, false, None, opts.key).await
+            start_web_server(acl, auth, storage, socket, false, None, opts.key).await?;
         }
         None => {
             init_trace_from(&opts.log);
 
-            let storage = match LocalStorage::try_new(&opts.path) {
-                Ok(s) => s,
-                Err(e) => return Err(ErrorKind::InternalError(e.to_string())),
-            };
-            let auth = match Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd")) {
-                Ok(s) => s,
-                Err(e) => return Err(ErrorKind::InternalError(e.to_string())),
-            };
-            let acl = match Acl::from_file(opts.append_only, opts.private_repo, None) {
-                Ok(s) => s,
-                Err(e) => return Err(ErrorKind::InternalError(e.to_string())),
-            };
+            let storage = LocalStorage::try_new(&opts.path)?;
+            let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))?;
+            let acl = Acl::from_file(opts.append_only, opts.private_repo, None)?;
 
             start_web_server(
                 acl,
@@ -84,9 +66,11 @@ pub async fn serve(opts: Opts) -> Result<()> {
                 None,
                 opts.key,
             )
-            .await
+            .await?;
         }
     }
+
+    Ok(())
 }
 
 /// A REST server build in rust for use with restic

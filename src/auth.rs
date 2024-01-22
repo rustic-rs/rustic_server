@@ -12,16 +12,9 @@ use std::{fs, io};
 //Static storage of our credentials
 pub static AUTH: OnceCell<Auth> = OnceCell::new();
 
-pub(crate) fn init_auth(state: Auth) -> Result<(), ErrorKind> {
+pub(crate) fn init_auth(state: Auth) -> Result<()> {
     if AUTH.get().is_none() {
-        match AUTH.set(state) {
-            Ok(_) => {}
-            Err(_) => {
-                return Err(ErrorKind::InternalError(
-                    "Can not create AUTH struct".to_string(),
-                ));
-            }
-        }
+        AUTH.set(state).unwrap()
     }
     Ok(())
 }
