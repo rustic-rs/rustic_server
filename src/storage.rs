@@ -1,5 +1,4 @@
 use crate::handlers::file_helpers::WriteOrDeleteFile;
-use anyhow::Result;
 use once_cell::sync::OnceCell;
 use std::fs;
 use std::io::Result as IoResult;
@@ -7,6 +6,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::File;
 use walkdir::WalkDir;
+
+use crate::error::Result;
 
 //Static storage of our credentials
 pub static STORAGE: OnceCell<Arc<dyn Storage>> = OnceCell::new();

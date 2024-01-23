@@ -1,7 +1,8 @@
-use anyhow::{Context, Result};
 use serde_derive::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+
+use crate::error::{ErrorKind, Result};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ServerConfig {
@@ -52,16 +53,24 @@ pub struct TLS {
 
 impl ServerConfig {
     pub fn from_file(pth: &Path) -> Result<Self> {
-        let s = fs::read_to_string(pth).context("Can not read server configuration file")?;
-        let config: ServerConfig =
-            toml::from_str(&s).context("Can not convert file to server configuration")?;
+        let s = fs::read_to_string(pth)
+            .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?;
+        let config: ServerConfig = toml::from_str(&s).map_err(|err| {
+            ErrorKind::InternalError(format!("Could not parse TOML file: {}", err))
+        })?;
         Ok(config)
     }
 
     pub fn to_file(&self, pth: &Path) -> Result<()> {
-        let toml_string =
-            toml::to_string(&self).context("Could not serialize SeverConfig to TOML value")?;
-        fs::write(pth, toml_string).context("Could not write ServerConfig to file!")?;
+        let toml_string = toml::to_string(&self).map_err(|err| {
+            ErrorKind::InternalError(format!(
+                "Could not serialize SeverConfig to TOML value: {}",
+                err
+            ))
+        })?;
+        fs::write(pth, toml_string).map_err(|err| {
+            ErrorKind::InternalError(format!("Could not write ServerConfig to file: {}", err))
+        })?;
         Ok(())
     }
 }

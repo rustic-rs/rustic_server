@@ -1,5 +1,3 @@
-use crate::error::ErrorKind;
-use anyhow::Result;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum_auth::AuthBasic;
@@ -9,12 +7,15 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{fs, io};
 
+use crate::error::{ErrorKind, Result};
+
 //Static storage of our credentials
 pub static AUTH: OnceCell<Auth> = OnceCell::new();
 
 pub(crate) fn init_auth(state: Auth) -> Result<()> {
     if AUTH.get().is_none() {
-        AUTH.set(state).unwrap()
+        AUTH.set(state)
+            .map_err(|_| ErrorKind::InternalError("Can not create Auth struct".to_string()))?;
     }
     Ok(())
 }

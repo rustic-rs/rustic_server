@@ -1,17 +1,19 @@
 use crate::handlers::path_analysis::TPE_LOCKS;
-use anyhow::{Context, Result};
 use once_cell::sync::OnceCell;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use crate::error::{ErrorKind, Result};
+
 //Static storage of our credentials
 pub static ACL: OnceCell<Acl> = OnceCell::new();
 
 pub fn init_acl(state: Acl) -> Result<()> {
     if ACL.get().is_none() {
-        ACL.set(state).unwrap()
+        ACL.set(state)
+            .map_err(|_| ErrorKind::InternalError("Can not create ACL struct".to_string()))?;
     }
     Ok(())
 }
@@ -53,11 +55,13 @@ impl Default for Acl {
 // read_toml is a helper func that reads the given file in toml
 // into a Hashmap mapping each user to the whole passwd line
 fn read_toml(file_path: &PathBuf) -> Result<HashMap<String, RepoAcl>> {
-    let s = fs::read_to_string(file_path)?;
+    let s = fs::read_to_string(file_path)
+        .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?;
     // make the contents static in memory
     let s = Box::leak(s.into_boxed_str());
 
-    let mut repos: HashMap<String, RepoAcl> = toml::from_str(s)?;
+    let mut repos: HashMap<String, RepoAcl> = toml::from_str(s)
+        .map_err(|err| ErrorKind::InternalError(format!("Could not parse TOML: {}", err)))?;
     // copy key "default" into ""
     if let Some(default) = repos.get("default") {
         let default = default.clone();
@@ -88,9 +92,15 @@ impl Acl {
     pub fn to_file(&self, pth: &PathBuf) -> Result<()> {
         let mut clone = self.repos.clone();
         clone.remove("");
-        let toml_string =
-            toml::to_string(&clone).context("Could not serialize ACL config to TOML value")?;
-        fs::write(pth, toml_string).context("Could not write ACL file!")?;
+        let toml_string = toml::to_string(&clone).map_err(|err| {
+            ErrorKind::InternalError(format!(
+                "Could not serialize ACL config to TOML value: {}",
+                err
+            ))
+        })?;
+        fs::write(pth, toml_string).map_err(|err| {
+            ErrorKind::InternalError(format!("Could not write ACL file: {}", err))
+        })?;
         Ok(())
     }
 

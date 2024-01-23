@@ -1,33 +1,60 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use displaydoc::Display;
+use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, ErrorKind>;
 
-#[derive(Debug)]
+#[derive(Debug, Error, Display)]
 pub enum ErrorKind {
+    /// Internal server error: {0}
     InternalError(String),
+    /// Bad request: {0}
     BadRequest(String),
+    /// Filename {0} not allowed
     FilenameNotAllowed(String),
+    /// Path {0} not allowed
     PathNotAllowed(String),
+    /// Path {0} is not valid
     InvalidPath(String),
+    /// Path {0} is not valid unicode
     NonUnicodePath(String),
+    /// Creating directory failed: {0}
     CreatingDirectoryFailed(String),
+    /// Not yet implemented
     NotImplemented,
+    /// File not found: {0}
     FileNotFound(String),
+    /// Fetting file metadata failed
     GettingFileMetadataFailed,
+    /// Range not valid
     RangeNotValid,
+    /// Seeking file failed
     SeekingFileFailed,
+    /// Multipart range not implemented
     MultipartRangeNotImplemented,
+    /// General range error
     GeneralRange,
+    /// Conversion from length to u64 failed
     ConversionToU64Failed,
+    /// Writing file failed
     WritingToFileFailed,
+    /// Finalizing file failed
     FinalizingFileFailed,
+    /// Getting file handle failed
     GettingFileHandleFailed,
+    /// Removing file failed: {0}
     RemovingFileFailed(String),
+    /// Reading from stream failed
     ReadingFromStreamFailed,
+    /// Removing repository folder failed: {0}
     RemovingRepositoryFailed(String),
+    /// Bad authentication header
     AuthenticationHeaderError,
+    /// Failed to authenticate user: {0}
     UserAuthenticationError(String),
+    /// General Storage error: {0}
+    GeneralStorageError(String),
 }
 
 impl IntoResponse for ErrorKind {
@@ -132,6 +159,11 @@ impl IntoResponse for ErrorKind {
             ErrorKind::UserAuthenticationError(err) => (
                 StatusCode::FORBIDDEN,
                 format!("Failed to authenticate user: {:?}", err),
+            )
+                .into_response(),
+            ErrorKind::GeneralStorageError(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Storage error: {:?}", err),
             )
                 .into_response(),
         }

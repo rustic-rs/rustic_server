@@ -4,13 +4,12 @@ use crate::config::server_config::ServerConfig;
 use crate::log::{init_trace_from, init_tracing};
 use crate::storage::LocalStorage;
 use crate::web::start_web_server;
-use anyhow::Result;
 use clap::Parser;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-// FIXME: we should not return crate::error::Result here; maybe anyhow::Result,
+use crate::error::{ErrorKind, Result};
 
 pub async fn serve(opts: Opts) -> Result<()> {
     match &opts.config {
@@ -27,7 +26,9 @@ pub async fn serve(opts: Opts) -> Result<()> {
 
             // Repository storage
             let storage_path = PathBuf::new().join(server_config.repos.storage_path);
-            let storage = LocalStorage::try_new(&storage_path)?;
+            let storage = LocalStorage::try_new(&storage_path).map_err(|err| {
+                ErrorKind::GeneralStorageError(format!("Could not create storage: {}", err))
+            })?;
 
             // Authorization user/password
             let auth_config = server_config.authorization;
@@ -36,7 +37,8 @@ pub async fn serve(opts: Opts) -> Result<()> {
                 None => PathBuf::new(),
                 Some(p) => PathBuf::new().join(p),
             };
-            let auth = Auth::from_file(no_auth, &path)?;
+            let auth = Auth::from_file(no_auth, &path)
+                .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?;
 
             // Access control to the repositories
             let acl_config = server_config.accesscontrol;
@@ -53,8 +55,12 @@ pub async fn serve(opts: Opts) -> Result<()> {
         None => {
             init_trace_from(&opts.log);
 
-            let storage = LocalStorage::try_new(&opts.path)?;
-            let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))?;
+            let storage = LocalStorage::try_new(&opts.path).map_err(|err| {
+                ErrorKind::GeneralStorageError(format!("Could not create storage: {}", err))
+            })?;
+
+            let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))
+                .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?;
             let acl = Acl::from_file(opts.append_only, opts.private_repo, None)?;
 
             start_web_server(

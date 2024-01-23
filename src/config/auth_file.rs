@@ -1,4 +1,3 @@
-use anyhow::Result;
 use htpasswd_verify::md5::{format_hash, md5_apr1_encode};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
@@ -8,6 +7,8 @@ use std::fs;
 use std::fs::read_to_string;
 use std::io::Write;
 use std::path::PathBuf;
+
+use crate::error::{ErrorKind, Result};
 
 pub mod constants {
     pub(super) const SALT_LEN: usize = 8;
@@ -23,7 +24,8 @@ impl HtAccess {
     pub fn from_file(pth: &PathBuf) -> Result<HtAccess> {
         let mut c: HashMap<String, Credential> = HashMap::new();
         if pth.exists() {
-            read_to_string(pth)?
+            read_to_string(pth)
+                .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?
                 .lines() // split the string into an iterator of string slices
                 .map(String::from) // make each slice into a string
                 .for_each(|line| match Credential::from_line(line) {
@@ -68,7 +70,8 @@ impl HtAccess {
             .create(true)
             .truncate(false)
             .write(true)
-            .open(&self.path)?;
+            .open(&self.path)
+            .map_err(|err| ErrorKind::InternalError(format!("Could not open file: {}", err)))?;
 
         for (_n, c) in self.credentials.iter() {
             let _e = file.write(c.to_line().as_bytes()).unwrap();

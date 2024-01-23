@@ -43,7 +43,8 @@ use crate::handlers::repository::{create_repository, delete_repository};
 use crate::log::print_request_response;
 use crate::storage::init_storage;
 use crate::storage::Storage;
-use anyhow::Result;
+
+use crate::error::Result;
 
 /// FIXME: original Restic interface seems not to provide a "delete repository" interface.
 pub async fn start_web_server(
