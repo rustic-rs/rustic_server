@@ -2,13 +2,13 @@ use std::{collections::HashMap, fs, io, path::PathBuf};
 
 use axum::{extract::FromRequestParts, http::request::Parts};
 use axum_auth::AuthBasic;
-use once_cell::sync::OnceCell;
 use serde_derive::Deserialize;
+use std::sync::OnceLock;
 
 use crate::error::{ErrorKind, Result};
 
 //Static storage of our credentials
-pub static AUTH: OnceCell<Auth> = OnceCell::new();
+pub static AUTH: OnceLock<Auth> = OnceLock::new();
 
 pub(crate) fn init_auth(state: Auth) -> Result<()> {
     if AUTH.get().is_none() {

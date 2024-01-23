@@ -1335,7 +1335,6 @@ dependencies = [
  "htpasswd-verify",
  "http-body-util",
  "http-range",
- "once_cell",
  "pin-project",
  "rand 0.8.5",
  "rstest",

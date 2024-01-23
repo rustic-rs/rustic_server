@@ -1,10 +1,10 @@
-use std::{env, path::PathBuf, sync::Mutex};
+use std::{env, path::PathBuf, sync::Mutex, sync::OnceLock};
 
 use axum::{
     body::Body,
     http::{HeaderValue, Method},
 };
-use once_cell::sync::OnceCell;
+
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
@@ -43,7 +43,7 @@ pub(crate) fn init_tracing() {
 /// During tests, each test will initialise, to make sure we have at least tracing once.
 /// This means that the init() call must be robust for this.
 /// Since we do not need this in production code, it is located in the test code.
-static TRACER: OnceCell<Mutex<usize>> = OnceCell::new();
+static TRACER: OnceLock<Mutex<usize>> = OnceLock::new();
 fn init_mutex() {
     TRACER.get_or_init(|| {
         tracing_subscriber::registry()

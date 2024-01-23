@@ -1,10 +1,9 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 
-use once_cell::sync::OnceCell;
 use tokio::fs::File;
 use walkdir::WalkDir;
 
@@ -14,7 +13,7 @@ use crate::{
 };
 
 //Static storage of our credentials
-pub static STORAGE: OnceCell<Arc<dyn Storage>> = OnceCell::new();
+pub static STORAGE: OnceLock<Arc<dyn Storage>> = OnceLock::new();
 
 pub(crate) fn init_storage(storage: impl Storage) -> Result<()> {
     if STORAGE.get().is_none() {

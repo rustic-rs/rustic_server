@@ -1,13 +1,14 @@
 [package]
 name = "rustic_server"
 version = "0.1.1-dev"
-authors = ["Alexander Weiss <alex@weissfam.de>"]
+authors = ["rustic-rs Maintainers"]
 categories = ["command-line-utilities"]
 edition = "2021"
 homepage = "https://rustic.cli.rs/"
 keywords = ["backup", "restic", "deduplication", "encryption", "cli", "server"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/rustic-rs/rustic_server"
+rust-version = "1.70.0"
 description = """
 rustic server - a REST server built in rust to use with rustic and restic.
 """
@@ -40,7 +41,6 @@ futures-util = "0.3"
 htpasswd-verify = "0.3"
 http-body-util = "0.1.0"
 http-range = "0.1"
-once_cell = "1.19"
 pin-project = "1.1"
 rand = "0.8.5"
 serde = { version = "1", default-features = false, features = ["derive"] }

@@ -1,6 +1,5 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf, sync::OnceLock};
 
-use once_cell::sync::OnceCell;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::{
@@ -9,7 +8,7 @@ use crate::{
 };
 
 //Static storage of our credentials
-pub static ACL: OnceCell<Acl> = OnceCell::new();
+pub static ACL: OnceLock<Acl> = OnceLock::new();
 
 pub fn init_acl(state: Acl) -> Result<()> {
     if ACL.get().is_none() {
