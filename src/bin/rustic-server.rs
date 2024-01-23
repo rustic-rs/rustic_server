@@ -43,7 +43,7 @@ impl RusticServer {
             //     rustic_server_configuration()?;
             // }
             Commands::Serve(opts) => {
-                serve(opts).await.unwrap();
+                serve(opts).await?;
             }
         }
         Ok(())
