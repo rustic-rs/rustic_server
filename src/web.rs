@@ -25,24 +25,6 @@ use crate::{
     storage::{init_storage, Storage},
 };
 
-// FIXME: decide either to keep, or change. Then remove the remarks below
-// During the rout table creation, we loop over types. Rationale:
-// We can not distinguish paths using `:tpe` matching in the router.
-// The routing path would then become "/:path/:tpe/:name
-// This seems not supported by the Serde parser (I assume that is what is used under the hood)
-//
-// So, instead, we loop over the types, and create a route path for each "explicit" type.
-// The handlers will then analyse the path to determine (path, type, name/config).
-
-// An alternative design might be that we create helper functions like so:
-//   - get_file_data()  --> calls get_file( ..., "data")
-//   - get_file_config() --> calls get_file( ..., "config")
-//   - get_file_keys()  --> calls get_file( ..., "keys")
-//      etc, etc,
-// When adding these to the router, we can use the Axum::Path to get the path without having
-// to re-analyse the URI like we do now. TBI: does this speed up the server?
-
-/// FIXME: original Restic interface seems not to provide a "delete repository" interface.
 pub async fn start_web_server(
     acl: Acl,
     auth: Auth,
@@ -67,18 +49,13 @@ pub async fn start_web_server(
             .delete(delete_config),
     );
 
-    // Fixme: Are we faster by creating a "function" per type and skip analysing the path in each call?
-    for tpe in TYPES.into_iter() {
-        let path1 = format!("/:path/{}/", &tpe);
-        let path2 = format!("/:path/{}/:name", &tpe);
-        app = app.route(path1.as_str(), get(list_files)).route(
-            path2.as_str(),
-            head(file_length)
-                .get(get_file)
-                .post(add_file)
-                .delete(delete_file),
-        );
-    }
+    app = app.route("/:path/:tpe", get(list_files)).route(
+        "/:path/:tpe/:name",
+        head(file_length)
+            .get(get_file)
+            .post(add_file)
+            .delete(delete_file),
+    );
 
     app = app.route("/:path/", post(create_repository).delete(delete_repository));
 

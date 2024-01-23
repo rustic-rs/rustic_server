@@ -1,7 +1,5 @@
-use std::path::Path;
-
 use axum::{
-    extract::OriginalUri,
+    extract::{OriginalUri, Path},
     http::{
         header::{self, AUTHORIZATION},
         StatusCode,
@@ -36,24 +34,17 @@ struct RepoPathEntry {
 }
 
 pub(crate) async fn list_files(
+    Path((path, tpe)): Path<(Option<String>, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    assert_ne!(archive_path.path_type, ArchivePathKind::Config);
-    assert_eq!(archive_path.name, "".to_string());
-    tracing::debug!("[list_files] path: {p_str}, tpe: {tpe}");
-
-    let pth = Path::new(&p_str);
-    check_auth_and_acl(auth.user, tpe.as_str(), pth, AccessType::Read)?;
+    tracing::debug!("[list_files] path: {path:?}, tpe: {tpe}");
+    let path = path.unwrap_or_default();
+    let path = std::path::Path::new(&path);
+    check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let read_dir = storage.read_dir(pth, tpe.as_str());
+    let read_dir = storage.read_dir(path, &tpe);
 
     let mut res = match headers
         .get(header::ACCEPT)
@@ -115,7 +106,7 @@ mod test {
 
         // V1
         let app = Router::new()
-            .route("/*path", get(list_files))
+            .route("/:path/:tpe", get(list_files))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -158,7 +149,7 @@ mod test {
 
         // V2
         let app = Router::new()
-            .route("/*path", get(list_files))
+            .route("/:path/:tpe", get(list_files))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
