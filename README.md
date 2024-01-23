@@ -30,12 +30,6 @@ Most features are already implemented.
 | Discord       | [![Discord](https://dcbadge.vercel.app/api/server/WRUWENZnzQ)](https://discord.gg/WRUWENZnzQ) |
 | Discussions   | [GitHub Discussions](https://github.com/rustic-rs/rustic/discussions)                         |
 
-## Dependencies
-
-Is built using [tide](https://github.com/http-rs/tide),
-[tide-rustls](https://github.com/http-rs/tide-rustls) and
-[tide-http-auth](https://github.com/chrisdickinson/tide-http-auth).
-
 ## Are binaries available?
 
 Yes, you can find them [here](https://rustic.cli.rs/docs/nightly_builds.html).
