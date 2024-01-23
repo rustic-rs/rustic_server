@@ -11,9 +11,8 @@ on:
       - "**/Cargo.lock"
       - "crates/**/Cargo.toml"
       - "crates/**/Cargo.lock"
-  # TODO!: After axum refactor has landed, we can enable this again
-  # merge_group:
-  #     types: [checks_requested]
+  merge_group:
+      types: [checks_requested]
 
 jobs:
   audit:
