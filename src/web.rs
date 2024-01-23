@@ -49,6 +49,14 @@ pub async fn start_web_server(
             .delete(delete_config),
     );
 
+    app = app.route("/:tpe", get(list_files)).route(
+        "/:tpe/:name",
+        head(file_length)
+            .get(get_file)
+            .post(add_file)
+            .delete(delete_file),
+    );
+
     app = app.route("/:path/:tpe", get(list_files)).route(
         "/:path/:tpe/:name",
         head(file_length)
