@@ -10,7 +10,7 @@ storage_path = "./test_data/test_repos/"
 auth_path = "/test_data/test_repo/htaccess"
 use_auth = true
 
-[accesscontrol]
+[access_control]
 acl_path = "/test_data/test_repo/acl.toml"
 private_repo = true
 append_only = false

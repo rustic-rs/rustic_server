@@ -51,7 +51,7 @@ storage_path = <local file system path containing repos>
 auth_path = <path to .htaccdss file, including filename>
 use_auth = <skip authorization if false>
 
-[accesscontrol]
+[access_control]
 acl_path = <path to the acl file, including filename>
 private_repo = <skip access control if false>
 append_only = <limit to append, regardless of the ACL file content>

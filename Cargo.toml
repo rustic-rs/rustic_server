@@ -96,6 +96,7 @@ codegen-units = 1
 
 [dev-dependencies]
 base64 = "0.21.7"
+rstest = "0.18.2"
 # reqwest = "0.11.18"
 # serial_test = "*"
 serde_json = "*"

@@ -81,30 +81,38 @@ impl ServerConfiguration {
 
 #[cfg(test)]
 mod test {
-    use super::Server;
-    use crate::config::server::{AccessControl, Authorization, Repos, ServerConfiguration, TLS};
-    use std::fs;
-    use std::path::Path;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
 
-    #[test]
-    fn test_file_read() {
-        let config_path = Path::new("tests")
+    use anyhow::Result;
+    use rstest::*;
+
+    use super::{AccessControl, Authorization, Repos, Server, ServerConfiguration, TLS};
+
+    #[fixture]
+    fn rustic_server_config() -> PathBuf {
+        Path::new("tests")
             .join("fixtures")
             .join("test_data")
-            .join("rustic_server.toml");
-        //let config_path = Path::new("/data/rustic/rustic_server.toml");
-        let config = ServerConfiguration::from_file(&config_path);
-        assert!(config.is_ok());
-
-        let config = config.unwrap();
-        assert_eq!(config.server.host_dns_name, "127.0.0.1");
-        assert_eq!(config.repos.storage_path, "./test_data/test_repos/");
+            .join("rustic_server.toml")
     }
 
     #[test]
-    fn test_file_write() {
+    fn test_file_read() -> Result<()> {
+        let config_path = rustic_server_config();
+        let config = ServerConfiguration::from_file(&config_path)?;
+
+        assert_eq!(config.server.host_dns_name, "127.0.0.1");
+        assert_eq!(config.repos.storage_path, "./test_data/test_repos/");
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_write() -> Result<()> {
         let server_path = Path::new("tmp_test_data").join("rustic");
-        fs::create_dir_all(&server_path).unwrap();
+        fs::create_dir_all(&server_path)?;
 
         let server = Server {
             host_dns_name: "127.0.0.1".to_string(),
@@ -142,10 +150,12 @@ mod test {
             authorization: auth,
             access_control: access,
         };
-        let config_file = server_path.join("rustic_server.rustic_config.toml");
-        config.to_file(&config_file).unwrap();
+        let config_file = server_path.join("rustic_server.toml");
+        config.to_file(&config_file)?;
 
         // Try to read
-        let _tmp_config = ServerConfiguration::from_file(&config_file).unwrap();
+        let _tmp_config = ServerConfiguration::from_file(&config_file)?;
+
+        Ok(())
     }
 }
