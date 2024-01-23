@@ -55,8 +55,12 @@ impl Default for Acl {
 // read_toml is a helper func that reads the given file in toml
 // into a Hashmap mapping each user to the whole passwd line
 fn read_toml(file_path: &PathBuf) -> Result<HashMap<String, RepoAcl>> {
-    let s = fs::read_to_string(file_path)
-        .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?;
+    let s = fs::read_to_string(file_path).map_err(|err| {
+        ErrorKind::InternalError(format!(
+            "Could not read toml file: {} at {:?}",
+            err, file_path
+        ))
+    })?;
     // make the contents static in memory
     let s = Box::leak(s.into_boxed_str());
 

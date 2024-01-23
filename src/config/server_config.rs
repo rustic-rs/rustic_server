@@ -53,8 +53,12 @@ pub struct TLS {
 
 impl ServerConfig {
     pub fn from_file(pth: &Path) -> Result<Self> {
-        let s = fs::read_to_string(pth)
-            .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?;
+        let s = fs::read_to_string(pth).map_err(|err| {
+            ErrorKind::InternalError(format!(
+                "Could not read server config file: {} at {:?}",
+                err, pth
+            ))
+        })?;
         let config: ServerConfig = toml::from_str(&s).map_err(|err| {
             ErrorKind::InternalError(format!("Could not parse TOML file: {}", err))
         })?;

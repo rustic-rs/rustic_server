@@ -25,7 +25,12 @@ impl HtAccess {
         let mut c: HashMap<String, Credential> = HashMap::new();
         if pth.exists() {
             read_to_string(pth)
-                .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?
+                .map_err(|err| {
+                    ErrorKind::InternalError(format!(
+                        "Could not read HtAccess file: {} at {:?}",
+                        err, pth
+                    ))
+                })?
                 .lines() // split the string into an iterator of string slices
                 .map(String::from) // make each slice into a string
                 .for_each(|line| match Credential::from_line(line) {

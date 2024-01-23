@@ -15,8 +15,12 @@ pub async fn serve(opts: Opts) -> Result<()> {
     match &opts.config {
         Some(config) => {
             let config_path = PathBuf::new().join(config);
-            let server_config =
-                ServerConfig::from_file(&config_path).unwrap_or_else(|e| panic!("{}", e));
+            let server_config = ServerConfig::from_file(&config_path).map_err(|err| {
+                ErrorKind::InternalError(format!(
+                    "Could not read config file: {} at path: {:?}",
+                    err, config_path
+                ))
+            })?;
 
             if let Some(level) = server_config.log_level {
                 init_trace_from(&level);
@@ -37,8 +41,9 @@ pub async fn serve(opts: Opts) -> Result<()> {
                 None => PathBuf::new(),
                 Some(p) => PathBuf::new().join(p),
             };
-            let auth = Auth::from_file(no_auth, &path)
-                .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?;
+            let auth = Auth::from_file(no_auth, &path).map_err(|err| {
+                ErrorKind::InternalError(format!("Could not read file: {} at {:?}", err, path))
+            })?;
 
             // Access control to the repositories
             let acl_config = server_config.accesscontrol;
@@ -48,7 +53,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
             // Server definition
             let s_addr = server_config.server;
             let s_str = format!("{}:{}", s_addr.host_dns_name, s_addr.port);
-            tracing::debug!("[serve] Serving address: {}", &s_str);
+            tracing::info!("[serve] Listening on: {}", &s_str);
             let socket = s_str.to_socket_addrs().unwrap().next().unwrap();
             start_web_server(acl, auth, storage, socket, false, None, opts.key).await?;
         }
@@ -59,8 +64,13 @@ pub async fn serve(opts: Opts) -> Result<()> {
                 ErrorKind::GeneralStorageError(format!("Could not create storage: {}", err))
             })?;
 
-            let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))
-                .map_err(|err| ErrorKind::InternalError(format!("Could not read file: {}", err)))?;
+            let auth =
+                Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd")).map_err(|err| {
+                    ErrorKind::InternalError(format!(
+                        "Could not read auth file: {} at {:?}",
+                        err, opts.path
+                    ))
+                })?;
             let acl = Acl::from_file(opts.append_only, opts.private_repo, None)?;
 
             start_web_server(
