@@ -1,12 +1,19 @@
+use std::{
+    cell::RefCell,
+    fs,
+    io::Result as IoResult,
+    path::PathBuf,
+    pin::Pin,
+    task::{Context, Poll},
+};
+
 use serde::{Serialize, Serializer};
-use std::cell::RefCell;
-use std::fs;
-use std::io::Result as IoResult;
-use std::path::PathBuf;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use tokio::fs::{File, OpenOptions};
-use tokio::io::AsyncWrite;
+use tokio::{
+    fs::{File, OpenOptions},
+    io::AsyncWrite,
+};
+
+use crate::error::{ErrorKind, Result};
 
 // helper struct which is like a async_std|tokio::fs::File but removes the file
 // if finalize() was not called.
@@ -15,20 +22,23 @@ pub struct WriteOrDeleteFile {
     path: PathBuf,
     finalized: bool,
 }
+
 #[async_trait::async_trait]
 pub trait Finalizer {
-    type Error;
-    async fn finalize(&mut self) -> Result<(), Self::Error>;
+    async fn finalize(&mut self) -> Result<()>;
 }
 
 impl WriteOrDeleteFile {
-    pub async fn new(file_path: PathBuf) -> IoResult<Self> {
+    pub async fn new(file_path: PathBuf) -> Result<Self> {
         Ok(Self {
             file: OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .open(&file_path)
-                .await?,
+                .await
+                .map_err(|err| {
+                    ErrorKind::WritingToFileFailed(format!("Could not write to file: {}", err))
+                })?,
             path: file_path,
             finalized: false,
         })
@@ -37,10 +47,10 @@ impl WriteOrDeleteFile {
 
 #[async_trait::async_trait]
 impl Finalizer for WriteOrDeleteFile {
-    type Error = std::io::Error;
-
-    async fn finalize(&mut self) -> IoResult<()> {
-        self.file.sync_all().await?;
+    async fn finalize(&mut self) -> Result<()> {
+        self.file.sync_all().await.map_err(|err| {
+            ErrorKind::FinalizingFileFailed(format!("Could not sync file: {}", err))
+        })?;
         self.finalized = true;
         Ok(())
     }
@@ -83,7 +93,7 @@ where
     I: Iterator,
     I::Item: Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {

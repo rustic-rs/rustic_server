@@ -1,24 +1,26 @@
-use crate::error::ErrorKind;
-use crate::error::Result;
 use std::fmt::{Display, Formatter};
+
+use crate::error::{ErrorKind, Result};
 
 //pub(crate) const DEFAULT_PATH: &str = "";
 
-// TPE_LOCKS is is defined, but outside this types[] array.
-// This allow us to loop over the types[] when generating "routes"
-pub(crate) const TPE_DATA: &str = "data";
-pub(crate) const TPE_KEYS: &str = "keys";
-pub(crate) const TPE_LOCKS: &str = "locks";
-pub(crate) const TPE_SNAPSHOTS: &str = "snapshots";
-pub(crate) const TPE_INDEX: &str = "index";
-pub(crate) const TPE_CONFIG: &str = "config";
-pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TPE_INDEX];
+pub mod constants {
+    // TPE_LOCKS is is defined, but outside this types[] array.
+    // This allow us to loop over the types[] when generating "routes"
+    pub(crate) const TPE_DATA: &str = "data";
+    pub(crate) const TPE_KEYS: &str = "keys";
+    pub(crate) const TPE_LOCKS: &str = "locks";
+    pub(crate) const TPE_SNAPSHOTS: &str = "snapshots";
+    pub(crate) const TPE_INDEX: &str = "index";
+    pub(crate) const TPE_CONFIG: &str = "config";
+    pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TPE_INDEX];
+}
 
 /// ArchivePathEnum hints what kind of path we received from the user.
 ///  - ArchivePathEnum::Repo points to the root of the repository.
 ///  - All other enum values point to data_type inside the repository
 #[derive(Debug, PartialEq)]
-pub(crate) enum ArchivePathEnum {
+pub(crate) enum ArchivePathKind {
     Repo,
     Data,
     Keys,
@@ -29,7 +31,7 @@ pub(crate) enum ArchivePathEnum {
 }
 
 pub(crate) struct ArchivePath {
-    pub(crate) path_type: ArchivePathEnum,
+    pub(crate) path_type: ArchivePathKind,
     pub(crate) tpe: String,
     pub(crate) path: String,
     pub(crate) name: String,
@@ -58,7 +60,7 @@ pub(crate) fn decompose_path(path: &str) -> Result<ArchivePath> {
     tracing::debug!("[decompose_path] elem = {:?}", &elem);
 
     let mut ap = ArchivePath {
-        path_type: ArchivePathEnum::Repo, //will be overwritten later
+        path_type: ArchivePathKind::Repo, //will be overwritten later
         tpe: "".to_string(),
         path: "".to_string(),
         name: "".to_string(),
@@ -71,36 +73,36 @@ pub(crate) fn decompose_path(path: &str) -> Result<ArchivePath> {
 
     // Analyse tail of the path to find name and type values
     let tmp = elem.pop().unwrap();
-    let (tpe, name) = if tmp.eq(TPE_CONFIG) {
-        ap.path_type = ArchivePathEnum::Config;
+    let (tpe, name) = if tmp.eq(constants::TPE_CONFIG) {
+        ap.path_type = ArchivePathKind::Config;
         if length > 1 {
             let tpe = elem.pop().unwrap();
-            if TYPES.contains(&tpe.as_str()) {
+            if constants::TYPES.contains(&tpe.as_str()) {
                 (tpe, tmp) // path = /:path/:tpe/:config
             } else {
                 elem.push(tpe);
-                (TPE_CONFIG.to_string(), tmp) // path = /:path/:config
+                (constants::TPE_CONFIG.to_string(), tmp) // path = /:path/:config
             }
         } else {
-            (TPE_CONFIG.to_string(), tmp) // path = /:config
+            (constants::TPE_CONFIG.to_string(), tmp) // path = /:config
         }
-    } else if TYPES.contains(&tmp.as_str()) {
+    } else if constants::TYPES.contains(&tmp.as_str()) {
         ap.path_type = get_path_type(&tmp);
         (tmp, "".to_string()) // path = /:path/:tpe --> but NOT "config"
     } else if length > 1 {
         let tpe = elem.pop().unwrap();
-        if TYPES.contains(&tpe.as_str()) {
-            assert_ne!(tpe.as_str(), TPE_CONFIG); // not allowed: path = /:path/:config/:name
+        if constants::TYPES.contains(&tpe.as_str()) {
+            assert_ne!(tpe.as_str(), constants::TPE_CONFIG); // not allowed: path = /:path/:config/:name
             ap.path_type = get_path_type(&tpe);
             (tpe, tmp) // path = /:path/:tpe/:name
         } else {
-            ap.path_type = ArchivePathEnum::Repo;
+            ap.path_type = ArchivePathKind::Repo;
             elem.push(tpe);
             elem.push(tmp);
             ("".to_string(), "".to_string()) // path = /:path --> with length (>1)
         }
     } else {
-        ap.path_type = ArchivePathEnum::Repo;
+        ap.path_type = ArchivePathKind::Repo;
         elem.push(tmp);
         ("".to_string(), "".to_string()) // path = /:path --> with length (1)
     };
@@ -114,23 +116,25 @@ pub(crate) fn decompose_path(path: &str) -> Result<ArchivePath> {
     Ok(ap)
 }
 
-fn get_path_type(s: &str) -> ArchivePathEnum {
+fn get_path_type(s: &str) -> ArchivePathKind {
     match s {
-        TPE_CONFIG => ArchivePathEnum::Config,
-        TPE_DATA => ArchivePathEnum::Data,
-        TPE_KEYS => ArchivePathEnum::Keys,
-        TPE_LOCKS => ArchivePathEnum::Locks,
-        TPE_SNAPSHOTS => ArchivePathEnum::Snapshots,
-        TPE_INDEX => ArchivePathEnum::Index,
-        _ => ArchivePathEnum::Repo,
+        constants::TPE_CONFIG => ArchivePathKind::Config,
+        constants::TPE_DATA => ArchivePathKind::Data,
+        constants::TPE_KEYS => ArchivePathKind::Keys,
+        constants::TPE_LOCKS => ArchivePathKind::Locks,
+        constants::TPE_SNAPSHOTS => ArchivePathKind::Snapshots,
+        constants::TPE_INDEX => ArchivePathKind::Index,
+        _ => ArchivePathKind::Repo,
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::error::Result;
-    use crate::handlers::path_analysis::ArchivePathEnum::Config;
-    use crate::handlers::path_analysis::{decompose_path, TPE_DATA, TPE_LOCKS};
+    use crate::handlers::path_analysis::ArchivePathKind::Config;
+    use crate::handlers::path_analysis::{
+        constants::TPE_DATA, constants::TPE_LOCKS, decompose_path,
+    };
     use crate::test_helpers::init_tracing;
 
     #[test]

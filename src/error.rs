@@ -37,10 +37,12 @@ pub enum ErrorKind {
     GeneralRange,
     /// Conversion from length to u64 failed
     ConversionToU64Failed,
-    /// Writing file failed
-    WritingToFileFailed,
-    /// Finalizing file failed
-    FinalizingFileFailed,
+    /// Opening file failed: {0}
+    OpeningFileFailed(String),
+    /// Writing file failed: {0}
+    WritingToFileFailed(String),
+    /// Finalizing file failed: {0}
+    FinalizingFileFailed(String),
     /// Getting file handle failed
     GettingFileHandleFailed,
     /// Removing file failed: {0}
@@ -120,14 +122,19 @@ impl IntoResponse for ErrorKind {
                 "error converting length to u64".to_string(),
             )
                 .into_response(),
-            ErrorKind::WritingToFileFailed => (
+            ErrorKind::OpeningFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "error writing file".to_string(),
+                format!("error opening file: {err}"),
             )
                 .into_response(),
-            ErrorKind::FinalizingFileFailed => (
+            ErrorKind::WritingToFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "error finalizing file".to_string(),
+                format!("error writing file: {err}"),
+            )
+                .into_response(),
+            ErrorKind::FinalizingFileFailed(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("error finalizing file: {err}"),
             )
                 .into_response(),
             ErrorKind::GettingFileHandleFailed => (
@@ -137,7 +144,7 @@ impl IntoResponse for ErrorKind {
                 .into_response(),
             ErrorKind::RemovingFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("error removing file: {:?}", err),
+                format!("error removing file: {err}"),
             )
                 .into_response(),
             ErrorKind::GeneralRange => {

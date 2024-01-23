@@ -1,6 +1,5 @@
 use std::{
     fs,
-    io::Result as IoResult,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -9,7 +8,10 @@ use once_cell::sync::OnceCell;
 use tokio::fs::File;
 use walkdir::WalkDir;
 
-use crate::{error::Result, handlers::file_helpers::WriteOrDeleteFile};
+use crate::{
+    error::{ErrorKind, Result},
+    handlers::file_helpers::WriteOrDeleteFile,
+};
 
 //Static storage of our credentials
 pub static STORAGE: OnceCell<Arc<dyn Storage>> = OnceCell::new();
@@ -25,13 +27,13 @@ pub(crate) fn init_storage(storage: impl Storage) -> Result<()> {
 #[async_trait::async_trait]
 //#[enum_dispatch(StorageEnum)]
 pub trait Storage: Send + Sync + 'static {
-    fn create_dir(&self, path: &Path, tpe: &str) -> IoResult<()>;
+    fn create_dir(&self, path: &Path, tpe: &str) -> Result<()>;
     fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
     fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf;
-    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<File>;
-    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<WriteOrDeleteFile>;
-    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<()>;
-    fn remove_repository(&self, path: &Path) -> IoResult<()>;
+    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File>;
+    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile>;
+    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()>;
+    fn remove_repository(&self, path: &Path) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -53,7 +55,7 @@ impl Default for LocalStorage {
 }
 
 impl LocalStorage {
-    pub fn try_new(path: &Path) -> IoResult<Self> {
+    pub fn try_new(path: &Path) -> Result<Self> {
         Ok(Self {
             path: path.to_path_buf(),
         })
@@ -61,15 +63,22 @@ impl LocalStorage {
 }
 #[async_trait::async_trait]
 impl Storage for LocalStorage {
-    fn create_dir(&self, path: &Path, tpe: &str) -> IoResult<()> {
+    fn create_dir(&self, path: &Path, tpe: &str) -> Result<()> {
         match tpe {
             "data" => {
                 for i in 0..256 {
-                    fs::create_dir_all(self.path.join(path).join(tpe).join(format!("{:02x}", i)))?
+                    fs::create_dir_all(self.path.join(path).join(tpe).join(format!("{:02x}", i)))
+                        .map_err(|err| {
+                            ErrorKind::CreatingDirectoryFailed(format!(
+                                "Could not create directory: {err}"
+                            ))
+                        })?
                 }
                 Ok(())
             }
-            _ => fs::create_dir_all(self.path.join(path).join(tpe)),
+            _ => fs::create_dir_all(self.path.join(path).join(tpe)).map_err(|err| {
+                ErrorKind::CreatingDirectoryFailed(format!("Could not create directory: {err}"))
+            }),
         }
     }
 
@@ -89,27 +98,32 @@ impl Storage for LocalStorage {
         }
     }
 
-    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<File> {
+    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File> {
         let file_path = self.filename(path, tpe, name);
-        Ok(File::open(file_path).await?)
+        Ok(File::open(file_path)
+            .await
+            .map_err(|err| ErrorKind::OpeningFileFailed(format!("Could not open file: {}", err)))?)
     }
 
-    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<WriteOrDeleteFile> {
+    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile> {
         let file_path = self.filename(path, tpe, name);
         WriteOrDeleteFile::new(file_path).await
     }
 
-    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> IoResult<()> {
+    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()> {
         let file_path = self.filename(path, tpe, name);
         fs::remove_file(file_path)
+            .map_err(|err| ErrorKind::RemovingFileFailed(format!("Could not remove file: {err}")))
     }
 
-    fn remove_repository(&self, path: &Path) -> IoResult<()> {
+    fn remove_repository(&self, path: &Path) -> Result<()> {
         tracing::debug!(
             "Deleting repository: {}",
             self.path.join(path).to_string_lossy()
         );
-        fs::remove_dir_all(self.path.join(path))
+        fs::remove_dir_all(self.path.join(path)).map_err(|err| {
+            ErrorKind::RemovingRepositoryFailed(format!("Could not remove repository: {err}"))
+        })
     }
 }
 

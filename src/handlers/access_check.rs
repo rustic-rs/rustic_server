@@ -1,10 +1,12 @@
-use crate::acl::{AccessType, AclChecker, ACL};
-use crate::error::ErrorKind;
-use crate::error::Result;
-use crate::handlers::path_analysis::TYPES;
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use std::path::Path;
+
+use axum::{http::StatusCode, response::IntoResponse};
+
+use crate::{
+    acl::{AccessType, AclChecker, ACL},
+    error::{ErrorKind, Result},
+    handlers::path_analysis::constants::TYPES,
+};
 
 pub(crate) fn check_auth_and_acl(
     user: String,

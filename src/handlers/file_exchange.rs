@@ -1,22 +1,32 @@
-use crate::auth::AuthFromRequest;
-use crate::error::ErrorKind;
-use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::file_helpers::Finalizer;
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum};
-use crate::storage::STORAGE;
-use crate::{acl::AccessType, error::Result};
-use ::futures::{Stream, TryStreamExt};
-use axum::extract::OriginalUri;
-use axum::{body::Bytes, extract::Request, response::IntoResponse, BoxError};
-use axum_extra::headers::Range;
-use axum_extra::TypedHeader;
-use axum_range::KnownSize;
-use axum_range::Ranged;
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
+
+use axum::{
+    body::Bytes,
+    extract::{OriginalUri, Request},
+    response::IntoResponse,
+    BoxError,
+};
+use axum_extra::{headers::Range, TypedHeader};
+use axum_range::{KnownSize, Ranged};
+use futures::{Stream, TryStreamExt};
 use futures_util::pin_mut;
-use std::io;
-use std::path::{Path, PathBuf};
 use tokio::io::AsyncWrite;
 use tokio_util::io::StreamReader;
+
+use crate::{
+    acl::AccessType,
+    auth::AuthFromRequest,
+    error::{ErrorKind, Result},
+    handlers::{
+        access_check::check_auth_and_acl,
+        file_helpers::Finalizer,
+        path_analysis::{decompose_path, ArchivePathKind},
+    },
+    storage::STORAGE,
+};
 
 /// add_file
 /// Interface: POST {path}/{type}/{name}
@@ -33,7 +43,7 @@ pub(crate) async fn add_file(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_ne!(archive_path.path_type, ArchivePathEnum::Config);
+    assert_ne!(archive_path.path_type, ArchivePathKind::Config);
     assert_ne!(&name, "");
     tracing::debug!("[get_file] path: {p_str}, tpe: {tpe}, name: {name}");
 
@@ -152,15 +162,14 @@ where
     pin_mut!(body_reader);
     let byte_count = match tokio::io::copy(&mut body_reader, &mut write_stream).await {
         Ok(b) => b,
-        Err(_) => return Err(ErrorKind::FinalizingFileFailed),
+        Err(err) => return Err(ErrorKind::FinalizingFileFailed(format!("{:?}", err))),
     };
 
     tracing::debug!("[file written] bytes: {byte_count}");
-    if write_stream.finalize().await.is_err() {
-        return Err(ErrorKind::FinalizingFileFailed);
-    };
-
-    Ok(())
+    write_stream
+        .finalize()
+        .await
+        .map_err(|err| ErrorKind::FinalizingFileFailed(format!("Could not finalize file: {}", err)))
 }
 
 #[cfg(test)]
@@ -181,7 +190,7 @@ fn check_string_sha256(name: &str) -> bool {
     true
 }
 
-///FIXME Move to suppport functoin file
+///FIXME Move to support functoin file
 pub(crate) fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse> {
     match tpe {
         "config" => Ok(()),

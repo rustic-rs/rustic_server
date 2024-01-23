@@ -1,18 +1,28 @@
-use crate::auth::AuthFromRequest;
-use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum};
-use crate::storage::STORAGE;
-use crate::{acl::AccessType, error::Result, handlers::file_helpers::IteratorAdapter};
-use axum::extract::OriginalUri;
-use axum::http::header::AUTHORIZATION;
+use std::path::Path;
+
 use axum::{
-    http::{header, StatusCode},
+    extract::OriginalUri,
+    http::{
+        header::{self, AUTHORIZATION},
+        StatusCode,
+    },
     response::IntoResponse,
     Json,
 };
 use axum_extra::headers::HeaderMap;
 use serde_derive::{Deserialize, Serialize};
-use std::path::Path;
+
+use crate::{
+    acl::AccessType,
+    auth::AuthFromRequest,
+    error::Result,
+    handlers::{
+        access_check::check_auth_and_acl,
+        file_helpers::IteratorAdapter,
+        path_analysis::{decompose_path, ArchivePathKind},
+    },
+    storage::STORAGE,
+};
 
 const API_V1: &str = "application/vnd.x.restic.rest.v1";
 const API_V2: &str = "application/vnd.x.restic.rest.v2";
@@ -35,7 +45,7 @@ pub(crate) async fn list_files(
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
-    assert_ne!(archive_path.path_type, ArchivePathEnum::Config);
+    assert_ne!(archive_path.path_type, ArchivePathKind::Config);
     assert_eq!(archive_path.name, "".to_string());
     tracing::debug!("[list_files] path: {p_str}, tpe: {tpe}");
 
@@ -151,7 +161,7 @@ mod test {
             .route("/*path", get(list_files))
             .layer(middleware::from_fn(print_request_response));
 
-        let requrest = Request::builder()
+        let request = Request::builder()
             .uri("/test_repo/keys")
             .header(ACCEPT, API_V2)
             .header(
@@ -161,7 +171,7 @@ mod test {
             .body(Body::empty())
             .unwrap();
 
-        let resp = app.oneshot(requrest).await.unwrap();
+        let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
 

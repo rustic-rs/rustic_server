@@ -1,13 +1,18 @@
-use crate::auth::AuthFromRequest;
-use crate::error::ErrorKind;
-use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum};
-use crate::storage::STORAGE;
-use crate::{acl::AccessType, error::Result};
-use axum::extract::OriginalUri;
-use axum::{http::header, response::IntoResponse};
-use axum_extra::headers::HeaderMap;
 use std::path::Path;
+
+use axum::{extract::OriginalUri, http::header, response::IntoResponse};
+use axum_extra::headers::HeaderMap;
+
+use crate::{
+    acl::AccessType,
+    auth::AuthFromRequest,
+    error::{ErrorKind, Result},
+    handlers::{
+        access_check::check_auth_and_acl,
+        path_analysis::{decompose_path, ArchivePathKind},
+    },
+    storage::STORAGE,
+};
 
 /// Length
 /// Interface: HEAD {path}/{type}/{name}
@@ -21,7 +26,7 @@ pub(crate) async fn file_length(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_ne!(archive_path.path_type, ArchivePathEnum::Config);
+    assert_ne!(archive_path.path_type, ArchivePathKind::Config);
     tracing::debug!("[length] path: {p_str}, tpe: {tpe}, name: {name}");
 
     let path = Path::new(&p_str);

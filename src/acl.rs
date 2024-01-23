@@ -5,7 +5,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::{
     error::{ErrorKind, Result},
-    handlers::path_analysis::TPE_LOCKS,
+    handlers::path_analysis::constants::TPE_LOCKS,
 };
 
 //Static storage of our credentials
@@ -104,7 +104,7 @@ impl Acl {
             ))
         })?;
         fs::write(pth, toml_string).map_err(|err| {
-            ErrorKind::InternalError(format!("Could not write ACL file: {}", err))
+            ErrorKind::WritingToFileFailed(format!("Could not write ACL file: {}", err))
         })?;
         Ok(())
     }

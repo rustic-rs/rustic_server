@@ -70,17 +70,26 @@ impl HtAccess {
         self.credentials.insert(cred.name.clone(), cred);
     }
 
-    /// FIXME: Nicer error logging for when we can not write file ...
     pub fn to_file(&self) -> Result<()> {
         let mut file = fs::OpenOptions::new()
             .create(true)
             .truncate(false)
             .write(true)
             .open(&self.path)
-            .map_err(|err| ErrorKind::InternalError(format!("Could not open file: {}", err)))?;
+            .map_err(|err| {
+                ErrorKind::OpeningFileFailed(format!(
+                    "Could not open HtAccess file: {} at {:?}",
+                    err, self.path
+                ))
+            })?;
 
         for (_n, c) in self.credentials.iter() {
-            let _e = file.write(c.to_line().as_bytes()).unwrap();
+            let _e = file.write(c.to_line().as_bytes()).map_err(|err| {
+                ErrorKind::WritingToFileFailed(format!(
+                    "Could not write to HtAccess file: {} at {:?}",
+                    err, self.path
+                ))
+            });
         }
         Ok(())
     }

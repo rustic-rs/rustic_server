@@ -1,17 +1,23 @@
-use crate::acl::AccessType;
-use crate::auth::AuthFromRequest;
-use crate::error::ErrorKind;
-use crate::error::Result;
-use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::file_exchange::{check_name, get_file, get_save_file, save_body};
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum};
-use crate::storage::STORAGE;
-use axum::body::Body;
-use axum::extract::{OriginalUri, Request};
-use axum::response::IntoResponse;
-use axum_extra::headers::Range;
-use axum_extra::TypedHeader;
 use std::path::{Path, PathBuf};
+
+use axum::{
+    body::Body,
+    extract::{OriginalUri, Request},
+    response::IntoResponse,
+};
+use axum_extra::{headers::Range, TypedHeader};
+
+use crate::{
+    acl::AccessType,
+    auth::AuthFromRequest,
+    error::{ErrorKind, Result},
+    handlers::{
+        access_check::check_auth_and_acl,
+        file_exchange::{check_name, get_file, get_save_file, save_body},
+        path_analysis::{decompose_path, ArchivePathKind},
+    },
+    storage::STORAGE,
+};
 
 /// has_config
 /// Interface: HEAD {path}/config
@@ -66,7 +72,7 @@ pub(crate) async fn add_config(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_eq!(&archive_path.path_type, &ArchivePathEnum::Config);
+    assert_eq!(&archive_path.path_type, &ArchivePathKind::Config);
     assert_eq!(&name, "config");
     tracing::debug!("[add_config] path: {p_str}, tpe: {tpe}, name: {name}");
 
@@ -91,7 +97,7 @@ pub(crate) async fn delete_config(
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
     let name = archive_path.name;
-    assert_eq!(&archive_path.path_type, &ArchivePathEnum::Config);
+    assert_eq!(&archive_path.path_type, &ArchivePathKind::Config);
     tracing::debug!("[delete_config] path: {p_str}, tpe: {tpe}, name: {name}");
 
     check_name(tpe.as_str(), &name)?;

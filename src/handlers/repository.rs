@@ -1,7 +1,7 @@
 use crate::auth::AuthFromRequest;
 use crate::error::ErrorKind;
 use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::path_analysis::{decompose_path, ArchivePathEnum, TYPES};
+use crate::handlers::path_analysis::{constants::TYPES, decompose_path, ArchivePathKind};
 use crate::storage::STORAGE;
 use crate::{acl::AccessType, error::Result};
 use axum::extract::OriginalUri;
@@ -29,7 +29,7 @@ pub(crate) async fn create_repository(
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
-    assert_eq!(&archive_path.path_type, &ArchivePathEnum::Repo);
+    assert_eq!(&archive_path.path_type, &ArchivePathKind::Repo);
     assert_eq!(&tpe, "");
     tracing::debug!("[create_repository] repo_path: {p_str:?}");
 
@@ -70,7 +70,7 @@ pub(crate) async fn delete_repository(
     let archive_path = decompose_path(path_string)?;
     let p_str = archive_path.path;
     let tpe = archive_path.tpe;
-    assert_eq!(archive_path.path_type, ArchivePathEnum::Repo);
+    assert_eq!(archive_path.path_type, ArchivePathKind::Repo);
     assert_eq!(&tpe, "");
     tracing::debug!("[delete_repository] repo_path: {p_str:?}");
 

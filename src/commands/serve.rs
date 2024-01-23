@@ -20,12 +20,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
     match &opts.config {
         Some(config) => {
             let config_path = PathBuf::new().join(config);
-            let server_config = ServerConfiguration::from_file(&config_path).map_err(|err| {
-                ErrorKind::InternalError(format!(
-                    "Could not read config file: {} at path: {:?}",
-                    err, config_path
-                ))
-            })?;
+            let server_config = ServerConfiguration::from_file(&config_path)?;
 
             if let Some(level) = server_config.log_level {
                 init_trace_from(&level);
