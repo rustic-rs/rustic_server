@@ -1,2 +1,2 @@
 pub mod auth_file;
-pub mod server_config;
+pub mod server;

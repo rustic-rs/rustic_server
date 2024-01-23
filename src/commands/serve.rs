@@ -1,21 +1,26 @@
-use crate::acl::Acl;
-use crate::auth::Auth;
-use crate::config::server_config::ServerConfig;
-use crate::log::{init_trace_from, init_tracing};
-use crate::storage::LocalStorage;
-use crate::web::start_web_server;
-use clap::Parser;
-use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{
+    net::{SocketAddr, ToSocketAddrs},
+    path::PathBuf,
+    str::FromStr,
+};
 
-use crate::error::{ErrorKind, Result};
+use clap::Parser;
+
+use crate::{
+    acl::Acl,
+    auth::Auth,
+    config::server::ServerConfiguration,
+    error::{ErrorKind, Result},
+    log::{init_trace_from, init_tracing},
+    storage::LocalStorage,
+    web::start_web_server,
+};
 
 pub async fn serve(opts: Opts) -> Result<()> {
     match &opts.config {
         Some(config) => {
             let config_path = PathBuf::new().join(config);
-            let server_config = ServerConfig::from_file(&config_path).map_err(|err| {
+            let server_config = ServerConfiguration::from_file(&config_path).map_err(|err| {
                 ErrorKind::InternalError(format!(
                     "Could not read config file: {} at path: {:?}",
                     err, config_path
@@ -46,7 +51,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
             })?;
 
             // Access control to the repositories
-            let acl_config = server_config.accesscontrol;
+            let acl_config = server_config.access_control;
             let path = acl_config.acl_path.map(|p| PathBuf::new().join(p));
             let acl = Acl::from_file(acl_config.append_only, acl_config.private_repo, path)?;
 

@@ -1,11 +1,9 @@
-use axum::extract::FromRequestParts;
-use axum::http::request::Parts;
+use std::{collections::HashMap, fs, io, path::PathBuf};
+
+use axum::{extract::FromRequestParts, http::request::Parts};
 use axum_auth::AuthBasic;
 use once_cell::sync::OnceCell;
 use serde_derive::Deserialize;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::{fs, io};
 
 use crate::error::{ErrorKind, Result};
 

@@ -1,11 +1,12 @@
-use crate::handlers::path_analysis::TPE_LOCKS;
+use std::{collections::HashMap, fs, path::PathBuf};
+
 use once_cell::sync::OnceCell;
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
 
-use crate::error::{ErrorKind, Result};
+use crate::{
+    error::{ErrorKind, Result},
+    handlers::path_analysis::TPE_LOCKS,
+};
 
 //Static storage of our credentials
 pub static ACL: OnceCell<Acl> = OnceCell::new();

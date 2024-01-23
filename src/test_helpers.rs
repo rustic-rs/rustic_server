@@ -1,13 +1,17 @@
-use crate::acl::{init_acl, Acl};
-use crate::auth::{init_auth, Auth};
-use crate::storage::{init_storage, LocalStorage};
-use axum::body::Body;
-use axum::http::{HeaderValue, Method};
+use std::{env, path::PathBuf, sync::Mutex};
+
+use axum::{
+    body::Body,
+    http::{HeaderValue, Method},
+};
 use once_cell::sync::OnceCell;
-use std::env;
-use std::path::PathBuf;
-use std::sync::Mutex;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::{
+    acl::{init_acl, Acl},
+    auth::{init_auth, Auth},
+    storage::{init_storage, LocalStorage},
+};
 
 // ------------------------------------------------
 // test facility prevent repeated calls in tests

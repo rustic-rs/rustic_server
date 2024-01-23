@@ -1,16 +1,16 @@
+use std::{fs, path::Path};
+
 use serde_derive::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
 
 use crate::error::{ErrorKind, Result};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ServerConfig {
+pub struct ServerConfiguration {
     pub server: Server,
     pub repos: Repos,
     pub tls: Option<TLS>,
     pub authorization: Authorization,
-    pub accesscontrol: AccessControl,
+    pub access_control: AccessControl,
     pub log_level: Option<String>,
 }
 
@@ -51,7 +51,7 @@ pub struct TLS {
     pub cert_path: String,
 }
 
-impl ServerConfig {
+impl ServerConfiguration {
     pub fn from_file(pth: &Path) -> Result<Self> {
         let s = fs::read_to_string(pth).map_err(|err| {
             ErrorKind::InternalError(format!(
@@ -59,7 +59,7 @@ impl ServerConfig {
                 err, pth
             ))
         })?;
-        let config: ServerConfig = toml::from_str(&s).map_err(|err| {
+        let config: ServerConfiguration = toml::from_str(&s).map_err(|err| {
             ErrorKind::InternalError(format!("Could not parse TOML file: {}", err))
         })?;
         Ok(config)
@@ -82,7 +82,7 @@ impl ServerConfig {
 #[cfg(test)]
 mod test {
     use super::Server;
-    use crate::config::server_config::{AccessControl, Authorization, Repos, ServerConfig, TLS};
+    use crate::config::server::{AccessControl, Authorization, Repos, ServerConfiguration, TLS};
     use std::fs;
     use std::path::Path;
 
@@ -93,7 +93,7 @@ mod test {
             .join("test_data")
             .join("rustic_server.toml");
         //let config_path = Path::new("/data/rustic/rustic_server.toml");
-        let config = ServerConfig::from_file(&config_path);
+        let config = ServerConfiguration::from_file(&config_path);
         assert!(config.is_ok());
 
         let config = config.unwrap();
@@ -134,18 +134,18 @@ mod test {
         let log = "debug".to_string();
 
         // Try to write
-        let config = ServerConfig {
+        let config = ServerConfiguration {
             log_level: Some(log),
             server,
             repos,
             tls,
             authorization: auth,
-            accesscontrol: access,
+            access_control: access,
         };
         let config_file = server_path.join("rustic_server.rustic_config.toml");
         config.to_file(&config_file).unwrap();
 
         // Try to read
-        let _tmp_config = ServerConfig::from_file(&config_file).unwrap();
+        let _tmp_config = ServerConfiguration::from_file(&config_file).unwrap();
     }
 }

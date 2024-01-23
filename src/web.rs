@@ -1,13 +1,30 @@
-// mod web
-//
-// implements a REST server as specified by
-// https://restic.readthedocs.io/en/stable/REST_backend.html?highlight=Rest%20API
-//
-// uses the modules
-// storage - to access the file system
-// auth    - for user authentication
-// acl     - for access control
-//
+use std::net::SocketAddr;
+
+use axum::{
+    middleware,
+    routing::{get, head, post},
+    Router,
+};
+use axum_server::tls_rustls::RustlsConfig;
+use tokio::net::TcpListener;
+use tracing::level_filters::LevelFilter;
+
+use crate::{
+    acl::{init_acl, Acl},
+    auth::{init_auth, Auth},
+    error::Result,
+    handlers::{
+        file_config::{add_config, delete_config, get_config, has_config},
+        file_exchange::{add_file, delete_file, get_file},
+        file_length::file_length,
+        files_list::list_files,
+        path_analysis::TYPES,
+        repository::{create_repository, delete_repository},
+    },
+    log::print_request_response,
+    storage::{init_storage, Storage},
+};
+
 // FIXME: decide either to keep, or change. Then remove the remarks below
 // During the rout table creation, we loop over types. Rationale:
 // We can not distinguish paths using `:tpe` matching in the router.
@@ -24,27 +41,6 @@
 //      etc, etc,
 // When adding these to the router, we can use the Axum::Path to get the path without having
 // to re-analyse the URI like we do now. TBI: does this speed up the server?
-
-use axum::routing::{get, head, post};
-use axum::{middleware, Router};
-use axum_server::tls_rustls::RustlsConfig;
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
-use tracing::level_filters::LevelFilter;
-
-use crate::acl::{init_acl, Acl};
-use crate::auth::{init_auth, Auth};
-use crate::handlers::file_config::{add_config, delete_config, get_config, has_config};
-use crate::handlers::file_exchange::{add_file, delete_file, get_file};
-use crate::handlers::file_length::file_length;
-use crate::handlers::files_list::list_files;
-use crate::handlers::path_analysis::TYPES;
-use crate::handlers::repository::{create_repository, delete_repository};
-use crate::log::print_request_response;
-use crate::storage::init_storage;
-use crate::storage::Storage;
-
-use crate::error::Result;
 
 /// FIXME: original Restic interface seems not to provide a "delete repository" interface.
 pub async fn start_web_server(

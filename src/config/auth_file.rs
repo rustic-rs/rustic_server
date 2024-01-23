@@ -1,12 +1,13 @@
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+    fs::{self, read_to_string},
+    io::Write,
+    path::PathBuf,
+};
+
 use htpasswd_verify::md5::{format_hash, md5_apr1_encode};
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
-use std::fs;
-use std::fs::read_to_string;
-use std::io::Write;
-use std::path::PathBuf;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 use crate::error::{ErrorKind, Result};
 

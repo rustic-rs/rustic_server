@@ -1,11 +1,15 @@
-use crate::error::ErrorKind;
-use axum::body::{Body, Bytes};
-use axum::extract::Request;
-use axum::middleware::Next;
-use axum::response::{IntoResponse, Response};
-use http_body_util::BodyExt;
 use std::str::FromStr;
+
+use axum::{
+    body::{Body, Bytes},
+    extract::Request,
+    middleware::Next,
+    response::{IntoResponse, Response},
+};
+use http_body_util::BodyExt;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::error::ErrorKind;
 
 pub fn init_tracing() {
     tracing_subscriber::registry()
