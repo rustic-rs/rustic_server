@@ -128,7 +128,7 @@ mod test {
         // ------------------------------------
         let repo_name_uri = "/repo_remove_me?create=true".to_string();
         let app = Router::new()
-            .route("/*path", post(create_repository))
+            .route("/:path/:tpe", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -142,7 +142,7 @@ mod test {
         // ------------------------------------------
         let repo_name_uri = "/repo_not_allowed?create=true".to_string();
         let app = Router::new()
-            .route("/*path", post(create_repository))
+            .route("/:path/:tpe", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -156,7 +156,7 @@ mod test {
         // ------------------------------------------
         let repo_name_uri = "/repo_remove_me?create=true".to_string();
         let app = Router::new()
-            .route("/*path", post(delete_repository))
+            .route("/:path", post(delete_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -180,7 +180,7 @@ mod test {
         assert!(path.exists()); // pre condition: repo exists
         let repo_name_uri = "/repo_remove_me".to_string();
         let app = Router::new()
-            .route("/*path", delete(delete_repository))
+            .route("/:path", delete(delete_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::DELETE);

@@ -68,7 +68,7 @@ mod test {
         // File exists
         // ----------------------------------
         let app = Router::new()
-            .route("/*path", head(file_length))
+            .route("/:path/:tpe/:name", head(file_length))
             .layer(middleware::from_fn(print_request_response));
 
         let uri =
@@ -100,7 +100,7 @@ mod test {
         // File does NOT exist
         // ----------------------------------
         let app = Router::new()
-            .route("/*path", head(file_length))
+            .route("/:path/:tpe/:name", head(file_length))
             .layer(middleware::from_fn(print_request_response));
 
         let uri = "/test_repo/keys/__I_do_not_exist__";

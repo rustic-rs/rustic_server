@@ -112,7 +112,7 @@ mod test {
         // NOT CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/:path/config", head(has_config))
+            .route("/:path/:tpe", head(has_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -133,7 +133,7 @@ mod test {
         // HAS CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/:path/config", head(has_config))
+            .route("/:path/:tpe", head(has_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -179,7 +179,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo, "?create=true"].concat();
         let app = Router::new()
-            .route("/:path/config", post(create_repository))
+            .route("/:path/:tpe", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -195,7 +195,7 @@ mod test {
         let body = Body::new(test_vec.clone());
 
         let app = Router::new()
-            .route("/:path/config", post(add_config))
+            .route("/:path/:tpe", post(add_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -220,7 +220,7 @@ mod test {
         // GET CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/:path/config", get(get_config))
+            .route("/:path/:tpe", get(get_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::GET);
@@ -237,7 +237,7 @@ mod test {
         // - differs from tester_has_config() that we have a non empty path now
         // -----------------------
         let app = Router::new()
-            .route("/:path/config", head(has_config))
+            .route("/:path/:tpe", head(has_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::HEAD);
@@ -249,7 +249,7 @@ mod test {
         // DELETE CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/:path/config", delete(delete_config))
+            .route("/:path/:tpe", delete(delete_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::DELETE);
@@ -264,7 +264,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo].concat();
         let app = Router::new()
-            .route("/:path/config", post(delete_repository))
+            .route("/:path/:tpe", post(delete_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);

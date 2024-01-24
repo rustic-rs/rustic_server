@@ -218,7 +218,7 @@ mod test {
         // Write a complete file
         //----------------------------------------------
         let app = Router::new()
-            .route("/*path", put(add_file))
+            .route("/:path/:tpe/:name", put(add_file))
             .layer(middleware::from_fn(print_request_response));
 
         let test_vec = "Hello World".to_string();
@@ -246,7 +246,7 @@ mod test {
         // Delete a complete file
         //----------------------------------------------
         let app = Router::new()
-            .route("/*path", delete(delete_file))
+            .route("/:path/:tpe/:name", delete(delete_file))
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
@@ -294,7 +294,7 @@ mod test {
 
         // Start with creating the file before we can test
         let app = Router::new()
-            .route("/*path", put(add_file))
+            .route("/:path/:tpe/:name", put(add_file))
             .layer(middleware::from_fn(print_request_response));
 
         let test_vec = "Hello Sweet World".to_string();
@@ -322,7 +322,7 @@ mod test {
         // Fetch the complete file
         //----------------------------------------
         let app = Router::new()
-            .route("/*path", get(get_file))
+            .route("/:path/:tpe/:name", get(get_file))
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
@@ -365,10 +365,8 @@ mod test {
         //----------------------------------------------
         // Clean up -> Delete test file
         //----------------------------------------------
-        // fs::remove_file(&path).unwrap();
-        // assert!( !path.exists() );
         let app = Router::new()
-            .route("/*path", delete(delete_file))
+            .route("/:path/:tpe/:name", delete(delete_file))
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
@@ -395,7 +393,7 @@ mod test {
         let test_vec = fs::read(path).unwrap();
 
         let app = Router::new()
-            .route("/*path", get(get_file))
+            .route("/:path/:tpe/:name", get(get_file))
             .layer(middleware::from_fn(print_request_response));
 
         let uri = "/test_repo/config";
