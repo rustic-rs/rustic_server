@@ -20,7 +20,7 @@ pub(crate) async fn file_length(
     tracing::debug!("[length] path: {path:?}, tpe: {tpe}, name: {name}");
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
-    check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = storage.filename(path, &tpe, &name);

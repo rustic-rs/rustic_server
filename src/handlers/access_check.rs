@@ -32,7 +32,7 @@ pub(crate) fn check_auth_and_acl(
     } else {
         return Err(ErrorKind::NonUnicodePath(path.display().to_string()));
     };
-    let allowed = acl.allowed(user.as_str(), path, tpe, append);
+    let allowed = acl.allowed(&user, path, tpe, append);
     tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe}, allowed: {allowed}");
 
     match allowed {

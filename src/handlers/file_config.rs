@@ -26,7 +26,7 @@ pub(crate) async fn has_config(
     tracing::debug!("[has_config] path: {path:?}, tpe: {tpe}, name: {name}");
     let path_str = path.unwrap_or_default();
     let path = std::path::Path::new(&path_str);
-    check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = storage.filename(path, &tpe, &name);
@@ -57,7 +57,7 @@ pub(crate) async fn add_config(
     tracing::debug!("[add_config] path: {path:?}, tpe: {tpe}, name: {name}");
     let path = path.unwrap_or_default();
     let path = PathBuf::from(&path);
-    let file = get_save_file(auth.user, path, tpe.as_str(), name).await?;
+    let file = get_save_file(auth.user, path, &tpe, name).await?;
 
     let stream = request.into_body().into_data_stream();
     save_body(file, stream).await?;
@@ -72,13 +72,13 @@ pub(crate) async fn delete_config(
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
     tracing::debug!("[delete_config] path: {path:?}, tpe: {tpe}, name: {name}");
-    check_name(tpe.as_str(), &name)?;
+    check_name(&tpe, &name)?;
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
-    check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Append)?;
+    check_auth_and_acl(auth.user, &tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
-    if storage.remove_file(path, tpe.as_str(), &name).is_err() {
+    if storage.remove_file(path, &tpe, &name).is_err() {
         return Err(ErrorKind::RemovingFileFailed(path_str));
     }
     Ok(())

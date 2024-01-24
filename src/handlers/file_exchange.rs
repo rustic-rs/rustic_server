@@ -38,7 +38,7 @@ pub(crate) async fn add_file(
 
     //credential & access check executed in get_save_file()
     let path = std::path::PathBuf::from(&path_str);
-    let file = get_save_file(auth.user, path, tpe.as_str(), name).await?;
+    let file = get_save_file(auth.user, path, &tpe, name).await?;
 
     let stream = request.into_body().into_data_stream();
     save_body(file, stream).await?;
@@ -57,12 +57,12 @@ pub(crate) async fn delete_file(
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
 
-    check_name(tpe.as_str(), name.as_str())?;
-    check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Append)?;
+    check_name(&tpe, &name)?;
+    check_auth_and_acl(auth.user, &tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
 
-    if let Err(e) = storage.remove_file(path, tpe.as_str(), name.as_str()) {
+    if let Err(e) = storage.remove_file(path, &tpe, &name) {
         tracing::debug!("[delete_file] IO error: {e:?}");
         return Err(ErrorKind::RemovingFileFailed(path_str));
     }
@@ -78,11 +78,11 @@ pub(crate) async fn get_file(
 ) -> Result<impl IntoResponse> {
     tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
-    check_name(tpe.as_str(), name.as_str())?;
+    check_name(&tpe, &name)?;
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
 
-    check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = match storage.open_file(path, &tpe, &name).await {
@@ -111,7 +111,7 @@ pub(crate) async fn get_save_file(
 ) -> Result<impl AsyncWrite + Unpin + Finalizer> {
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
-    check_name(tpe, name.as_str())?;
+    check_name(tpe, &name)?;
     check_auth_and_acl(user, tpe, path.as_path(), AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();

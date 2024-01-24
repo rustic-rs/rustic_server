@@ -1,7 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-use serde::de;
-
 pub mod constants {
     // TPE_LOCKS is is defined, but outside this types[] array.
     // This allow us to loop over the types[] when generating "routes"
