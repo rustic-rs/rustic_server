@@ -1,14 +1,19 @@
-use crate::auth::AuthFromRequest;
-use crate::error::ErrorKind;
-use crate::handlers::access_check::check_auth_and_acl;
-use crate::handlers::path_analysis::{constants::TYPES, decompose_path, ArchivePathKind};
-use crate::storage::STORAGE;
-use crate::{acl::AccessType, error::Result};
-use axum::extract::OriginalUri;
-use axum::extract::Query;
-use axum::{http::StatusCode, response::IntoResponse};
-use serde_derive::Deserialize;
 use std::path::Path;
+
+use axum::{
+    extract::{Path as AxumPath, Query},
+    http::StatusCode,
+    response::IntoResponse,
+};
+use serde_derive::Deserialize;
+
+use crate::{
+    acl::AccessType,
+    auth::AuthFromRequest,
+    error::Result,
+    handlers::{access_check::check_auth_and_acl, path_analysis::constants::TYPES},
+    storage::STORAGE,
+};
 
 /// Create_repository
 /// Interface: POST {path}?create=true
@@ -18,22 +23,14 @@ pub(crate) struct Create {
     create: bool,
 }
 
-// FIXME: The input path should be 1 folder deep (right??)
 pub(crate) async fn create_repository(
+    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
     Query(params): Query<Create>,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    assert_eq!(&archive_path.path_type, &ArchivePathKind::Repo);
-    assert_eq!(&tpe, "");
-    tracing::debug!("[create_repository] repo_path: {p_str:?}");
-
-    let path = Path::new(&p_str);
+    tracing::debug!("[create_repository] repo_path: {path:?}");
+    let path = path.unwrap_or_default();
+    let path = Path::new(&path);
     //FIXME: Is Append the right access leven, or should we require Modify?
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Append)?;
 
@@ -41,9 +38,7 @@ pub(crate) async fn create_repository(
     match params.create {
         true => {
             for tpe_i in TYPES.iter() {
-                if let Err(e) = storage.create_dir(path, tpe_i) {
-                    return Err(ErrorKind::CreatingDirectoryFailed(e.to_string()));
-                };
+                storage.create_dir(path, tpe_i)?
             }
 
             Ok((
@@ -62,29 +57,17 @@ pub(crate) async fn create_repository(
 /// Interface: Delete {path}
 /// FIXME: The input path should at least NOT point to a file in any repository
 pub(crate) async fn delete_repository(
+    AxumPath(path): AxumPath<Option<String>>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    assert_eq!(archive_path.path_type, ArchivePathKind::Repo);
-    assert_eq!(&tpe, "");
-    tracing::debug!("[delete_repository] repo_path: {p_str:?}");
-
-    let path = Path::new(&p_str);
+    tracing::debug!("[delete_repository] repo_path: {path:?}");
+    let path_str = path.unwrap_or_default();
+    let path = Path::new(&path_str);
     //FIXME: We surely need modify access to delete right??
     check_auth_and_acl(auth.user, "", path, AccessType::Modify)?;
 
     let storage = STORAGE.get().unwrap();
-    if let Err(e) = storage.remove_repository(path) {
-        tracing::debug!("[got IO error] {e:?}");
-        return Err(ErrorKind::RemovingRepositoryFailed(
-            path.to_string_lossy().into(),
-        ));
-    }
+    storage.remove_repository(path)?;
 
     Ok(())
 }

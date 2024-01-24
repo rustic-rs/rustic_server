@@ -1,5 +1,7 @@
+use std::path::Path;
+
 use axum::{
-    extract::Path,
+    extract::Path as AxumPath,
     http::{
         header::{self, AUTHORIZATION},
         StatusCode,
@@ -30,13 +32,13 @@ struct RepoPathEntry {
 }
 
 pub(crate) async fn list_files(
-    Path((path, tpe)): Path<(Option<String>, String)>,
+    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
     auth: AuthFromRequest,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse> {
     tracing::debug!("[list_files] path: {path:?}, tpe: {tpe}");
     let path = path.unwrap_or_default();
-    let path = std::path::Path::new(&path);
+    let path = Path::new(&path);
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();

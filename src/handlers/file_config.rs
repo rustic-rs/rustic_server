@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use axum::{
-    body::Body,
-    extract::{OriginalUri, Request},
+    extract::{Path as AxumPath, Request},
     response::IntoResponse,
 };
 use axum_extra::{headers::Range, TypedHeader};
@@ -14,7 +13,6 @@ use crate::{
     handlers::{
         access_check::check_auth_and_acl,
         file_exchange::{check_name, get_file, get_save_file, save_body},
-        path_analysis::{decompose_path, ArchivePathKind},
     },
     storage::STORAGE,
 };
@@ -22,22 +20,12 @@ use crate::{
 /// has_config
 /// Interface: HEAD {path}/config
 pub(crate) async fn has_config(
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
     auth: AuthFromRequest,
-    req: Request<Body>,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = req.uri().path();
-    let archive_path = decompose_path(path_string)?;
-    tracing::debug!("[has_config] archive_path: {}", &archive_path);
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    let name = archive_path.name;
-    // assert_eq!( &archive_path.path_type, &ArchivePathEnum::CONFIG); --> Correct assert, but interferes with our tests
-    // assert_eq!( &tpe, TPE_CONFIG); --> Correct assert, but interferes with our tests
-    //assert_eq!(&name, "config");
-    tracing::debug!("[has_config] path: {p_str}, tpe: {tpe}, name: {name}");
-
-    let path = Path::new(&p_str);
+    tracing::debug!("[has_config] path: {path:?}, tpe: {tpe}, name: {name}");
+    let path_str = path.unwrap_or_default();
+    let path = std::path::Path::new(&path_str);
     check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
@@ -45,39 +33,31 @@ pub(crate) async fn has_config(
     if file.exists() {
         Ok(())
     } else {
-        Err(ErrorKind::FileNotFound(p_str))
+        Err(ErrorKind::FileNotFound(path_str))
     }
 }
 
 /// get_config
 /// Interface: GET {path}/config
 pub(crate) async fn get_config(
+    path: AxumPath<(Option<String>, String, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
     range: Option<TypedHeader<Range>>,
 ) -> Result<impl IntoResponse> {
-    get_file(auth, uri, range).await
+    get_file(path, auth, range).await
 }
 
 /// add_config
 /// Interface: POST {path}/config
 pub(crate) async fn add_config(
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
     request: Request,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    let name = archive_path.name;
-    assert_eq!(&archive_path.path_type, &ArchivePathKind::Config);
-    assert_eq!(&name, "config");
-    tracing::debug!("[add_config] path: {p_str}, tpe: {tpe}, name: {name}");
-
-    let pth = PathBuf::new().join(&p_str);
-    let file = get_save_file(auth.user, pth, tpe.as_str(), name).await?;
+    tracing::debug!("[add_config] path: {path:?}, tpe: {tpe}, name: {name}");
+    let path = path.unwrap_or_default();
+    let path = PathBuf::from(&path);
+    let file = get_save_file(auth.user, path, tpe.as_str(), name).await?;
 
     let stream = request.into_body().into_data_stream();
     save_body(file, stream).await?;
@@ -88,26 +68,18 @@ pub(crate) async fn add_config(
 /// Interface: DELETE {path}/config
 /// FIXME: The original restic spec does not define delete_config --> but rustic did ??
 pub(crate) async fn delete_config(
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    let name = archive_path.name;
-    assert_eq!(&archive_path.path_type, &ArchivePathKind::Config);
-    tracing::debug!("[delete_config] path: {p_str}, tpe: {tpe}, name: {name}");
-
+    tracing::debug!("[delete_config] path: {path:?}, tpe: {tpe}, name: {name}");
     check_name(tpe.as_str(), &name)?;
-    let path = Path::new(&p_str);
-    let pth = Path::new(path);
-    check_auth_and_acl(auth.user, tpe.as_str(), pth, AccessType::Append)?;
+    let path_str = path.unwrap_or_default();
+    let path = Path::new(&path_str);
+    check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
     if storage.remove_file(path, tpe.as_str(), &name).is_err() {
-        return Err(ErrorKind::RemovingFileFailed(p_str));
+        return Err(ErrorKind::RemovingFileFailed(path_str));
     }
     Ok(())
 }

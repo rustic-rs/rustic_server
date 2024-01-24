@@ -1,35 +1,25 @@
 use std::path::Path;
 
-use axum::{extract::OriginalUri, http::header, response::IntoResponse};
+use axum::{extract::Path as AxumPath, http::header, response::IntoResponse};
 use axum_extra::headers::HeaderMap;
 
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
     error::{ErrorKind, Result},
-    handlers::{
-        access_check::check_auth_and_acl,
-        path_analysis::{decompose_path, ArchivePathKind},
-    },
+    handlers::access_check::check_auth_and_acl,
     storage::STORAGE,
 };
 
 /// Length
 /// Interface: HEAD {path}/{type}/{name}
 pub(crate) async fn file_length(
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    let name = archive_path.name;
-    assert_ne!(archive_path.path_type, ArchivePathKind::Config);
-    tracing::debug!("[length] path: {p_str}, tpe: {tpe}, name: {name}");
-
-    let path = Path::new(&p_str);
+    tracing::debug!("[length] path: {path:?}, tpe: {tpe}, name: {name}");
+    let path_str = path.unwrap_or_default();
+    let path = Path::new(&path_str);
     check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
@@ -39,7 +29,7 @@ pub(crate) async fn file_length(
         let file = match storage.open_file(path, &tpe, &name).await {
             Ok(file) => file,
             Err(_) => {
-                return Err(ErrorKind::FileNotFound(p_str));
+                return Err(ErrorKind::FileNotFound(path_str));
             }
         };
         let length = match file.metadata().await {
@@ -52,7 +42,7 @@ pub(crate) async fn file_length(
         headers.insert(header::CONTENT_LENGTH, length.into());
         Ok(headers)
     } else {
-        Err(ErrorKind::FileNotFound(p_str))
+        Err(ErrorKind::FileNotFound(path_str))
     };
 }
 

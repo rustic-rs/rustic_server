@@ -5,7 +5,7 @@ use std::{
 
 use axum::{
     body::Bytes,
-    extract::{OriginalUri, Request},
+    extract::{Path as AxumPath, Request},
     response::IntoResponse,
     BoxError,
 };
@@ -20,11 +20,7 @@ use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
     error::{ErrorKind, Result},
-    handlers::{
-        access_check::check_auth_and_acl,
-        file_helpers::Finalizer,
-        path_analysis::{decompose_path, ArchivePathKind},
-    },
+    handlers::{access_check::check_auth_and_acl, file_helpers::Finalizer},
     storage::STORAGE,
 };
 
@@ -33,23 +29,16 @@ use crate::{
 /// Background info: https://github.com/tokio-rs/axum/blob/main/examples/stream-to-file/src/main.rs
 /// Future on ranges: https://www.rfc-editor.org/rfc/rfc9110.html#name-partial-put
 pub(crate) async fn add_file(
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
     request: Request,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    let name = archive_path.name;
-    assert_ne!(archive_path.path_type, ArchivePathKind::Config);
-    assert_ne!(&name, "");
-    tracing::debug!("[get_file] path: {p_str}, tpe: {tpe}, name: {name}");
+    tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
+    let path_str = path.unwrap_or_default();
 
     //credential & access check executed in get_save_file()
-    let pth = PathBuf::new().join(&p_str);
-    let file = get_save_file(auth.user, pth, tpe.as_str(), name).await?;
+    let path = std::path::PathBuf::from(&path_str);
+    let file = get_save_file(auth.user, path, tpe.as_str(), name).await?;
 
     let stream = request.into_body().into_data_stream();
     save_body(file, stream).await?;
@@ -61,27 +50,21 @@ pub(crate) async fn add_file(
 /// delete_file
 /// Interface: DELETE {path}/{type}/{name}
 pub(crate) async fn delete_file(
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    let name = archive_path.name;
-    tracing::debug!("[delete_file] path: {p_str}, tpe: {tpe}, name: {name}");
+    tracing::debug!("[delete_file] path: {path:?}, tpe: {tpe}, name: {name}");
+    let path_str = path.unwrap_or_default();
+    let path = Path::new(&path_str);
 
     check_name(tpe.as_str(), name.as_str())?;
-    let pth = Path::new(&p_str);
-    check_auth_and_acl(auth.user, tpe.as_str(), pth, AccessType::Append)?;
+    check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
-    let pth = Path::new(&p_str);
 
-    if let Err(e) = storage.remove_file(pth, tpe.as_str(), name.as_str()) {
+    if let Err(e) = storage.remove_file(path, tpe.as_str(), name.as_str()) {
         tracing::debug!("[delete_file] IO error: {e:?}");
-        return Err(ErrorKind::RemovingFileFailed(p_str));
+        return Err(ErrorKind::RemovingFileFailed(path_str));
     }
     Ok(())
 }
@@ -89,28 +72,23 @@ pub(crate) async fn delete_file(
 /// get_file
 /// Interface: GET {path}/{type}/{name}
 pub(crate) async fn get_file(
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
     auth: AuthFromRequest,
-    uri: OriginalUri,
     range: Option<TypedHeader<Range>>,
 ) -> Result<impl IntoResponse> {
-    //let path_string = path.map_or(DEFAULT_PATH.to_string(), |PathExtract(path_ext)| path_ext);
-    let path_string = uri.path();
-    let archive_path = decompose_path(path_string)?;
-    let p_str = archive_path.path;
-    let tpe = archive_path.tpe;
-    let name = archive_path.name;
-    tracing::debug!("[get_file] path: {p_str}, tpe: {tpe}, name: {name}");
+    tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
     check_name(tpe.as_str(), name.as_str())?;
-    let pth = Path::new(&p_str);
+    let path_str = path.unwrap_or_default();
+    let path = Path::new(&path_str);
 
-    check_auth_and_acl(auth.user, tpe.as_str(), pth, AccessType::Read)?;
+    check_auth_and_acl(auth.user, tpe.as_str(), path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = match storage.open_file(pth, &tpe, &name).await {
+    let file = match storage.open_file(path, &tpe, &name).await {
         Ok(file) => file,
         Err(_) => {
-            return Err(ErrorKind::FileNotFound(p_str));
+            return Err(ErrorKind::FileNotFound(path_str));
         }
     };
 
