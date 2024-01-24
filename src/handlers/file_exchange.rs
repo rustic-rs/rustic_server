@@ -264,10 +264,6 @@ mod test {
 
         assert_eq!(resp.status(), StatusCode::OK);
         assert!(!path.exists());
-
-        // // Just to be sure ...
-        // fs::remove_file(&path).unwrap();
-        // assert!( !path.exists() );
     }
 
     #[tokio::test]
