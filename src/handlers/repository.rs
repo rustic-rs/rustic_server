@@ -38,7 +38,7 @@ pub(crate) async fn create_repository(
     match params.create {
         true => {
             for tpe_i in TYPES.iter() {
-                storage.create_dir(path, Some(tpe_i))?
+                storage.create_dir(path, Some(tpe_i)).await?
             }
 
             Ok((
@@ -67,7 +67,7 @@ pub(crate) async fn delete_repository(
     check_auth_and_acl(auth.user, "", path, AccessType::Modify)?;
 
     let storage = STORAGE.get().unwrap();
-    storage.remove_repository(path)?;
+    storage.remove_repository(path).await?;
 
     Ok(())
 }

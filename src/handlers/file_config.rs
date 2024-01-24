@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
 };
 use axum_extra::{headers::Range, TypedHeader};
+use axum_range::{KnownSize, Ranged};
 
 use crate::{
     acl::AccessType,
@@ -12,7 +13,7 @@ use crate::{
     error::{ErrorKind, Result},
     handlers::{
         access_check::check_auth_and_acl,
-        file_exchange::{check_name, get_file, get_save_file, save_body},
+        file_exchange::{check_name, get_save_file, save_body},
     },
     storage::STORAGE,
 };
@@ -20,16 +21,17 @@ use crate::{
 /// has_config
 /// Interface: HEAD {path}/config
 pub(crate) async fn has_config(
-    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
+    AxumPath(path): AxumPath<Option<String>>,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
+    let tpe = "config";
     tracing::debug!("[has_config] path: {path:?}, tpe: {tpe}");
     let path_str = path.unwrap_or_default();
     let path = std::path::Path::new(&path_str);
-    check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.filename(path, &tpe, None);
+    let file = storage.filename(path, tpe, None);
     if file.exists() {
         Ok(())
     } else {
@@ -40,24 +42,41 @@ pub(crate) async fn has_config(
 /// get_config
 /// Interface: GET {path}/config
 pub(crate) async fn get_config(
-    path: AxumPath<(Option<String>, String, Option<String>)>,
+    AxumPath(path): AxumPath<Option<String>>,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
 ) -> Result<impl IntoResponse> {
-    get_file(path, auth, range).await
+    let tpe = "config";
+    tracing::debug!("[get_config] path: {path:?}, tpe: {tpe}");
+
+    check_name(tpe, None)?;
+    let path_str = path.unwrap_or_default();
+    let path = Path::new(&path_str);
+
+    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+
+    let storage = STORAGE.get().unwrap();
+    let file = storage.open_file(path, tpe, None).await?;
+
+    let body = KnownSize::file(file)
+        .await
+        .map_err(|err| ErrorKind::GettingFileMetadataFailed(format!("{err:?}")))?;
+    let range = range.map(|TypedHeader(range)| range);
+    Ok(Ranged::new(range, body).into_response())
 }
 
 /// add_config
 /// Interface: POST {path}/config
 pub(crate) async fn add_config(
-    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
+    AxumPath(path): AxumPath<Option<String>>,
     auth: AuthFromRequest,
     request: Request,
 ) -> Result<impl IntoResponse> {
+    let tpe = "config";
     tracing::debug!("[add_config] path: {path:?}, tpe: {tpe}");
     let path = path.unwrap_or_default();
     let path = PathBuf::from(&path);
-    let file = get_save_file(auth.user, path, &tpe, None).await?;
+    let file = get_save_file(auth.user, path, tpe, None).await?;
 
     let stream = request.into_body().into_data_stream();
     save_body(file, stream).await?;
@@ -68,19 +87,18 @@ pub(crate) async fn add_config(
 /// Interface: DELETE {path}/config
 /// FIXME: The original restic spec does not define delete_config --> but rustic did ??
 pub(crate) async fn delete_config(
-    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
+    AxumPath(path): AxumPath<Option<String>>,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
+    let tpe = "config";
     tracing::debug!("[delete_config] path: {path:?}, tpe: {tpe}");
-    check_name(&tpe, None)?;
+    check_name(tpe, None)?;
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
-    check_auth_and_acl(auth.user, &tpe, path, AccessType::Append)?;
+    check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
-    if storage.remove_file(path, &tpe, None).is_err() {
-        return Err(ErrorKind::RemovingFileFailed(path_str));
-    }
+    storage.remove_file(path, tpe, None).await?;
     Ok(())
 }
 

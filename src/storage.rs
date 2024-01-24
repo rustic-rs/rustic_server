@@ -1,10 +1,9 @@
 use std::{
-    fs,
     path::{Path, PathBuf},
     sync::{Arc, OnceLock},
 };
 
-use tokio::fs::File;
+use tokio::fs::{create_dir_all, remove_dir_all, remove_file, File};
 use walkdir::WalkDir;
 
 use crate::{
@@ -26,7 +25,7 @@ pub(crate) fn init_storage(storage: impl Storage) -> Result<()> {
 #[async_trait::async_trait]
 //#[enum_dispatch(StorageEnum)]
 pub trait Storage: Send + Sync + 'static {
-    fn create_dir(&self, path: &Path, tpe: Option<&str>) -> Result<()>;
+    async fn create_dir(&self, path: &Path, tpe: Option<&str>) -> Result<()>;
     fn read_dir(
         &self,
         path: &Path,
@@ -40,8 +39,8 @@ pub trait Storage: Send + Sync + 'static {
         tpe: &str,
         name: Option<&str>,
     ) -> Result<WriteOrDeleteFile>;
-    fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<()>;
-    fn remove_repository(&self, path: &Path) -> Result<()>;
+    async fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<()>;
+    async fn remove_repository(&self, path: &Path) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -71,11 +70,12 @@ impl LocalStorage {
 }
 #[async_trait::async_trait]
 impl Storage for LocalStorage {
-    fn create_dir(&self, path: &Path, tpe: Option<&str>) -> Result<()> {
+    async fn create_dir(&self, path: &Path, tpe: Option<&str>) -> Result<()> {
         match tpe {
             Some(tpe) if tpe == "data" => {
                 for i in 0..256 {
-                    fs::create_dir_all(self.path.join(path).join(tpe).join(format!("{:02x}", i)))
+                    create_dir_all(self.path.join(path).join(tpe).join(format!("{:02x}", i)))
+                        .await
                         .map_err(|err| {
                             ErrorKind::CreatingDirectoryFailed(format!(
                                 "Could not create directory: {err}"
@@ -84,15 +84,18 @@ impl Storage for LocalStorage {
                 }
                 Ok(())
             }
-            Some(tpe) => fs::create_dir_all(self.path.join(path).join(tpe)).map_err(|err| {
-                ErrorKind::CreatingDirectoryFailed(format!("Could not create directory: {err}"))
-            }),
-            None => fs::create_dir_all(self.path.join(path)).map_err(|err| {
+            Some(tpe) => create_dir_all(self.path.join(path).join(tpe))
+                .await
+                .map_err(|err| {
+                    ErrorKind::CreatingDirectoryFailed(format!("Could not create directory: {err}"))
+                }),
+            None => create_dir_all(self.path.join(path)).await.map_err(|err| {
                 ErrorKind::CreatingDirectoryFailed(format!("Could not create directory: {err}"))
             }),
         }
     }
 
+    // FIXME: Make async?
     fn read_dir(
         &self,
         path: &Path,
@@ -137,18 +140,19 @@ impl Storage for LocalStorage {
         WriteOrDeleteFile::new(file_path).await
     }
 
-    fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<()> {
+    async fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<()> {
         let file_path = self.filename(path, tpe, name);
-        fs::remove_file(file_path)
+        remove_file(file_path)
+            .await
             .map_err(|err| ErrorKind::RemovingFileFailed(format!("Could not remove file: {err}")))
     }
 
-    fn remove_repository(&self, path: &Path) -> Result<()> {
+    async fn remove_repository(&self, path: &Path) -> Result<()> {
         tracing::debug!(
             "Deleting repository: {}",
             self.path.join(path).to_string_lossy()
         );
-        fs::remove_dir_all(self.path.join(path)).map_err(|err| {
+        remove_dir_all(self.path.join(path)).await.map_err(|err| {
             ErrorKind::RemovingRepositoryFailed(format!("Could not remove repository: {err}"))
         })
     }

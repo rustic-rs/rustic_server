@@ -28,19 +28,23 @@ pub(crate) enum ArchivePathKind {
     Snapshots,
 }
 
-pub(crate) struct ArchivePath {
-    pub(crate) path_type: ArchivePathKind,
+pub(crate) struct PathParams {
+    // pub(crate) path_type: ArchivePathKind,
+    pub(crate) path: Option<String>,
     pub(crate) tpe: String,
-    pub(crate) path: String,
-    pub(crate) name: String,
+    pub(crate) name: Option<String>,
 }
 
-impl Display for ArchivePath {
+impl Display for PathParams {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[ArchivePath] path_type = {:?}, path: {}, tpe: {}, name: {:?}",
-            self.path_type, self.path, self.tpe, self.name,
+            // "[ArchivePath] path_type = {:?}, path: {}, tpe: {}, name: {:?}",
+            "[ArchivePath] path_type = path: {:?}, tpe: {:?}, name: {:?}",
+            // self.path_type, self.path, self.tpe, self.name,
+            self.path,
+            self.tpe,
+            self.name,
         )
     }
 }

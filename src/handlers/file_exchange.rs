@@ -29,16 +29,16 @@ use crate::{
 /// Background info: https://github.com/tokio-rs/axum/blob/main/examples/stream-to-file/src/main.rs
 /// Future on ranges: https://www.rfc-editor.org/rfc/rfc9110.html#name-partial-put
 pub(crate) async fn add_file(
-    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, Option<String>)>,
     auth: AuthFromRequest,
     request: Request,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
+    tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name:?}");
     let path_str = path.unwrap_or_default();
 
     //credential & access check executed in get_save_file()
     let path = std::path::PathBuf::from(&path_str);
-    let file = get_save_file(auth.user, path, &tpe, Some(name)).await?;
+    let file = get_save_file(auth.user, path, &tpe, name).await?;
 
     let stream = request.into_body().into_data_stream();
     save_body(file, stream).await?;
@@ -62,7 +62,7 @@ pub(crate) async fn delete_file(
 
     let storage = STORAGE.get().unwrap();
 
-    storage.remove_file(path, &tpe, Some(&name))?;
+    storage.remove_file(path, &tpe, Some(&name)).await?;
 
     Ok(())
 }
