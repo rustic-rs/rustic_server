@@ -29,7 +29,7 @@ pub trait Storage: Send + Sync + 'static {
     fn create_dir(&self, path: &Path, tpe: &str) -> Result<()>;
     fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
     fn filename(&self, path: &Path, tpe: &str, name: Option<&str>) -> PathBuf;
-    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File>;
+    async fn open_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<File>;
     async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile>;
     fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<()>;
     fn remove_repository(&self, path: &Path) -> Result<()>;
@@ -98,8 +98,8 @@ impl Storage for LocalStorage {
         }
     }
 
-    async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File> {
-        let file_path = self.filename(path, tpe, Some(name));
+    async fn open_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<File> {
+        let file_path = self.filename(path, tpe, name);
         Ok(File::open(file_path)
             .await
             .map_err(|err| ErrorKind::OpeningFileFailed(format!("Could not open file: {}", err)))?)
@@ -179,7 +179,7 @@ mod test {
 
         // path must not start with slash !! that will skip the self.path from Storage!
         let path = PathBuf::new().join("test_repo/");
-        let c = storage.open_file(&path, "", "config").await;
+        let c = storage.open_file(&path, "", Some("config")).await;
         assert!(c.is_ok())
     }
 }

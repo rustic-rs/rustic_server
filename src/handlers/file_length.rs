@@ -26,7 +26,7 @@ pub(crate) async fn file_length(
     let file = storage.filename(path, &tpe, Some(&name));
     return if file.exists() {
         let storage = STORAGE.get().unwrap();
-        let file = match storage.open_file(path, &tpe, &name).await {
+        let file = match storage.open_file(path, &tpe, Some(&name)).await {
             Ok(file) => file,
             Err(_) => {
                 return Err(ErrorKind::FileNotFound(path_str));

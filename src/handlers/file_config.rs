@@ -40,7 +40,7 @@ pub(crate) async fn has_config(
 /// get_config
 /// Interface: GET {path}/config
 pub(crate) async fn get_config(
-    path: AxumPath<(Option<String>, String, String)>,
+    path: AxumPath<(Option<String>, String, Option<String>)>,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
 ) -> Result<impl IntoResponse> {

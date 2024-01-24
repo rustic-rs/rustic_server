@@ -70,20 +70,20 @@ pub(crate) async fn delete_file(
 /// get_file
 /// Interface: GET {path}/{type}/{name}
 pub(crate) async fn get_file(
-    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
+    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, Option<String>)>,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
+    tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name:?}");
 
-    check_name(&tpe, Some(&name))?;
+    check_name(&tpe, name.as_deref())?;
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
 
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.open_file(path, &tpe, &name).await?;
+    let file = storage.open_file(path, &tpe, name.as_deref()).await?;
 
     let body = KnownSize::file(file)
         .await

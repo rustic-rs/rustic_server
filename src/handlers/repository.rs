@@ -24,7 +24,7 @@ pub(crate) struct Create {
 }
 
 pub(crate) async fn create_repository(
-    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
+    AxumPath(path): AxumPath<Option<String>>,
     auth: AuthFromRequest,
     Query(params): Query<Create>,
 ) -> Result<impl IntoResponse> {
@@ -32,7 +32,7 @@ pub(crate) async fn create_repository(
     let path = path.unwrap_or_default();
     let path = Path::new(&path);
     //FIXME: Is Append the right access leven, or should we require Modify?
-    check_auth_and_acl(auth.user, &tpe, path, AccessType::Append)?;
+    check_auth_and_acl(auth.user, "", path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
     match params.create {
@@ -128,7 +128,7 @@ mod test {
         // ------------------------------------
         let repo_name_uri = "/repo_remove_me?create=true".to_string();
         let app = Router::new()
-            .route("/:path/:tpe", post(create_repository))
+            .route("/:path", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -142,7 +142,7 @@ mod test {
         // ------------------------------------------
         let repo_name_uri = "/repo_not_allowed?create=true".to_string();
         let app = Router::new()
-            .route("/:path/:tpe", post(create_repository))
+            .route("/:path", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
