@@ -38,7 +38,7 @@ pub(crate) async fn create_repository(
     match params.create {
         true => {
             for tpe_i in TYPES.iter() {
-                storage.create_dir(path, tpe_i)?
+                storage.create_dir(path, Some(tpe_i))?
             }
 
             Ok((

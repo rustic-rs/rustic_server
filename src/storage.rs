@@ -26,11 +26,20 @@ pub(crate) fn init_storage(storage: impl Storage) -> Result<()> {
 #[async_trait::async_trait]
 //#[enum_dispatch(StorageEnum)]
 pub trait Storage: Send + Sync + 'static {
-    fn create_dir(&self, path: &Path, tpe: &str) -> Result<()>;
-    fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
+    fn create_dir(&self, path: &Path, tpe: Option<&str>) -> Result<()>;
+    fn read_dir(
+        &self,
+        path: &Path,
+        tpe: Option<&str>,
+    ) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
     fn filename(&self, path: &Path, tpe: &str, name: Option<&str>) -> PathBuf;
     async fn open_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<File>;
-    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile>;
+    async fn create_file(
+        &self,
+        path: &Path,
+        tpe: &str,
+        name: Option<&str>,
+    ) -> Result<WriteOrDeleteFile>;
     fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<()>;
     fn remove_repository(&self, path: &Path) -> Result<()>;
 }
@@ -62,9 +71,9 @@ impl LocalStorage {
 }
 #[async_trait::async_trait]
 impl Storage for LocalStorage {
-    fn create_dir(&self, path: &Path, tpe: &str) -> Result<()> {
+    fn create_dir(&self, path: &Path, tpe: Option<&str>) -> Result<()> {
         match tpe {
-            "data" => {
+            Some(tpe) if tpe == "data" => {
                 for i in 0..256 {
                     fs::create_dir_all(self.path.join(path).join(tpe).join(format!("{:02x}", i)))
                         .map_err(|err| {
@@ -75,14 +84,27 @@ impl Storage for LocalStorage {
                 }
                 Ok(())
             }
-            _ => fs::create_dir_all(self.path.join(path).join(tpe)).map_err(|err| {
+            Some(tpe) => fs::create_dir_all(self.path.join(path).join(tpe)).map_err(|err| {
+                ErrorKind::CreatingDirectoryFailed(format!("Could not create directory: {err}"))
+            }),
+            None => fs::create_dir_all(self.path.join(path)).map_err(|err| {
                 ErrorKind::CreatingDirectoryFailed(format!("Could not create directory: {err}"))
             }),
         }
     }
 
-    fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>> {
-        let walker = WalkDir::new(self.path.join(path).join(tpe))
+    fn read_dir(
+        &self,
+        path: &Path,
+        tpe: Option<&str>,
+    ) -> Box<dyn Iterator<Item = walkdir::DirEntry>> {
+        let path = if let Some(tpe) = tpe {
+            self.path.join(path).join(tpe)
+        } else {
+            self.path.join(path)
+        };
+
+        let walker = WalkDir::new(path)
             .into_iter()
             .filter_map(walkdir::Result::ok)
             .filter(|e| e.file_type().is_file());
@@ -105,8 +127,13 @@ impl Storage for LocalStorage {
             .map_err(|err| ErrorKind::OpeningFileFailed(format!("Could not open file: {}", err)))?)
     }
 
-    async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile> {
-        let file_path = self.filename(path, tpe, Some(name));
+    async fn create_file(
+        &self,
+        path: &Path,
+        tpe: &str,
+        name: Option<&str>,
+    ) -> Result<WriteOrDeleteFile> {
+        let file_path = self.filename(path, tpe, name);
         WriteOrDeleteFile::new(file_path).await
     }
 
@@ -150,7 +177,7 @@ mod test {
 
         // path must not start with slash !! that will skip the self.path from Storage!
         let path = PathBuf::new().join("test_repo/");
-        let c = storage.read_dir(&path, "keys");
+        let c = storage.read_dir(&path, Some("keys"));
         let mut found = false;
         for a in c.into_iter() {
             let file_name = a.file_name().to_string_lossy();

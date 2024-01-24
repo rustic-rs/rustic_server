@@ -42,7 +42,7 @@ pub(crate) async fn list_files(
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let read_dir = storage.read_dir(path, &tpe);
+    let read_dir = storage.read_dir(path, Some(&tpe));
 
     let mut res = match headers
         .get(header::ACCEPT)

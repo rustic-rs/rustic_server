@@ -38,7 +38,7 @@ pub(crate) async fn add_file(
 
     //credential & access check executed in get_save_file()
     let path = std::path::PathBuf::from(&path_str);
-    let file = get_save_file(auth.user, path, &tpe, name).await?;
+    let file = get_save_file(auth.user, path, &tpe, Some(name)).await?;
 
     let stream = request.into_body().into_data_stream();
     save_body(file, stream).await?;
@@ -102,22 +102,15 @@ pub(crate) async fn get_save_file(
     user: String,
     path: PathBuf,
     tpe: &str,
-    name: String,
+    name: Option<String>,
 ) -> Result<impl AsyncWrite + Unpin + Finalizer> {
-    tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
+    tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name:?}");
 
-    check_name(tpe, Some(&name))?;
+    check_name(tpe, name.as_deref())?;
     check_auth_and_acl(user, tpe, path.as_path(), AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
-    let file_writer = match storage.create_file(&path, tpe, &name).await {
-        Ok(w) => w,
-        Err(_) => {
-            return Err(ErrorKind::GettingFileHandleFailed);
-        }
-    };
-
-    Ok(file_writer)
+    storage.create_file(&path, tpe, name.as_deref()).await
 }
 
 /// saves the content in the HTML request body to a file stream.

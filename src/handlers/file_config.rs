@@ -50,14 +50,14 @@ pub(crate) async fn get_config(
 /// add_config
 /// Interface: POST {path}/config
 pub(crate) async fn add_config(
-    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
+    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
     auth: AuthFromRequest,
     request: Request,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[add_config] path: {path:?}, tpe: {tpe}, name: {name}");
+    tracing::debug!("[add_config] path: {path:?}, tpe: {tpe}");
     let path = path.unwrap_or_default();
     let path = PathBuf::from(&path);
-    let file = get_save_file(auth.user, path, &tpe, name).await?;
+    let file = get_save_file(auth.user, path, &tpe, None).await?;
 
     let stream = request.into_body().into_data_stream();
     save_body(file, stream).await?;
