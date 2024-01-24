@@ -86,14 +86,15 @@ mod test {
         http::{Request, StatusCode},
     };
     use axum::{middleware, Router};
+    use std::env;
     use std::path::PathBuf;
-    use std::{env, fs};
+    use tokio::fs;
     use tower::ServiceExt;
 
     /// The acl.toml test allows the create of "repo_remove_me"
     /// for user test with the correct password
     #[tokio::test]
-    async fn repo_create_delete_test() {
+    async fn test_repo_create_delete_passes() {
         init_test_environment();
 
         //Start with a clean slate ...
@@ -106,7 +107,7 @@ mod test {
             .join("test_repos")
             .join("repo_remove_me");
         if path.exists() {
-            fs::remove_dir_all(&path).unwrap();
+            fs::remove_dir_all(&path).await.unwrap();
             assert!(!path.exists());
         }
 
@@ -119,7 +120,7 @@ mod test {
             .join("test_repos")
             .join("repo_not_allowed");
         if not_allowed_path.exists() {
-            fs::remove_dir_all(&not_allowed_path).unwrap();
+            fs::remove_dir_all(&not_allowed_path).await.unwrap();
             assert!(!not_allowed_path.exists());
         }
 

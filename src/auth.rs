@@ -128,7 +128,7 @@ mod test {
     use tower::ServiceExt;
 
     #[test]
-    fn test_auth() -> Result<()> {
+    fn test_auth_passes() -> Result<()> {
         let cwd = env::current_dir()?;
         let htaccess = PathBuf::new()
             .join(cwd)
@@ -144,7 +144,7 @@ mod test {
     }
 
     #[test]
-    fn test_auth_from_file() {
+    fn test_auth_from_file_passes() {
         let cwd = env::current_dir().unwrap();
         let htaccess = PathBuf::new()
             .join(cwd)
@@ -163,23 +163,23 @@ mod test {
         assert!(!auth.verify("test", "__test_pw"));
     }
 
-    async fn test_handler_basic(AuthBasic((id, password)): AuthBasic) -> String {
+    async fn format_auth_basic(AuthBasic((id, password)): AuthBasic) -> String {
         format!("Got {} and {:?}", id, password)
     }
 
-    async fn test_handler_from_request(auth: AuthFromRequest) -> String {
+    async fn format_handler_from_auth_request(auth: AuthFromRequest) -> String {
         format!("User = {}", auth.user)
     }
 
     /// The requests which should be returned OK
     #[tokio::test]
-    async fn test_authentication() {
+    async fn test_authentication_passes() {
         init_test_environment();
 
         // -----------------------------------------
         // Try good basic
         // -----------------------------------------
-        let app = Router::new().route("/basic", get(test_handler_basic));
+        let app = Router::new().route("/basic", get(format_auth_basic));
 
         let request = Request::builder()
             .uri("/basic")
@@ -205,7 +205,7 @@ mod test {
         // -----------------------------------------
         // Try good using auth struct
         // -----------------------------------------
-        let app = Router::new().route("/rustic_server", get(test_handler_from_request));
+        let app = Router::new().route("/rustic_server", get(format_handler_from_auth_request));
 
         let request = Request::builder()
             .uri("/rustic_server")
@@ -227,13 +227,13 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_authentication_errors() {
+    async fn test_fail_authentication_passes() {
         init_test_environment();
 
         // -----------------------------------------
         // Try wrong password rustic_server
         // -----------------------------------------
-        let app = Router::new().route("/rustic_server", get(test_handler_from_request));
+        let app = Router::new().route("/rustic_server", get(format_handler_from_auth_request));
 
         let request = Request::builder()
             .uri("/rustic_server")
@@ -252,7 +252,7 @@ mod test {
         // -----------------------------------------
         // Try without authentication header
         // -----------------------------------------
-        let app = Router::new().route("/rustic_server", get(test_handler_from_request));
+        let app = Router::new().route("/rustic_server", get(format_handler_from_auth_request));
 
         let request = Request::builder()
             .uri("/rustic_server")

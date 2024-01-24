@@ -63,12 +63,12 @@ fn init_mutex() {
 
 pub(crate) fn init_test_environment() {
     init_tracing();
-    test_init_static_htaccess();
-    test_init_static_auth();
-    test_init_static_storage();
+    init_static_htaccess();
+    init_static_auth();
+    init_static_storage();
 }
 
-fn test_init_static_htaccess() {
+fn init_static_htaccess() {
     let cwd = env::current_dir().unwrap();
     let htaccess = PathBuf::new()
         .join(cwd)
@@ -81,7 +81,7 @@ fn test_init_static_htaccess() {
     init_auth(auth).unwrap();
 }
 
-fn test_init_static_auth() {
+fn init_static_auth() {
     let cwd = env::current_dir().unwrap();
     let acl_path = PathBuf::new()
         .join(cwd)
@@ -94,7 +94,7 @@ fn test_init_static_auth() {
     init_acl(acl).unwrap();
 }
 
-fn test_init_static_storage() {
+fn init_static_storage() {
     let cwd = env::current_dir().unwrap();
     let repo_path = PathBuf::new()
         .join(cwd)

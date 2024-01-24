@@ -61,7 +61,7 @@ mod test {
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
     #[tokio::test]
-    async fn server_file_length_tester() {
+    async fn test_get_file_length_passes() {
         init_test_environment();
 
         // ----------------------------------

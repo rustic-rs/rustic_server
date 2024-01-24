@@ -186,7 +186,7 @@ mod test {
     use tower::ServiceExt;
 
     #[tokio::test]
-    async fn server_add_delete_file_tester() {
+    async fn test_add_delete_file_passes() {
         init_test_environment();
 
         let file_name = "__add_file_test_adds_this_one__";
@@ -260,7 +260,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn server_get_file_tester() {
+    async fn test_get_file_passes() {
         init_test_environment();
 
         let file_name = "__get_file_test_adds_this_two__";
@@ -367,7 +367,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_get_config() {
+    async fn test_get_config_passes() {
         init_test_environment();
 
         let cwd = env::current_dir().unwrap();

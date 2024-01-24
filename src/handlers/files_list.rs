@@ -99,7 +99,7 @@ mod test {
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
     #[tokio::test]
-    async fn get_list_files_test() {
+    async fn test_get_list_files_passes() {
         init_test_environment();
 
         // V1

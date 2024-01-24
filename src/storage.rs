@@ -165,7 +165,7 @@ mod test {
     use std::path::PathBuf;
 
     #[test]
-    fn test_file_access() {
+    fn test_file_access_passes() {
         let cwd = env::current_dir().unwrap();
         let repo_path = PathBuf::new()
             .join(cwd)
@@ -194,7 +194,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_config_access() {
+    async fn test_config_access_passes() {
         let cwd = env::current_dir().unwrap();
         let repo_path = PathBuf::new()
             .join(cwd)

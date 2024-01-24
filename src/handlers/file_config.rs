@@ -123,7 +123,7 @@ mod test {
     use tower::ServiceExt;
 
     #[tokio::test]
-    async fn tester_has_config() {
+    async fn test_fixture_has_config_passes() {
         init_test_environment();
 
         // -----------------------
@@ -170,7 +170,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_add_delete_config() {
+    async fn test_add_delete_config_passes() {
         init_test_environment();
 
         // -----------------------
@@ -197,7 +197,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo, "?create=true"].concat();
         let app = Router::new()
-            .route("/:path/:tpe", post(create_repository))
+            .route("/:path", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);

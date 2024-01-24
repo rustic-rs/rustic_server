@@ -161,7 +161,7 @@ mod tests {
     use std::env;
 
     #[test]
-    fn test_static_acl_access() {
+    fn test_static_acl_access_passes() {
         let cwd = env::current_dir().unwrap();
         let acl = PathBuf::new()
             .join(cwd)
@@ -184,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    fn allowed_flags() {
+    fn test_allowed_flags_passes() {
         let mut acl = Acl {
             repos: HashMap::new(),
             append_only: true,
@@ -212,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn repo_acl() {
+    fn test_repo_acl_passes() {
         let mut acl = Acl::default();
 
         let mut acl_all = HashMap::new();
