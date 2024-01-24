@@ -18,7 +18,6 @@ use crate::{
         file_exchange::{add_file, delete_file, get_file},
         file_length::file_length,
         files_list::list_files,
-        path_analysis::constants::TYPES,
         repository::{create_repository, delete_repository},
     },
     log::print_request_response,

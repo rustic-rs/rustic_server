@@ -1,5 +1,5 @@
 use axum::{
-    extract::{OriginalUri, Path},
+    extract::Path,
     http::{
         header::{self, AUTHORIZATION},
         StatusCode,
@@ -14,11 +14,7 @@ use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
     error::Result,
-    handlers::{
-        access_check::check_auth_and_acl,
-        file_helpers::IteratorAdapter,
-        path_analysis::{decompose_path, ArchivePathKind},
-    },
+    handlers::{access_check::check_auth_and_acl, file_helpers::IteratorAdapter},
     storage::STORAGE,
 };
 
