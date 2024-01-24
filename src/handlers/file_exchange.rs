@@ -57,15 +57,13 @@ pub(crate) async fn delete_file(
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
 
-    check_name(&tpe, &name)?;
+    check_name(&tpe, Some(&name))?;
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
 
-    if let Err(e) = storage.remove_file(path, &tpe, &name) {
-        tracing::debug!("[delete_file] IO error: {e:?}");
-        return Err(ErrorKind::RemovingFileFailed(path_str));
-    }
+    storage.remove_file(path, &tpe, Some(&name))?;
+
     Ok(())
 }
 
@@ -78,21 +76,18 @@ pub(crate) async fn get_file(
 ) -> Result<impl IntoResponse> {
     tracing::debug!("[get_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
-    check_name(&tpe, &name)?;
+    check_name(&tpe, Some(&name))?;
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
 
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = match storage.open_file(path, &tpe, &name).await {
-        Ok(file) => file,
-        Err(_) => {
-            return Err(ErrorKind::FileNotFound(path_str));
-        }
-    };
+    let file = storage.open_file(path, &tpe, &name).await?;
 
-    let body = KnownSize::file(file).await.unwrap();
+    let body = KnownSize::file(file)
+        .await
+        .map_err(|err| ErrorKind::GettingFileMetadataFailed(format!("{err:?}")))?;
     let range = range.map(|TypedHeader(range)| range);
     Ok(Ranged::new(range, body).into_response())
 }
@@ -111,7 +106,7 @@ pub(crate) async fn get_save_file(
 ) -> Result<impl AsyncWrite + Unpin + Finalizer> {
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe}, name: {name}");
 
-    check_name(tpe, &name)?;
+    check_name(tpe, Some(&name))?;
     check_auth_and_acl(user, tpe, path.as_path(), AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
@@ -168,12 +163,13 @@ fn check_string_sha256(name: &str) -> bool {
     true
 }
 
-///FIXME Move to support functoin file
-pub(crate) fn check_name(tpe: &str, name: &str) -> Result<impl IntoResponse> {
-    match tpe {
-        "config" => Ok(()),
-        _ if check_string_sha256(name) => Ok(()),
-        _ => Err(ErrorKind::FilenameNotAllowed(name.to_string())),
+pub(crate) fn check_name(tpe: &str, name: Option<&str>) -> Result<impl IntoResponse> {
+    match (tpe, name) {
+        ("config", _) => Ok(()),
+        (_, Some(name)) if check_string_sha256(name) => Ok(()),
+        _ => Err(ErrorKind::FilenameNotAllowed(
+            name.unwrap_or_default().to_string(),
+        )),
     }
 }
 

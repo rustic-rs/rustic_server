@@ -20,16 +20,16 @@ use crate::{
 /// has_config
 /// Interface: HEAD {path}/config
 pub(crate) async fn has_config(
-    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
+    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[has_config] path: {path:?}, tpe: {tpe}, name: {name}");
+    tracing::debug!("[has_config] path: {path:?}, tpe: {tpe}");
     let path_str = path.unwrap_or_default();
     let path = std::path::Path::new(&path_str);
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.filename(path, &tpe, &name);
+    let file = storage.filename(path, &tpe, None);
     if file.exists() {
         Ok(())
     } else {
@@ -68,17 +68,17 @@ pub(crate) async fn add_config(
 /// Interface: DELETE {path}/config
 /// FIXME: The original restic spec does not define delete_config --> but rustic did ??
 pub(crate) async fn delete_config(
-    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
+    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[delete_config] path: {path:?}, tpe: {tpe}, name: {name}");
-    check_name(&tpe, &name)?;
+    tracing::debug!("[delete_config] path: {path:?}, tpe: {tpe}");
+    check_name(&tpe, None)?;
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
-    if storage.remove_file(path, &tpe, &name).is_err() {
+    if storage.remove_file(path, &tpe, None).is_err() {
         return Err(ErrorKind::RemovingFileFailed(path_str));
     }
     Ok(())
@@ -112,7 +112,7 @@ mod test {
         // NOT CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/*path", head(has_config))
+            .route("/:path/config", head(has_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -133,7 +133,7 @@ mod test {
         // HAS CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/*path", head(has_config))
+            .route("/:path/config", head(has_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -179,7 +179,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo, "?create=true"].concat();
         let app = Router::new()
-            .route("/*path", post(create_repository))
+            .route("/:path/config", post(create_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -195,7 +195,7 @@ mod test {
         let body = Body::new(test_vec.clone());
 
         let app = Router::new()
-            .route("/*path", post(add_config))
+            .route("/:path/config", post(add_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -220,7 +220,7 @@ mod test {
         // GET CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/*path", get(get_config))
+            .route("/:path/config", get(get_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::GET);
@@ -237,7 +237,7 @@ mod test {
         // - differs from tester_has_config() that we have a non empty path now
         // -----------------------
         let app = Router::new()
-            .route("/*path", head(has_config))
+            .route("/:path/config", head(has_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::HEAD);
@@ -249,7 +249,7 @@ mod test {
         // DELETE CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/*path", delete(delete_config))
+            .route("/:path/config", delete(delete_config))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::DELETE);
@@ -264,7 +264,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo].concat();
         let app = Router::new()
-            .route("/*path", post(delete_repository))
+            .route("/:path/config", post(delete_repository))
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);

@@ -23,7 +23,7 @@ pub(crate) async fn file_length(
     check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.filename(path, &tpe, &name);
+    let file = storage.filename(path, &tpe, Some(&name));
     return if file.exists() {
         let storage = STORAGE.get().unwrap();
         let file = match storage.open_file(path, &tpe, &name).await {
@@ -34,8 +34,10 @@ pub(crate) async fn file_length(
         };
         let length = match file.metadata().await {
             Ok(meta) => meta.len(),
-            Err(_) => {
-                return Err(ErrorKind::GettingFileMetadataFailed);
+            Err(err) => {
+                return Err(ErrorKind::GettingFileMetadataFailed(format!(
+                    "path: {path:?}, tpe: {tpe}, name: {name}, err: {err}",
+                )));
             }
         };
         let mut headers = HeaderMap::new();

@@ -25,8 +25,8 @@ pub enum ErrorKind {
     NotImplemented,
     /// File not found: {0}
     FileNotFound(String),
-    /// Fetting file metadata failed
-    GettingFileMetadataFailed,
+    /// Fetting file metadata failed: {0}
+    GettingFileMetadataFailed(String),
     /// Range not valid
     RangeNotValid,
     /// Seeking file failed
@@ -85,7 +85,9 @@ impl IntoResponse for ErrorKind {
                 format!("path {path} is not valid unicode"),
             )
                 .into_response(),
-            ErrorKind::InvalidPath(_) => todo!(),
+            ErrorKind::InvalidPath(path) => {
+                (StatusCode::BAD_REQUEST, format!("path {path} is not valid")).into_response()
+            }
             ErrorKind::CreatingDirectoryFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error creating dir: {:?}", err),
@@ -99,9 +101,9 @@ impl IntoResponse for ErrorKind {
             ErrorKind::FileNotFound(path) => {
                 (StatusCode::NOT_FOUND, format!("file not found: {path}")).into_response()
             }
-            ErrorKind::GettingFileMetadataFailed => (
+            ErrorKind::GettingFileMetadataFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "error getting file metadata".to_string(),
+                format!("error getting file metadata: {err}"),
             )
                 .into_response(),
             ErrorKind::RangeNotValid => {

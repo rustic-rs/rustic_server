@@ -28,10 +28,10 @@ pub(crate) fn init_storage(storage: impl Storage) -> Result<()> {
 pub trait Storage: Send + Sync + 'static {
     fn create_dir(&self, path: &Path, tpe: &str) -> Result<()>;
     fn read_dir(&self, path: &Path, tpe: &str) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
-    fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf;
+    fn filename(&self, path: &Path, tpe: &str, name: Option<&str>) -> PathBuf;
     async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File>;
     async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile>;
-    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()>;
+    fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<()>;
     fn remove_repository(&self, path: &Path) -> Result<()>;
 }
 
@@ -89,27 +89,28 @@ impl Storage for LocalStorage {
         Box::new(walker)
     }
 
-    fn filename(&self, path: &Path, tpe: &str, name: &str) -> PathBuf {
-        match tpe {
-            "config" => self.path.join(path).join("config"),
-            "data" => self.path.join(path).join(tpe).join(&name[0..2]).join(name),
-            _ => self.path.join(path).join(tpe).join(name),
+    fn filename(&self, path: &Path, tpe: &str, name: Option<&str>) -> PathBuf {
+        match (tpe, name) {
+            ("config", _) => self.path.join(path).join("config"),
+            ("data", Some(name)) => self.path.join(path).join(tpe).join(&name[0..2]).join(name),
+            (tpe, Some(name)) => self.path.join(path).join(tpe).join(name),
+            (path, None) => self.path.join(path),
         }
     }
 
     async fn open_file(&self, path: &Path, tpe: &str, name: &str) -> Result<File> {
-        let file_path = self.filename(path, tpe, name);
+        let file_path = self.filename(path, tpe, Some(name));
         Ok(File::open(file_path)
             .await
             .map_err(|err| ErrorKind::OpeningFileFailed(format!("Could not open file: {}", err)))?)
     }
 
     async fn create_file(&self, path: &Path, tpe: &str, name: &str) -> Result<WriteOrDeleteFile> {
-        let file_path = self.filename(path, tpe, name);
+        let file_path = self.filename(path, tpe, Some(name));
         WriteOrDeleteFile::new(file_path).await
     }
 
-    fn remove_file(&self, path: &Path, tpe: &str, name: &str) -> Result<()> {
+    fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> Result<()> {
         let file_path = self.filename(path, tpe, name);
         fs::remove_file(file_path)
             .map_err(|err| ErrorKind::RemovingFileFailed(format!("Could not remove file: {err}")))
