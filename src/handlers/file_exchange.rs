@@ -242,7 +242,7 @@ mod test {
         // Write a complete file
         //----------------------------------------------
         let app = Router::new()
-            .typed_put(add_file::<RepositoryTpeNamePath>)
+            .typed_post(add_file::<RepositoryTpeNamePath>)
             .layer(middleware::from_fn(print_request_response));
 
         let test_vec = "Hello World".to_string();
@@ -250,7 +250,7 @@ mod test {
         let uri = ["/test_repo/keys/", file_name].concat();
         let request = Request::builder()
             .uri(uri)
-            .method(Method::PUT)
+            .method(Method::POST)
             .header(
                 "Authorization",
                 basic_auth_header_value("test", Some("test_pw")),
@@ -314,7 +314,7 @@ mod test {
 
         // Start with creating the file before we can test
         let app = Router::new()
-            .typed_put(add_file::<RepositoryTpeNamePath>)
+            .typed_post(add_file::<RepositoryTpeNamePath>)
             .layer(middleware::from_fn(print_request_response));
 
         let test_vec = "Hello Sweet World".to_string();
@@ -322,7 +322,7 @@ mod test {
         let uri = ["/test_repo/keys/", file_name].concat();
         let request = Request::builder()
             .uri(uri)
-            .method(Method::PUT)
+            .method(Method::POST)
             .header(
                 "Authorization",
                 basic_auth_header_value("test", Some("test_pw")),
