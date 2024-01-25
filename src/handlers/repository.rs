@@ -1,19 +1,19 @@
 use std::path::Path;
 
-use axum::{
-    extract::{Path as AxumPath, Query},
-    http::StatusCode,
-    response::IntoResponse,
-};
+use axum::{extract::Query, http::StatusCode, response::IntoResponse};
 use serde_derive::Deserialize;
 
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
     error::Result,
-    handlers::{access_check::check_auth_and_acl, path_analysis::constants::TYPES},
+    handlers::access_check::check_auth_and_acl,
     storage::STORAGE,
+    typed_path::{RepositoryPath, TpeKind},
 };
+
+// used for using auto-generated TpeKind variant names
+use strum::VariantNames;
 
 /// Create_repository
 /// Interface: POST {path}?create=true
@@ -24,21 +24,20 @@ pub(crate) struct Create {
 }
 
 pub(crate) async fn create_repository(
-    AxumPath(path): AxumPath<Option<String>>,
+    RepositoryPath { repo }: RepositoryPath,
     auth: AuthFromRequest,
     Query(params): Query<Create>,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[create_repository] repo_path: {path:?}");
-    let path = path.unwrap_or_default();
-    let path = Path::new(&path);
+    tracing::debug!("[create_repository] repository path: {repo}");
+    let path = Path::new(&repo);
     //FIXME: Is Append the right access leven, or should we require Modify?
-    check_auth_and_acl(auth.user, "", path, AccessType::Append)?;
+    check_auth_and_acl(auth.user, None, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
     match params.create {
         true => {
-            for tpe_i in TYPES.iter() {
-                storage.create_dir(path, Some(tpe_i)).await?
+            for tpe in TpeKind::VARIANTS.iter() {
+                storage.create_dir(path, Some(tpe)).await?
             }
 
             Ok((
@@ -55,16 +54,15 @@ pub(crate) async fn create_repository(
 
 /// Delete_repository
 /// Interface: Delete {path}
-/// FIXME: The input path should at least NOT point to a file in any repository
+// FIXME: The input path should at least NOT point to a file in any repository
 pub(crate) async fn delete_repository(
-    AxumPath(path): AxumPath<Option<String>>,
+    RepositoryPath { repo }: RepositoryPath,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[delete_repository] repo_path: {path:?}");
-    let path_str = path.unwrap_or_default();
-    let path = Path::new(&path_str);
-    //FIXME: We surely need modify access to delete right??
-    check_auth_and_acl(auth.user, "", path, AccessType::Modify)?;
+    tracing::debug!("[delete_repository] repository path: {repo}");
+    let path = Path::new(&repo);
+    // FIXME: We surely need modify access to delete right??
+    check_auth_and_acl(auth.user, None, path, AccessType::Modify)?;
 
     let storage = STORAGE.get().unwrap();
     storage.remove_repository(path).await?;

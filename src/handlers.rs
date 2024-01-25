@@ -8,4 +8,3 @@ pub(crate) mod repository;
 // Support modules
 mod access_check;
 pub(crate) mod file_helpers;
-pub(crate) mod path_analysis;

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use axum::{extract::Path as AxumPath, http::header, response::IntoResponse};
+use axum::{http::header, response::IntoResponse};
 use axum_extra::headers::HeaderMap;
 
 use crate::{
@@ -9,24 +9,33 @@ use crate::{
     error::{ErrorKind, Result},
     handlers::access_check::check_auth_and_acl,
     storage::STORAGE,
+    typed_path::PathParts,
 };
 
 /// Length
 /// Interface: HEAD {path}/{type}/{name}
-pub(crate) async fn file_length(
-    AxumPath((path, tpe, name)): AxumPath<(Option<String>, String, String)>,
+pub(crate) async fn file_length<P: PathParts>(
+    path: P,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[length] path: {path:?}, tpe: {tpe}, name: {name}");
+    let (path, tpe, name) = path.parts();
+
+    tracing::debug!("[length] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
-    check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+
+    let tpe = if let Some(tpe) = tpe {
+        tpe.into_str()
+    } else {
+        return Err(ErrorKind::InternalError("tpe is not valid".to_string()));
+    };
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.filename(path, &tpe, Some(&name));
-    return if file.exists() {
+    let file = storage.filename(path, tpe, name.as_deref());
+    let res = if file.exists() {
         let storage = STORAGE.get().unwrap();
-        let file = match storage.open_file(path, &tpe, Some(&name)).await {
+        let file = match storage.open_file(path, tpe, name.as_deref()).await {
             Ok(file) => file,
             Err(_) => {
                 return Err(ErrorKind::FileNotFound(path_str));
@@ -36,7 +45,7 @@ pub(crate) async fn file_length(
             Ok(meta) => meta.len(),
             Err(err) => {
                 return Err(ErrorKind::GettingFileMetadataFailed(format!(
-                    "path: {path:?}, tpe: {tpe}, name: {name}, err: {err}",
+                    "path: {path:?}, tpe: {tpe}, name: {name:?}, err: {err}",
                 )));
             }
         };
@@ -46,17 +55,21 @@ pub(crate) async fn file_length(
     } else {
         Err(ErrorKind::FileNotFound(path_str))
     };
+
+    res
 }
 
 #[cfg(test)]
 mod test {
-    use crate::handlers::file_length::file_length;
     use crate::log::print_request_response;
     use crate::test_helpers::{init_test_environment, request_uri_for_test};
+    use crate::{handlers::file_length::file_length, typed_path::RepositoryTpeNamePath};
     use axum::http::StatusCode;
     use axum::http::{header, Method};
-    use axum::routing::head;
     use axum::{middleware, Router};
+    use axum_extra::routing::{
+        RouterExt, // for `Router::typed_*`
+    };
     use http_body_util::BodyExt;
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
@@ -68,7 +81,7 @@ mod test {
         // File exists
         // ----------------------------------
         let app = Router::new()
-            .route("/:path/:tpe/:name", head(file_length))
+            .typed_head(file_length::<RepositoryTpeNamePath>)
             .layer(middleware::from_fn(print_request_response));
 
         let uri =
@@ -100,7 +113,7 @@ mod test {
         // File does NOT exist
         // ----------------------------------
         let app = Router::new()
-            .route("/:path/:tpe/:name", head(file_length))
+            .typed_head(file_length::<RepositoryTpeNamePath>)
             .layer(middleware::from_fn(print_request_response));
 
         let uri = "/test_repo/keys/__I_do_not_exist__";

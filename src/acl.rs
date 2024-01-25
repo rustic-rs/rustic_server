@@ -4,7 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::{
     error::{ErrorKind, Result},
-    handlers::path_analysis::constants::TPE_LOCKS,
+    typed_path::TpeKind,
 };
 
 //Static storage of our credentials
@@ -28,7 +28,7 @@ pub enum AccessType {
 }
 
 pub trait AclChecker: Send + Sync + 'static {
-    fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool;
+    fn allowed(&self, user: &str, path: &str, tpe: Option<TpeKind>, access: AccessType) -> bool;
 }
 
 // ACL for a repo
@@ -130,10 +130,10 @@ impl Acl {
 }
 
 impl AclChecker for Acl {
-    // allowed yields whether these access to {path,tpe, access} is allowed by user
-    fn allowed(&self, user: &str, path: &str, tpe: &str, access: AccessType) -> bool {
+    // allowed yields whether these access to {path, tpe, access} is allowed by user
+    fn allowed(&self, user: &str, path: &str, tpe: Option<TpeKind>, access: AccessType) -> bool {
         // Access to locks is always treated as Read
-        let access = if tpe == TPE_LOCKS {
+        let access = if tpe == Some(TpeKind::Locks) {
             AccessType::Read
         } else {
             access
@@ -190,25 +190,25 @@ mod tests {
             append_only: true,
             private_repo: true,
         };
-        assert!(!acl.allowed("bob", "sam", "keys", Read));
-        assert!(!acl.allowed("bob", "sam", "data", Read));
-        assert!(!acl.allowed("bob", "sam", "data", Append));
-        assert!(!acl.allowed("bob", "sam", "data", Modify));
-        assert!(!acl.allowed("bob", "bob", "data", Modify));
-        assert!(acl.allowed("bob", "bob", "locks", Modify));
-        assert!(acl.allowed("bob", "bob", "keys", Append));
-        assert!(acl.allowed("bob", "bob", "data", Append));
-        assert!(acl.allowed("", "", "data", Append));
-        assert!(!acl.allowed("bob", "", "data", Read));
+        assert!(!acl.allowed("bob", "sam", Some(TpeKind::Keys), Read));
+        assert!(!acl.allowed("bob", "sam", Some(TpeKind::Data), Read));
+        assert!(!acl.allowed("bob", "sam", Some(TpeKind::Data), Append));
+        assert!(!acl.allowed("bob", "sam", Some(TpeKind::Data), Modify));
+        assert!(!acl.allowed("bob", "bob", Some(TpeKind::Data), Modify));
+        assert!(acl.allowed("bob", "bob", Some(TpeKind::Locks), Modify));
+        assert!(acl.allowed("bob", "bob", Some(TpeKind::Keys), Append));
+        assert!(acl.allowed("bob", "bob", Some(TpeKind::Data), Append));
+        assert!(acl.allowed("", "", Some(TpeKind::Data), Append));
+        assert!(!acl.allowed("bob", "", Some(TpeKind::Data), Read));
 
         acl.append_only = false;
-        assert!(!acl.allowed("bob", "sam", "data", Modify));
-        assert!(acl.allowed("bob", "bob", "data", Modify));
+        assert!(!acl.allowed("bob", "sam", Some(TpeKind::Data), Modify));
+        assert!(acl.allowed("bob", "bob", Some(TpeKind::Data), Modify));
 
         acl.private_repo = false;
-        assert!(acl.allowed("bob", "sam", "data", Modify));
-        assert!(acl.allowed("bob", "bob", "data", Modify));
-        assert!(acl.allowed("bob", "", "data", Modify));
+        assert!(acl.allowed("bob", "sam", Some(TpeKind::Data), Modify));
+        assert!(acl.allowed("bob", "bob", Some(TpeKind::Data), Modify));
+        assert!(acl.allowed("bob", "", Some(TpeKind::Data), Modify));
     }
 
     #[test]
@@ -231,30 +231,30 @@ mod tests {
         acl.repos.insert("sam".to_string(), acl_sam);
 
         // test ACLs for repo all
-        assert!(acl.allowed("bob", "all", "keys", Modify));
-        assert!(!acl.allowed("sam", "all", "keys", Modify));
-        assert!(acl.allowed("sam", "all", "keys", Append));
-        assert!(acl.allowed("sam", "all", "locks", Modify));
-        assert!(!acl.allowed("paul", "all", "data", Append));
-        assert!(acl.allowed("paul", "all", "data", Read));
-        assert!(acl.allowed("paul", "all", "locks", Modify));
-        assert!(!acl.allowed("attack", "all", "data", Modify));
+        assert!(acl.allowed("bob", "all", Some(TpeKind::Keys), Modify));
+        assert!(!acl.allowed("sam", "all", Some(TpeKind::Keys), Modify));
+        assert!(acl.allowed("sam", "all", Some(TpeKind::Keys), Append));
+        assert!(acl.allowed("sam", "all", Some(TpeKind::Locks), Modify));
+        assert!(!acl.allowed("paul", "all", Some(TpeKind::Data), Append));
+        assert!(acl.allowed("paul", "all", Some(TpeKind::Data), Read));
+        assert!(acl.allowed("paul", "all", Some(TpeKind::Locks), Modify));
+        assert!(!acl.allowed("attack", "all", Some(TpeKind::Data), Modify));
 
         // test ACLs for repo bob
-        assert!(acl.allowed("bob", "bob", "data", Modify));
-        assert!(!acl.allowed("sam", "bob", "data", Read));
-        assert!(!acl.allowed("attack", "bob", "locks", Modify));
+        assert!(acl.allowed("bob", "bob", Some(TpeKind::Data), Modify));
+        assert!(!acl.allowed("sam", "bob", Some(TpeKind::Data), Read));
+        assert!(!acl.allowed("attack", "bob", Some(TpeKind::Locks), Modify));
 
         // test ACLs for repo sam
-        assert!(!acl.allowed("sam", "sam", "data", Modify));
-        assert!(acl.allowed("sam", "sam", "data", Append));
-        assert!(!acl.allowed("bob", "sam", "keys", Append));
-        assert!(acl.allowed("bob", "sam", "keys", Read));
-        assert!(!acl.allowed("attack", "sam", "locks", Read));
+        assert!(!acl.allowed("sam", "sam", Some(TpeKind::Data), Modify));
+        assert!(acl.allowed("sam", "sam", Some(TpeKind::Data), Append));
+        assert!(!acl.allowed("bob", "sam", Some(TpeKind::Keys), Append));
+        assert!(acl.allowed("bob", "sam", Some(TpeKind::Keys), Read));
+        assert!(!acl.allowed("attack", "sam", Some(TpeKind::Locks), Read));
 
         // test ACLs for repo paul => fall back to flags
-        assert!(!acl.allowed("paul", "paul", "data", Modify));
-        assert!(acl.allowed("paul", "paul", "data", Append));
-        assert!(!acl.allowed("sam", "paul", "data", Read));
+        assert!(!acl.allowed("paul", "paul", Some(TpeKind::Data), Modify));
+        assert!(acl.allowed("paul", "paul", Some(TpeKind::Data), Append));
+        assert!(!acl.allowed("sam", "paul", Some(TpeKind::Data), Read));
     }
 }

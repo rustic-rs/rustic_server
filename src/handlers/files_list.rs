@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use axum::{
-    extract::Path as AxumPath,
     http::{
         header::{self, AUTHORIZATION},
         StatusCode,
@@ -18,8 +17,10 @@ use crate::{
     error::Result,
     handlers::{access_check::check_auth_and_acl, file_helpers::IteratorAdapter},
     storage::STORAGE,
+    typed_path::PathParts,
 };
 
+// FIXME: Make it an enum internally
 const API_V1: &str = "application/vnd.x.restic.rest.v1";
 const API_V2: &str = "application/vnd.x.restic.rest.v2";
 
@@ -31,18 +32,20 @@ struct RepoPathEntry {
     size: u64,
 }
 
-pub(crate) async fn list_files(
-    AxumPath((path, tpe)): AxumPath<(Option<String>, String)>,
+pub(crate) async fn list_files<P: PathParts>(
+    path: P,
     auth: AuthFromRequest,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[list_files] path: {path:?}, tpe: {tpe}");
+    let (path, tpe, _) = path.parts();
+
+    tracing::debug!("[list_files] path: {path:?}, tpe: {tpe:?}");
     let path = path.unwrap_or_default();
     let path = Path::new(&path);
-    check_auth_and_acl(auth.user, &tpe, path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let read_dir = storage.read_dir(path, Some(&tpe));
+    let read_dir = storage.read_dir(path, tpe.map(|f| f.into()));
 
     let mut res = match headers
         .get(header::ACCEPT)
@@ -85,16 +88,21 @@ pub(crate) async fn list_files(
 
 #[cfg(test)]
 mod test {
-    use crate::handlers::files_list::{list_files, RepoPathEntry, API_V1, API_V2};
     use crate::log::print_request_response;
     use crate::test_helpers::{basic_auth_header_value, init_test_environment};
+    use crate::{
+        handlers::files_list::{list_files, RepoPathEntry, API_V1, API_V2},
+        typed_path::RepositoryTpePath,
+    };
     use axum::http::header::{ACCEPT, CONTENT_TYPE};
-    use axum::routing::get;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
     use axum::{middleware, Router};
+    use axum_extra::routing::{
+        RouterExt, // for `Router::typed_*`
+    };
     use http_body_util::BodyExt;
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
@@ -104,7 +112,7 @@ mod test {
 
         // V1
         let app = Router::new()
-            .route("/:path/:tpe", get(list_files))
+            .typed_get(list_files::<RepositoryTpePath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -147,7 +155,7 @@ mod test {
 
         // V2
         let app = Router::new()
-            .route("/:path/:tpe", get(list_files))
+            .typed_get(list_files::<RepositoryTpePath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()

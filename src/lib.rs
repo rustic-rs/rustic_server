@@ -6,6 +6,7 @@ pub mod error;
 pub mod handlers;
 pub mod log;
 pub mod storage;
+pub mod typed_path;
 /// Web module
 ///
 /// implements a REST server as specified by

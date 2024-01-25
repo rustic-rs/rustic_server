@@ -1,9 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use axum::{
-    extract::{Path as AxumPath, Request},
-    response::IntoResponse,
-};
+use axum::{extract::Request, response::IntoResponse};
 use axum_extra::{headers::Range, TypedHeader};
 use axum_range::{KnownSize, Ranged};
 
@@ -16,47 +13,46 @@ use crate::{
         file_exchange::{check_name, get_save_file, save_body},
     },
     storage::STORAGE,
+    typed_path::{RepositoryConfigPath, TpeKind},
 };
 
 /// has_config
-/// Interface: HEAD {path}/config
+/// Interface: HEAD {repo}/config
 pub(crate) async fn has_config(
-    AxumPath(path): AxumPath<Option<String>>,
+    RepositoryConfigPath { repo }: RepositoryConfigPath,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
-    let tpe = "config";
-    tracing::debug!("[has_config] path: {path:?}, tpe: {tpe}");
-    let path_str = path.unwrap_or_default();
-    let path = std::path::Path::new(&path_str);
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+    let tpe = TpeKind::Config;
+    tracing::debug!("[has_config] repository path: {repo}, tpe: {tpe}");
+    let path = std::path::Path::new(&repo);
+    check_auth_and_acl(auth.user, Some(tpe), path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.filename(path, tpe, None);
+    let file = storage.filename(path, tpe.into_str(), None);
     if file.exists() {
         Ok(())
     } else {
-        Err(ErrorKind::FileNotFound(path_str))
+        Err(ErrorKind::FileNotFound(repo))
     }
 }
 
 /// get_config
-/// Interface: GET {path}/config
+/// Interface: GET {repo}/config
 pub(crate) async fn get_config(
-    AxumPath(path): AxumPath<Option<String>>,
+    RepositoryConfigPath { repo }: RepositoryConfigPath,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
 ) -> Result<impl IntoResponse> {
-    let tpe = "config";
-    tracing::debug!("[get_config] path: {path:?}, tpe: {tpe}");
+    let tpe = TpeKind::Config;
+    tracing::debug!("[get_config] repository path: {repo}, tpe: {tpe}");
 
     check_name(tpe, None)?;
-    let path_str = path.unwrap_or_default();
-    let path = Path::new(&path_str);
+    let path = Path::new(&repo);
 
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, Some(tpe), path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.open_file(path, tpe, None).await?;
+    let file = storage.open_file(path, tpe.into_str(), None).await?;
 
     let body = KnownSize::file(file)
         .await
@@ -66,16 +62,15 @@ pub(crate) async fn get_config(
 }
 
 /// add_config
-/// Interface: POST {path}/config
+/// Interface: POST {repo}/config
 pub(crate) async fn add_config(
-    AxumPath(path): AxumPath<Option<String>>,
+    RepositoryConfigPath { repo }: RepositoryConfigPath,
     auth: AuthFromRequest,
     request: Request,
 ) -> Result<impl IntoResponse> {
-    let tpe = "config";
-    tracing::debug!("[add_config] path: {path:?}, tpe: {tpe}");
-    let path = path.unwrap_or_default();
-    let path = PathBuf::from(&path);
+    let tpe = TpeKind::Config;
+    tracing::debug!("[add_config] repository path: {repo}, tpe: {tpe}");
+    let path = PathBuf::from(&repo);
     let file = get_save_file(auth.user, path, tpe, None).await?;
 
     let stream = request.into_body().into_data_stream();
@@ -84,21 +79,19 @@ pub(crate) async fn add_config(
 }
 
 /// delete_config
-/// Interface: DELETE {path}/config
-/// FIXME: The original restic spec does not define delete_config --> but rustic did ??
+/// Interface: DELETE {repo}/config
 pub(crate) async fn delete_config(
-    AxumPath(path): AxumPath<Option<String>>,
+    RepositoryConfigPath { repo }: RepositoryConfigPath,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
-    let tpe = "config";
-    tracing::debug!("[delete_config] path: {path:?}, tpe: {tpe}");
+    let tpe = TpeKind::Config;
+    tracing::debug!("[delete_config] repository path: {repo}, tpe: {tpe}");
     check_name(tpe, None)?;
-    let path_str = path.unwrap_or_default();
-    let path = Path::new(&path_str);
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
+    let path = Path::new(&repo);
+    check_auth_and_acl(auth.user, Some(tpe), path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
-    storage.remove_file(path, tpe, None).await?;
+    storage.remove_file(path, tpe.into_str(), None).await?;
     Ok(())
 }
 
@@ -117,6 +110,9 @@ mod test {
         http::{Request, StatusCode},
     };
     use axum::{middleware, Router};
+    use axum_extra::routing::{
+        RouterExt, // for `Router::typed_*`
+    };
     use http_body_util::BodyExt;
     use std::path::PathBuf;
     use std::{env, fs};
@@ -130,7 +126,7 @@ mod test {
         // NOT CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/:path/:tpe", head(has_config))
+            .typed_head(has_config)
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -151,7 +147,7 @@ mod test {
         // HAS CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/:path/:tpe", head(has_config))
+            .typed_head(has_config)
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
