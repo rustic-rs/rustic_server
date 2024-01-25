@@ -25,7 +25,7 @@ pub(crate) async fn has_config(
     let tpe = TpeKind::Config;
     tracing::debug!("[has_config] repository path: {repo}, tpe: {tpe}");
     let path = std::path::Path::new(&repo);
-    check_auth_and_acl(auth.user, Some(tpe), path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = storage.filename(path, tpe.into_str(), None);
@@ -49,7 +49,7 @@ pub(crate) async fn get_config(
     check_name(tpe, None)?;
     let path = Path::new(&repo);
 
-    check_auth_and_acl(auth.user, Some(tpe), path, AccessType::Read)?;
+    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = storage.open_file(path, tpe.into_str(), None).await?;
@@ -86,9 +86,10 @@ pub(crate) async fn delete_config(
 ) -> Result<impl IntoResponse> {
     let tpe = TpeKind::Config;
     tracing::debug!("[delete_config] repository path: {repo}, tpe: {tpe}");
+    
     check_name(tpe, None)?;
     let path = Path::new(&repo);
-    check_auth_and_acl(auth.user, Some(tpe), path, AccessType::Append)?;
+    check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
     storage.remove_file(path, tpe.into_str(), None).await?;
