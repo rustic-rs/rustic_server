@@ -90,7 +90,6 @@ mod test {
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
-        assert_eq!(&resp.status(), &StatusCode::from_u16(200).unwrap());
 
         let length = resp
             .headers()

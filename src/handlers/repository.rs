@@ -37,6 +37,12 @@ pub(crate) async fn create_repository(
     match params.create {
         true => {
             for tpe in TpeKind::VARIANTS.iter() {
+                // config is not a directory, but a file
+                // it is handled separately
+                if tpe == &TpeKind::Config.into_str() {
+                    continue;
+                }
+
                 storage.create_dir(path, Some(tpe)).await?
             }
 

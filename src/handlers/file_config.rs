@@ -86,7 +86,7 @@ pub(crate) async fn delete_config(
 ) -> Result<impl IntoResponse> {
     let tpe = TpeKind::Config;
     tracing::debug!("[delete_config] repository path: {repo}, tpe: {tpe}");
-    
+
     check_name(tpe, None)?;
     let path = Path::new(&repo);
     check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
@@ -105,7 +105,6 @@ mod test {
         basic_auth_header_value, init_test_environment, request_uri_for_test,
     };
     use axum::http::Method;
-    use axum::routing::{delete, get, head, post};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -194,7 +193,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo, "?create=true"].concat();
         let app = Router::new()
-            .route("/:path", post(create_repository))
+            .typed_post(create_repository)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -210,7 +209,7 @@ mod test {
         let body = Body::new(test_vec.clone());
 
         let app = Router::new()
-            .route("/:path/:tpe", post(add_config))
+            .typed_post(add_config)
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -235,7 +234,7 @@ mod test {
         // GET CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/:path/:tpe", get(get_config))
+            .typed_get(get_config)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::GET);
@@ -252,7 +251,7 @@ mod test {
         // - differs from tester_has_config() that we have a non empty path now
         // -----------------------
         let app = Router::new()
-            .route("/:path/:tpe", head(has_config))
+            .typed_head(has_config)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::HEAD);
@@ -264,7 +263,7 @@ mod test {
         // DELETE CONFIG
         // -----------------------
         let app = Router::new()
-            .route("/:path/:tpe", delete(delete_config))
+            .typed_delete(delete_config)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::DELETE);
@@ -279,7 +278,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo].concat();
         let app = Router::new()
-            .route("/:path/:tpe", post(delete_repository))
+            .typed_delete(delete_repository)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
