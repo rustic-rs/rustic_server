@@ -33,8 +33,8 @@ only a pointer to this file. This file points to:
 
 - HTACCESS file
 
-  **Note**: that the HTACCESS file does not need to be a hidden
-  file. Rustic will use the file you point to.
+  **Note**: that the HTACCESS file does not need to be a hidden file. Rustic
+  will use the file you point to.
 - acl.toml file
 - path to: repository (where all your backups are)
 - path to: https TLS certificate and key file

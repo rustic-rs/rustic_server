@@ -1,9 +1,6 @@
 use std::net::SocketAddr;
 
-use axum::{
-    middleware,
-    Router,
-};
+use axum::{middleware, Router};
 use axum_extra::routing::{
     RouterExt, // for `Router::typed_*`
 };
