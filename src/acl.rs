@@ -10,11 +10,8 @@ use crate::{
 //Static storage of our credentials
 pub static ACL: OnceLock<Acl> = OnceLock::new();
 
-pub fn init_acl(state: Acl) -> Result<()> {
-    if ACL.get().is_none() {
-        ACL.set(state)
-            .map_err(|_| ErrorKind::InternalError("Can not create ACL struct".to_string()))?;
-    }
+pub fn init_acl(acl: Acl) -> Result<()> {
+    let _ = ACL.get_or_init(|| acl);
     Ok(())
 }
 

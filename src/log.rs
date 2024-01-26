@@ -40,6 +40,7 @@ pub async fn print_request_response(
     for (k, v) in parts.headers.iter() {
         tracing::debug!("request-header: {k:?} -> {v:?} ");
     }
+    tracing::debug!("request-uri: {}", parts.uri);
     let bytes = buffer_and_print("request", body).await?;
     let req = Request::from_parts(parts, Body::from(bytes));
 
