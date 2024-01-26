@@ -210,7 +210,7 @@ mod test {
         // ADD CONFIG
         // -----------------------
         let test_vec = "Fancy Config Content".to_string();
-        let uri = ["/", &repo, "/index/config"].concat();
+        let uri = ["/", &repo, "/config"].concat();
         let body = Body::new(test_vec.clone());
 
         let app = Router::new()
@@ -230,7 +230,7 @@ mod test {
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
-        let conf_pth = path.join("index").join("config");
+        let conf_pth = path.join("config");
         assert!(conf_pth.exists());
         let conf_str = fs::read_to_string(conf_pth).unwrap();
         assert_eq!(&conf_str, &test_vec);
@@ -275,7 +275,7 @@ mod test {
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
-        let conf_pth = path.join("data").join("config");
+        let conf_pth = path.join("config");
         assert!(!conf_pth.exists());
 
         // -----------------------
@@ -286,7 +286,7 @@ mod test {
             .typed_delete(delete_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
 
-        let request = request_uri_for_test(&repo_name_uri, Method::POST);
+        let request = request_uri_for_test(&repo_name_uri, Method::DELETE);
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
