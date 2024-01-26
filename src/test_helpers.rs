@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use std::{env, path::PathBuf, sync::Mutex, sync::OnceLock};
 
 use axum::{
@@ -40,15 +39,18 @@ pub(crate) fn init_tracing() {
     init_mutex();
 }
 
-/// When we initialise the global tracing subscriber, this must only happen once.
-/// During tests, each test will initialise, to make sure we have at least tracing once.
+/// When we initialize the global tracing subscriber, this must only happen once.
+/// During tests, each test will initialize, to make sure we have at least tracing once.
 /// This means that the init() call must be robust for this.
 /// Since we do not need this in production code, it is located in the test code.
 static TRACER: OnceLock<Mutex<usize>> = OnceLock::new();
 fn init_mutex() {
     TRACER.get_or_init(|| {
         tracing_subscriber::registry()
-            .with(tracing_subscriber::EnvFilter::from_str("debug").unwrap())
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "RUSTIC_SERVER_LOG_LEVEL=debug".into()),
+            )
             .with(tracing_subscriber::fmt::layer())
             .init();
         Mutex::new(0)

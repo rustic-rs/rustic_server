@@ -1,7 +1,6 @@
 use axum_extra::routing::TypedPath;
-use serde::Deserialize;
-use serde_derive::Serialize;
-use strum::{AsRefStr, Display, EnumVariantNames, IntoStaticStr};
+use serde_derive::{Deserialize, Serialize};
+use strum::{AsRefStr, Display, EnumString, EnumVariantNames, IntoStaticStr};
 
 pub trait PathParts {
     fn parts(&self) -> (Option<String>, Option<TpeKind>, Option<String>) {
@@ -26,28 +25,26 @@ pub trait PathParts {
     Clone,
     Copy,
     PartialEq,
+    Eq,
     Default,
     Display,
-    Deserialize,
     Serialize,
+    Deserialize,
     IntoStaticStr,
     AsRefStr,
     EnumVariantNames,
+    EnumString,
 )]
 #[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+#[strum(ascii_case_insensitive)]
 pub enum TpeKind {
-    #[strum(serialize = "config")]
     Config,
     #[default]
-    #[strum(serialize = "data")]
     Data,
-    #[strum(serialize = "index")]
     Index,
-    #[strum(serialize = "keys")]
     Keys,
-    #[strum(serialize = "locks")]
     Locks,
-    #[strum(serialize = "snapshots")]
     Snapshots,
 }
 
@@ -70,8 +67,7 @@ impl PathParts for RepositoryConfigPath {
     }
 }
 
-// A type safe route with `"/:repo/"` as its associated path.
-// FIXED: removed trailing slash
+// A type safe route with `"/:repo"` as its associated path.
 #[derive(TypedPath, Deserialize)]
 #[typed_path("/:repo")]
 pub struct RepositoryPath {
