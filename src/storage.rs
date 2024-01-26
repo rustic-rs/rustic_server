@@ -15,10 +15,7 @@ use crate::{
 pub static STORAGE: OnceLock<Arc<dyn Storage>> = OnceLock::new();
 
 pub(crate) fn init_storage(storage: impl Storage) -> Result<()> {
-    if STORAGE.get().is_none() {
-        let storage = Arc::new(storage);
-        let _ = STORAGE.set(storage);
-    }
+    let _ = STORAGE.get_or_init(|| Arc::new(storage));
     Ok(())
 }
 

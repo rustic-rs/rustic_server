@@ -197,6 +197,7 @@ mod test {
     use crate::test_helpers::{
         basic_auth_header_value, init_test_environment, request_uri_for_test,
     };
+    use crate::typed_path::RepositoryConfigPath;
     use crate::{handlers::file_config::get_config, log::print_request_response};
     use crate::{
         handlers::file_exchange::{add_file, delete_file, get_file},
@@ -413,7 +414,7 @@ mod test {
         let test_vec = fs::read(path).unwrap();
 
         let app = Router::new()
-            .typed_get(get_config)
+            .typed_get(get_config::<RepositoryConfigPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let uri = "/test_repo/config";

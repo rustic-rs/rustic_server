@@ -30,6 +30,7 @@ pub trait Finalizer {
 
 impl WriteOrDeleteFile {
     pub async fn new(file_path: PathBuf) -> Result<Self> {
+        tracing::debug!("[WriteOrDeleteFile] path: {file_path:?}");
         Ok(Self {
             file: OpenOptions::new()
                 .write(true)

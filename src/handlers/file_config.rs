@@ -4,6 +4,7 @@ use axum::{extract::Request, response::IntoResponse};
 use axum_extra::{headers::Range, TypedHeader};
 use axum_range::{KnownSize, Ranged};
 
+use crate::typed_path::PathParts;
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
@@ -38,12 +39,13 @@ pub(crate) async fn has_config(
 
 /// get_config
 /// Interface: GET {repo}/config
-pub(crate) async fn get_config(
-    RepositoryConfigPath { repo }: RepositoryConfigPath,
+pub(crate) async fn get_config<P: PathParts>(
+    path: P,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
 ) -> Result<impl IntoResponse> {
     let tpe = TpeKind::Config;
+    let repo = path.repo().unwrap();
     tracing::debug!("[get_config] repository path: {repo}, tpe: {tpe}");
 
     check_name(tpe, None)?;
@@ -63,12 +65,13 @@ pub(crate) async fn get_config(
 
 /// add_config
 /// Interface: POST {repo}/config
-pub(crate) async fn add_config(
-    RepositoryConfigPath { repo }: RepositoryConfigPath,
+pub(crate) async fn add_config<P: PathParts>(
+    path: P,
     auth: AuthFromRequest,
     request: Request,
 ) -> Result<impl IntoResponse> {
     let tpe = TpeKind::Config;
+    let repo = path.repo().unwrap();
     tracing::debug!("[add_config] repository path: {repo}, tpe: {tpe}");
     let path = PathBuf::from(&repo);
     let file = get_save_file(auth.user, path, tpe, None).await?;
@@ -80,11 +83,12 @@ pub(crate) async fn add_config(
 
 /// delete_config
 /// Interface: DELETE {repo}/config
-pub(crate) async fn delete_config(
-    RepositoryConfigPath { repo }: RepositoryConfigPath,
+pub(crate) async fn delete_config<P: PathParts>(
+    path: P,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
     let tpe = TpeKind::Config;
+    let repo = path.repo().unwrap();
     tracing::debug!("[delete_config] repository path: {repo}, tpe: {tpe}");
 
     check_name(tpe, None)?;
@@ -104,6 +108,7 @@ mod test {
     use crate::test_helpers::{
         basic_auth_header_value, init_test_environment, request_uri_for_test,
     };
+    use crate::typed_path::{RepositoryConfigPath, RepositoryPath};
     use axum::http::Method;
     use axum::{
         body::Body,
@@ -193,7 +198,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo, "?create=true"].concat();
         let app = Router::new()
-            .typed_post(create_repository)
+            .typed_post(create_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -209,7 +214,7 @@ mod test {
         let body = Body::new(test_vec.clone());
 
         let app = Router::new()
-            .typed_post(add_config)
+            .typed_post(add_config::<RepositoryConfigPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
@@ -234,7 +239,7 @@ mod test {
         // GET CONFIG
         // -----------------------
         let app = Router::new()
-            .typed_get(get_config)
+            .typed_get(get_config::<RepositoryConfigPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::GET);
@@ -263,7 +268,7 @@ mod test {
         // DELETE CONFIG
         // -----------------------
         let app = Router::new()
-            .typed_delete(delete_config)
+            .typed_delete(delete_config::<RepositoryConfigPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&uri, Method::DELETE);
@@ -278,7 +283,7 @@ mod test {
         // -----------------------
         let repo_name_uri = ["/", &repo].concat();
         let app = Router::new()
-            .typed_delete(delete_repository)
+            .typed_delete(delete_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);

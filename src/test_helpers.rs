@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::{env, path::PathBuf, sync::Mutex, sync::OnceLock};
 
 use axum::{
@@ -47,10 +48,7 @@ static TRACER: OnceLock<Mutex<usize>> = OnceLock::new();
 fn init_mutex() {
     TRACER.get_or_init(|| {
         tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| "RUSTIC_SERVER_LOG_LEVEL=debug".into()),
-            )
+            .with(tracing_subscriber::EnvFilter::from_str("debug").unwrap())
             .with(tracing_subscriber::fmt::layer())
             .init();
         Mutex::new(0)

@@ -10,11 +10,8 @@ use crate::error::{ErrorKind, Result};
 //Static storage of our credentials
 pub static AUTH: OnceLock<Auth> = OnceLock::new();
 
-pub(crate) fn init_auth(state: Auth) -> Result<()> {
-    if AUTH.get().is_none() {
-        AUTH.set(state)
-            .map_err(|_| ErrorKind::InternalError("Can not create Auth struct".to_string()))?;
-    }
+pub(crate) fn init_auth(auth: Auth) -> Result<()> {
+    let _ = AUTH.get_or_init(|| auth);
     Ok(())
 }
 

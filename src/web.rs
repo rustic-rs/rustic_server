@@ -8,6 +8,7 @@ use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
 use tracing::level_filters::LevelFilter;
 
+use crate::typed_path::{RepositoryConfigPath, RepositoryPath};
 use crate::{
     acl::{init_acl, Acl},
     auth::{init_auth, Auth},
@@ -45,14 +46,14 @@ pub async fn start_web_server(
     // /:repo/config
     app = app
         .typed_head(has_config)
-        .typed_post(add_config)
-        .typed_get(get_config)
-        .typed_delete(delete_config);
+        .typed_post(add_config::<RepositoryConfigPath>)
+        .typed_get(get_config::<RepositoryConfigPath>)
+        .typed_delete(delete_config::<RepositoryConfigPath>);
 
     // /:repo/
     app = app
-        .typed_post(create_repository)
-        .typed_delete(delete_repository);
+        .typed_post(create_repository::<RepositoryPath>)
+        .typed_delete(delete_repository::<RepositoryPath>);
 
     // /:tpe
     app = app.typed_get(list_files::<TpePath>);

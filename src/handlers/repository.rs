@@ -1,18 +1,15 @@
-use std::path::Path;
+use std::path::PathBuf;
 
 use axum::{extract::Query, http::StatusCode, response::IntoResponse};
 use serde_derive::Deserialize;
 
 use crate::{
-    acl::AccessType,
-    auth::AuthFromRequest,
-    error::Result,
-    handlers::access_check::check_auth_and_acl,
-    storage::STORAGE,
-    typed_path::{RepositoryPath, TpeKind},
+    acl::AccessType, auth::AuthFromRequest, error::Result,
+    handlers::access_check::check_auth_and_acl, storage::STORAGE, typed_path::TpeKind,
 };
 
 // used for using auto-generated TpeKind variant names
+use crate::typed_path::PathParts;
 use strum::VariantNames;
 
 /// Create_repository
@@ -23,15 +20,17 @@ pub(crate) struct Create {
     create: bool,
 }
 
-pub(crate) async fn create_repository(
-    RepositoryPath { repo }: RepositoryPath,
+pub(crate) async fn create_repository<P: PathParts>(
+    path: P,
     auth: AuthFromRequest,
     Query(params): Query<Create>,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[create_repository] repository path: {repo}");
-    let path = Path::new(&repo);
-    //FIXME: Is Append the right access leven, or should we require Modify?
-    check_auth_and_acl(auth.user, None, path, AccessType::Append)?;
+    tracing::debug!(
+        "[create_repository] repository path: {}",
+        path.repo().unwrap()
+    );
+    let path = PathBuf::new().join(path.repo().unwrap());
+    check_auth_and_acl(auth.user, None, &path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
     match params.create {
@@ -43,17 +42,17 @@ pub(crate) async fn create_repository(
                     continue;
                 }
 
-                storage.create_dir(path, Some(tpe)).await?
+                storage.create_dir(&path, Some(tpe)).await?
             }
 
             Ok((
                 StatusCode::OK,
-                format!("Called create_files with path {:?}\n", path),
+                format!("Called create_files with path {:?}\n", &path),
             ))
         }
         false => Ok((
             StatusCode::OK,
-            format!("Called create_files with path {:?}, create=false\n", path),
+            format!("Called create_files with path {:?}, create=false\n", &path),
         )),
     }
 }
@@ -61,17 +60,19 @@ pub(crate) async fn create_repository(
 /// Delete_repository
 /// Interface: Delete {path}
 // FIXME: The input path should at least NOT point to a file in any repository
-pub(crate) async fn delete_repository(
-    RepositoryPath { repo }: RepositoryPath,
+pub(crate) async fn delete_repository<P: PathParts>(
+    path: P,
     auth: AuthFromRequest,
 ) -> Result<impl IntoResponse> {
-    tracing::debug!("[delete_repository] repository path: {repo}");
-    let path = Path::new(&repo);
-    // FIXME: We surely need modify access to delete right??
-    check_auth_and_acl(auth.user, None, path, AccessType::Modify)?;
+    tracing::debug!(
+        "[delete_repository] repository path: {}",
+        &path.repo().unwrap()
+    );
+    let path = PathBuf::new().join(path.repo().unwrap());
+    check_auth_and_acl(auth.user, None, &path, AccessType::Modify)?;
 
     let storage = STORAGE.get().unwrap();
-    storage.remove_repository(path).await?;
+    storage.remove_repository(&path).await?;
 
     Ok(())
 }
@@ -83,13 +84,14 @@ mod test {
     use crate::test_helpers::{
         basic_auth_header_value, init_test_environment, request_uri_for_test,
     };
+    use crate::typed_path::RepositoryPath;
     use axum::http::Method;
-    use axum::routing::{delete, post};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
     use axum::{middleware, Router};
+    use axum_extra::routing::RouterExt;
     use std::env;
     use std::path::PathBuf;
     use tokio::fs;
@@ -133,7 +135,7 @@ mod test {
         // ------------------------------------
         let repo_name_uri = "/repo_remove_me?create=true".to_string();
         let app = Router::new()
-            .route("/:path", post(create_repository))
+            .typed_post(create_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -147,7 +149,7 @@ mod test {
         // ------------------------------------------
         let repo_name_uri = "/repo_not_allowed?create=true".to_string();
         let app = Router::new()
-            .route("/:path", post(create_repository))
+            .typed_post(create_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::POST);
@@ -161,12 +163,12 @@ mod test {
         // ------------------------------------------
         let repo_name_uri = "/repo_remove_me?create=true".to_string();
         let app = Router::new()
-            .route("/:path", post(delete_repository))
+            .typed_delete(delete_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
             .uri(&repo_name_uri)
-            .method(Method::POST)
+            .method(Method::DELETE)
             .header(
                 "Authorization",
                 basic_auth_header_value("test", Some("__wrong_password__")),
@@ -185,7 +187,7 @@ mod test {
         assert!(path.exists()); // pre condition: repo exists
         let repo_name_uri = "/repo_remove_me".to_string();
         let app = Router::new()
-            .route("/:path", delete(delete_repository))
+            .typed_delete(delete_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
 
         let request = request_uri_for_test(&repo_name_uri, Method::DELETE);
