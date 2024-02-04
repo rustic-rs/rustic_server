@@ -88,6 +88,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           target: ${{ matrix.job.target }}
           use-cross: ${{ matrix.job.use-cross }}
+          project-cache-key: "rustic_server"
 
   result:
     name: Result (Cross-CI)
