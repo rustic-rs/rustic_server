@@ -13,6 +13,10 @@ on:
 env:
   BINARY_NAME: rustic-server
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   pr-build:
     if: ${{ github.event.label.name == 'S-build' && github.repository_owner == 'rustic-rs' }}
