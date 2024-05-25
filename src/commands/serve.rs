@@ -32,7 +32,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
 
             // Repository storage
             //-----------------------------------
-            let storage_path = if root.len()==0  {
+            let storage_path = if root.is_empty() {
                 PathBuf::from(server_config.repos.storage_path)
             } else {
                 assert!(!server_config.repos.storage_path.starts_with('/'));
@@ -49,13 +49,13 @@ pub async fn serve(opts: Opts) -> Result<()> {
             let path = match auth_config.auth_path {
                 None => PathBuf::new(),
                 Some(p) => {
-                    if root.len()==0 {
+                    if root.is_empty() {
                         PathBuf::from(p)
                     } else {
                         assert!(!p.starts_with('/'));
                         PathBuf::from(root.clone()).join(p)
                     }
-                },
+                }
             };
             let auth = Auth::from_file(no_auth, &path).map_err(|err| {
                 ErrorKind::InternalError(format!("Could not read file: {} at {:?}", err, path))
@@ -64,14 +64,14 @@ pub async fn serve(opts: Opts) -> Result<()> {
             // Access control to the repositories
             //-----------------------------------
             let acl_config = server_config.access_control;
-            let path = acl_config.acl_path.map(|p|
-                if root.len()==0 {
+            let path = acl_config.acl_path.map(|p| {
+                if root.is_empty() {
                     PathBuf::from(p)
                 } else {
                     assert!(!p.starts_with('/'));
                     PathBuf::from(root.clone()).join(p)
                 }
-            );
+            });
             let acl = Acl::from_file(acl_config.append_only, acl_config.private_repo, path)?;
 
             // Server definition

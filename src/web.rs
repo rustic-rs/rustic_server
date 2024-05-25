@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
-use axum::{middleware, Router};
 use axum::routing::{delete, get, head, post};
+use axum::{middleware, Router};
 use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
 use tracing::level_filters::LevelFilter;
@@ -22,7 +22,6 @@ use crate::{
     storage::{init_storage, Storage},
     typed_path::{RepositoryTpeNamePath, RepositoryTpePath, TpeNamePath, TpePath},
 };
-
 
 // TPE_LOCKS is defined, but outside the types[] array.
 // This allows us to loop over the types[] when generating "routes"
@@ -54,10 +53,13 @@ pub async fn start_web_server(
 
     // /:repo/config
     app = app
-        .route( "/:repo/config", head(has_config))
-        .route( "/:repo/config", post(add_config::<RepositoryConfigPath>))
-        .route( "/:repo/config", get(get_config::<RepositoryConfigPath>))
-        .route( "/:repo/config", delete(delete_config::<RepositoryConfigPath>));
+        .route("/:repo/config", head(has_config))
+        .route("/:repo/config", post(add_config::<RepositoryConfigPath>))
+        .route("/:repo/config", get(get_config::<RepositoryConfigPath>))
+        .route(
+            "/:repo/config",
+            delete(delete_config::<RepositoryConfigPath>),
+        );
 
     // /:tpe  --> note: NO trailing slash
     // we loop here over explicit types, to prevent the conflict with paths "/:repo/"
@@ -68,30 +70,35 @@ pub async fn start_web_server(
 
     // /:repo/ --> note: trailing slash
     app = app
-        .route( "/:repo/", post(create_repository::<RepositoryPath>))
-        .route( "/:repo/", delete(delete_repository::<RepositoryPath>));
+        .route("/:repo/", post(create_repository::<RepositoryPath>))
+        .route("/:repo/", delete(delete_repository::<RepositoryPath>));
 
     // /:tpe/:name
     // we loop here over explicit types, to prevent conflict with paths "/:repo/:tpe"
     for tpe in TYPES.into_iter() {
         let path = format!("/{}:name", &tpe);
         app = app
-        .route( path.as_str(), head(file_length::<TpeNamePath>))
-            .route( path.as_str(), get(get_file::<TpeNamePath>))
-            .route( path.as_str(), post(add_file::<TpeNamePath>))
-            .route( path.as_str(), delete(delete_file::<TpeNamePath>));
+            .route(path.as_str(), head(file_length::<TpeNamePath>))
+            .route(path.as_str(), get(get_file::<TpeNamePath>))
+            .route(path.as_str(), post(add_file::<TpeNamePath>))
+            .route(path.as_str(), delete(delete_file::<TpeNamePath>));
     }
 
     // /:repo/:tpe
-    app = app
-        .route( "/:repo/:tpe", get(list_files::<RepositoryTpePath>));
+    app = app.route("/:repo/:tpe", get(list_files::<RepositoryTpePath>));
 
     // /:repo/:tpe/:name
     app = app
-        .route( "/:repo/:tpe/:name", head(file_length::<RepositoryTpeNamePath>))
-        .route( "/:repo/:tpe/:name", get(get_file::<RepositoryTpeNamePath>))
-        .route( "/:repo/:tpe/:name", post(add_file::<RepositoryTpeNamePath>))
-        .route( "/:repo/:tpe/:name", delete(delete_file::<RepositoryTpeNamePath>));
+        .route(
+            "/:repo/:tpe/:name",
+            head(file_length::<RepositoryTpeNamePath>),
+        )
+        .route("/:repo/:tpe/:name", get(get_file::<RepositoryTpeNamePath>))
+        .route("/:repo/:tpe/:name", post(add_file::<RepositoryTpeNamePath>))
+        .route(
+            "/:repo/:tpe/:name",
+            delete(delete_file::<RepositoryTpeNamePath>),
+        );
 
     // -----------------------------------------------
     // Extra logging requested. Handlers will log too

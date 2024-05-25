@@ -11,12 +11,13 @@ This folder contains a few configuration files as an example.
 See also the rustic configurati on, described in:
 https://github.com/rustic-rs/rustic/tree/main/config
 
-
 # Server config file `rustic_server.toml`
+
 This file may have any name, but requires valid toml formatting, as shown below.
 A path to this file can be entered on the command line when starting the server.
 
 File format:
+
 ```
 [server]
 host_dns_name = <ip_address> | <dns hostname>
@@ -43,12 +44,15 @@ append_only = <limit to append, regardless of the ACL file content>
 ```
 
 # Access control list file `acl.toml`
-Using the server configuration file, this file may have any name, but requires 
-valid toml formatting, as shown below. 
 
-A **path** to this file can be entered on the command line when starting the server.
+Using the server configuration file, this file may have any name, but requires
+valid toml formatting, as shown below.
+
+A **path** to this file can be entered on the command line when starting the
+server.
 
 File format:
+
 ```
 [<repository_name>]
 <user> <access_type>
@@ -67,21 +71,21 @@ The `access_type` can have values:
 
 Todo: Describe "default" tag in the file.
 
-
 # user credential file `.htaccess`
+
 This file is formatted as a vanilla `Apache` `.htacces` file.
 
 Using the server configuration file, this file may have any name, but requires
 valid formatting.
 
-A **path** to this file can be entered on the command line when starting the server.
-In that case the file name has to be `.htaccess`.
+A **path** to this file can be entered on the command line when starting the
+server. In that case the file name has to be `.htaccess`.
 
-The server binary allows this file to be created from the command line.
-Execute `rustic_server --help` for details.
-
+The server binary allows this file to be created from the command line. Execute
+`rustic_server --help` for details.
 
 # Configure `rustic_server` from the command line
+
 It is also possible to configure the server from the command line, and skip the
 server configuration file.
 

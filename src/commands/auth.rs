@@ -51,7 +51,7 @@ impl HtAccessCmd {
                 .create(false)
                 .truncate(false)
                 .append(true)
-                .open(&path)
+                .open(path)
             {
                 Ok(_) => {}
                 Err(e) => {
@@ -69,7 +69,7 @@ impl HtAccessCmd {
                 .create(true)
                 .truncate(false)
                 .write(true)
-                .open(&path)
+                .open(path)
             {
                 Ok(_) => {}
                 Err(e) => {
@@ -182,13 +182,16 @@ fn delete(arg: &DelArg) -> Result<()> {
     Ok(())
 }
 
-fn print(arg:&PrintArg) -> Result<()> {
+fn print(arg: &PrintArg) -> Result<()> {
     let ht_access_path = PathBuf::from(&arg.config_path);
     HtAccessCmd::check(&ht_access_path);
     let ht_access = HtAccess::from_file(&ht_access_path)?;
 
     println!("Listing users in the access file for a rustic_server.");
-    println!("\tConfiguration file used: {} ", ht_access_path.to_string_lossy());
+    println!(
+        "\tConfiguration file used: {} ",
+        ht_access_path.to_string_lossy()
+    );
     println!("List:");
     for u in ht_access.users() {
         println!("\t{}", u);
