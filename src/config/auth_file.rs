@@ -61,7 +61,7 @@ impl HtAccess {
         self.insert(cred);
     }
 
-    /// Removes one credential by user name
+    /// Removes one credential by username
     pub fn delete(&mut self, name: &str) {
         self.credentials.remove(name);
     }

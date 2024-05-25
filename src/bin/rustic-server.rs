@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use rustic_server::commands::auth::HtAccessCmd;
 
 use rustic_server::commands::serve::{serve, Opts};
 
@@ -23,8 +24,8 @@ struct RusticServer {
 enum Commands {
     /// Start the REST web-server.
     Serve(Opts),
-    // Modify credentials in the .htaccess file.
-    //Auth(HtAccessCmd),
+    /// Modify credentials in the credential access file.
+    Auth(HtAccessCmd),
     // Create a configuration from scratch.
     //Config,
 }
@@ -37,9 +38,9 @@ enum Commands {
 impl RusticServer {
     pub async fn exec(self) -> Result<()> {
         match self.command {
-            // Commands::Auth(cmd) => {
-            //     cmd.exec()?;
-            // }
+            Commands::Auth(cmd) => {
+                cmd.exec()?;
+            }
             // Commands::Config => {
             //     rustic_server_configuration()?;
             // }
