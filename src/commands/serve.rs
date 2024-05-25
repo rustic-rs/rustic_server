@@ -96,7 +96,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
                         err, opts.path
                     ))
                 })?;
-            let acl = Acl::from_file(opts.append_only, opts.private_repo, None)?;
+            let acl = Acl::from_file(opts.append_only, opts.private_repo, opts.acl)?;
 
             start_web_server(
                 acl,
@@ -119,7 +119,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
 #[command(name = "rustic-server")]
 #[command(bin_name = "rustic-server")]
 pub struct Opts {
-    /// Server configuration file
+    /// Server configuration file; Overrides all other options.
     #[arg(short, long)]
     pub config: Option<String>,
     /// listen address
@@ -131,7 +131,7 @@ pub struct Opts {
     /// disable .htpasswd authentication
     #[arg(long)]
     pub no_auth: bool,
-    /// file to read per-repo ACLs from
+    /// Full path including file name to read from. Governs per-repo ACLs
     #[arg(long)]
     pub acl: Option<PathBuf>,
     /// set standard acl to append only mode
