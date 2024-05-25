@@ -2,9 +2,6 @@ use std::net::SocketAddr;
 
 use axum::{middleware, Router};
 use axum::routing::{delete, get, head, post};
-use axum_extra::routing::{
-    RouterExt, // for `Router::typed_*`
-};
 use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
 use tracing::level_filters::LevelFilter;
@@ -34,7 +31,7 @@ pub(crate) const TPE_KEYS: &str = "keys";
 pub(crate) const TPE_LOCKS: &str = "locks";
 pub(crate) const TPE_SNAPSHOTS: &str = "snapshots";
 pub(crate) const TPE_INDEX: &str = "index";
-pub(crate) const TPE_CONFIG: &str = "config";
+pub(crate) const _TPE_CONFIG: &str = "config";
 pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TPE_INDEX];
 
 pub async fn start_web_server(
@@ -63,9 +60,7 @@ pub async fn start_web_server(
         .route( "/:repo/config", delete(delete_config::<RepositoryConfigPath>));
 
     // /:tpe  --> note: NO trailing slash
-    //app = app
-    //    .route( "/:tpe", get(list_files::<TpePath>));
-
+    // we loop here over explicit types, to prevent the conflict with paths "/:repo/"
     for tpe in TYPES.into_iter() {
         let path = format!("/{}", &tpe);
         app = app.route(path.as_str(), get(list_files::<TpePath>));
@@ -77,12 +72,7 @@ pub async fn start_web_server(
         .route( "/:repo/", delete(delete_repository::<RepositoryPath>));
 
     // /:tpe/:name
-    // app = app
-    //     .route( "/:tpe/:name", head(file_length::<TpeNamePath>))
-    //     .route( "/:tpe/:name", get(get_file::<TpeNamePath>))
-    //     .route( "/:tpe/:name", post(add_file::<TpeNamePath>))
-    //     .route( "/:tpe/:name", delete(delete_file::<TpeNamePath>));
-
+    // we loop here over explicit types, to prevent conflict with paths "/:repo/:tpe"
     for tpe in TYPES.into_iter() {
         let path = format!("/{}:name", &tpe);
         app = app

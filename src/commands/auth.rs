@@ -1,20 +1,13 @@
-use crate::config::auth_config::HtAccess;
-use crate::config::server_config::ServerConfig;
+use crate::config::auth_file::HtAccess;
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
-use inquire::Password;
 use std::fs;
 use std::path::PathBuf;
 use std::process::exit;
-use tide_rustls::rustls::ServerConfig;
 
 #[derive(Parser)]
 #[command()]
 pub struct HtAccessCmd {
-    ///Give the path where the `rustic_server` configuration can be found
-    #[arg(short = 'c')]
-    pub config_path: PathBuf,
-
     #[command(subcommand)]
     command: Commands,
 }
@@ -26,28 +19,18 @@ pub struct HtAccessCmd {
 /// We do so, even if it is not called `.htaccess`.
 impl HtAccessCmd {
     pub fn exec(&self) -> Result<()> {
-        let server_config = ServerConfig::from_file(&self.config_path)?;
-        if server_config.authorization.auth_path.is_none() {
-            println!("The server configuration does not point to an authorization file.");
-            exit(0);
-        }
-
-        let ht_access_path = PathBuf::new().join(server_config.authorization.auth_path.unwrap());
-        HtAccessCmd::check(&ht_access_path);
-
-        let mut ht_access = HtAccess::from_file(&ht_access_path)?;
         match &self.command {
             Commands::Add(arg) => {
-                add(&mut ht_access, arg)?;
+                add(arg)?;
             }
             Commands::Update(arg) => {
-                update(&mut ht_access, arg)?;
+                update(arg)?;
             }
             Commands::Delete(arg) => {
-                delete(&mut ht_access, arg)?;
+                delete(arg)?;
             }
-            Commands::List => {
-                print(&ht_access, &ht_access_path);
+            Commands::List(arg) => {
+                print(arg)?;
             }
         };
         Ok(())
@@ -105,82 +88,111 @@ impl HtAccessCmd {
 #[derive(Subcommand)]
 enum Commands {
     /// Add a new credential to the .htaccess file.
-    /// If the user name already exists it will update the password only.
+    /// If the username already exists it will update the password only.
     Add(AddArg),
     /// Change the password for an existing user.
     Update(AddArg),
     /// Delete an existing credential from the .htaccess file.
     Delete(DelArg),
     /// List all users known in the .htaccess file.
-    List,
+    List(PrintArg),
 }
 
 #[derive(Args)]
 struct AddArg {
+    ///Path to authorization file
+    #[arg(short = 'f')]
+    pub config_path: PathBuf,
     /// Name of the user to be added.
     #[arg(short = 'u')]
     user: String,
+    /// Password.
+    #[arg(short = 'p')]
+    password: String,
 }
 
 #[derive(Args)]
 struct DelArg {
+    ///Path to authorization file
+    #[arg(short = 'f')]
+    pub config_path: PathBuf,
     /// Name of the user to be removed.
     #[arg(short = 'u')]
     user: String,
 }
 
-fn add(hta: &mut HtAccess, arg: &AddArg) -> Result<()> {
-    if hta.users().contains(&arg.user.to_string()) {
+#[derive(Args)]
+struct PrintArg {
+    ///Path to authorization file
+    #[arg(short = 'f')]
+    pub config_path: PathBuf,
+}
+
+fn add(arg: &AddArg) -> Result<()> {
+    let ht_access_path = PathBuf::from(&arg.config_path);
+    HtAccessCmd::check(&ht_access_path);
+    let mut ht_access = HtAccess::from_file(&ht_access_path)?;
+
+    if ht_access.users().contains(&arg.user.to_string()) {
         println!(
-            "Give the password for a user with name {}?",
+            "User '{}' exists; use update to change password. No changes were made.",
             arg.user.as_str()
-        )
-    } else {
-        println!("Creating a new user with name {}?", arg.user.as_str())
-    };
+        );
+        exit(0);
+    }
 
-    let msg = format!("Give a password:");
-    let password = Password::new(&msg)
-        .prompt()
-        .expect("Inquiry.rs: Could not get a password");
+    ht_access.update(arg.user.as_str(), arg.password.as_str());
 
-    hta.update(arg.user.as_str(), password.as_str());
-
-    hta.to_file()?;
+    ht_access.to_file()?;
     Ok(())
 }
 
-fn update(hta: &mut HtAccess, arg: &AddArg) -> Result<()> {
-    if !hta.credentials.contains_key(arg.user.as_str()) {
+fn update(arg: &AddArg) -> Result<()> {
+    let ht_access_path = PathBuf::from(&arg.config_path);
+    HtAccessCmd::check(&ht_access_path);
+    let mut ht_access = HtAccess::from_file(&ht_access_path)?;
+
+    if !ht_access.credentials.contains_key(arg.user.as_str()) {
         println!(
             "I can not find a user with name {}. Use add command?",
             arg.user.as_str()
         );
         exit(0);
     }
-    add(hta, arg)
+    ht_access.update(arg.user.as_str(), arg.password.as_str());
+    ht_access.to_file()?;
+    Ok(())
 }
 
-fn delete(hta: &mut HtAccess, arg: &DelArg) -> Result<()> {
-    if hta.users().contains(&arg.user.to_string()) {
+fn delete(arg: &DelArg) -> Result<()> {
+    let ht_access_path = PathBuf::from(&arg.config_path);
+    HtAccessCmd::check(&ht_access_path);
+    let mut ht_access = HtAccess::from_file(&ht_access_path)?;
+
+    if ht_access.users().contains(&arg.user.to_string()) {
         println!("Deleting user with name {}.", arg.user.as_str());
-        hta.delete(arg.user.as_str());
-        hta.to_file()?;
+        ht_access.delete(arg.user.as_str());
+        ht_access.to_file()?;
     } else {
         println!(
-            "Could not find a user with name {}. No changes made.",
+            "Could not find a user with name {}. No changes were made.",
             arg.user.as_str()
         )
     };
     Ok(())
 }
 
-fn print(hta: &HtAccess, pth: &PathBuf) {
-    println!("Listing users in the .htaccess file for a rustic_server.");
-    println!("\tConfiguration file used: {} ", pth.to_string_lossy());
+fn print(arg:&PrintArg) -> Result<()> {
+    let ht_access_path = PathBuf::from(&arg.config_path);
+    HtAccessCmd::check(&ht_access_path);
+    let ht_access = HtAccess::from_file(&ht_access_path)?;
+
+    println!("Listing users in the access file for a rustic_server.");
+    println!("\tConfiguration file used: {} ", ht_access_path.to_string_lossy());
     println!("List:");
-    for u in hta.users() {
+    for u in ht_access.users() {
         println!("\t{}", u);
     }
     println!("Done.");
+    Ok(())
 }

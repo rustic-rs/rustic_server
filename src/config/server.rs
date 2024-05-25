@@ -106,7 +106,7 @@ mod test {
         let config = ServerConfiguration::from_file(&config_path)?;
 
         assert_eq!(config.server.host_dns_name, "127.0.0.1");
-        assert_eq!(config.repos.storage_path, "./test_data/test_repos/");
+        assert_eq!(config.repos.storage_path, "rustic_server/tests/fixtures/test_data/test_repos/");
         Ok(())
     }
 
@@ -118,6 +118,7 @@ mod test {
         let server = Server {
             host_dns_name: "127.0.0.1".to_string(),
             port: 2222,
+            common_root_path: "".into()
         };
 
         let tls: Option<TLS> = Some(TLS {

@@ -8,4 +8,5 @@
 # Test data created may accidentally be included
 /tests/test_data/test_repos/repo_remove_me
 /tests/test_data/test_repos/repo_remove_me_2
+tests/fixtures/test_data/rustic_server.toml  #often updated with content that should not be archived
 /tmp_test_data

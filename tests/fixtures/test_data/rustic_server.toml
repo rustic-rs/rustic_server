@@ -2,7 +2,8 @@
 host_dns_name = "127.0.0.1"
 port = 8000
 protocol = "http"
-common_root_path = "/home/rvisser/Software/"
+#Adapt to your path to the rustic_server git source repository eg. "/home/rvisser/Software/"
+common_root_path = ""
 
 [repos]
 storage_path = "rustic_server/tests/fixtures/test_data/test_repos/"
