@@ -43,6 +43,7 @@ pub struct Authorization {
 pub struct Server {
     pub host_dns_name: String,
     pub port: usize,
+    pub common_root_path: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

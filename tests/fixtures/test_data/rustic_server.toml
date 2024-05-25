@@ -2,15 +2,16 @@
 host_dns_name = "127.0.0.1"
 port = 8000
 protocol = "http"
+common_root_path = "/home/rvisser/Software/"
 
 [repos]
-storage_path = "./test_data/test_repos/"
+storage_path = "rustic_server/tests/fixtures/test_data/test_repos/"
 
 [authorization]
-auth_path = "/test_data/test_repo/htaccess"
+auth_path = "rustic_server/tests/fixtures/test_data/htaccess"
 use_auth = true
 
 [access_control]
-acl_path = "/test_data/test_repo/acl.toml"
+acl_path = "rustic_server/tests/fixtures/test_data/acl.toml"
 private_repo = true
 append_only = false
