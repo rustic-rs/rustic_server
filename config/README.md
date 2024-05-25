@@ -8,7 +8,7 @@ This folder contains a few configuration files as an example.
 - server configuration (rustic_server.toml)
 - basic http credential authentication (.htaccess)
 
-See also the rustic configurati on, described in:
+See also the rustic configuration, described in:
 https://github.com/rustic-rs/rustic/tree/main/config
 
 # Server config file `rustic_server.toml`
