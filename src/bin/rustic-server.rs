@@ -1,16 +1,53 @@
-use clap::Parser;
-use rustic_server::{acl::Acl, auth::Auth, storage::LocalStorage, web, web::State, Opts};
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+use rustic_server::commands::auth::HtAccessCmd;
 
-#[async_std::main]
-async fn main() -> tide::Result<()> {
-    let opts = Opts::parse();
+use rustic_server::commands::serve::{serve, Opts};
 
-    tide::log::with_level(opts.log);
+#[tokio::main]
+async fn main() -> Result<()> {
+    let cmd = RusticServer::parse();
+    cmd.exec().await?;
+    Ok(())
+}
 
-    let storage = LocalStorage::try_new(&opts.path)?;
-    let auth = Auth::from_file(opts.no_auth, &opts.path.join(".htpasswd"))?;
-    let acl = Acl::from_file(opts.append_only, opts.private_repo, opts.acl)?;
+/// rustic_server
+/// A REST server built in rust for use with rustic and restic.
+#[derive(Parser)]
+#[command(version, bin_name = "rustic_server", disable_help_subcommand = false)]
+struct RusticServer {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-    let new_state = State::new(auth, acl, storage);
-    web::main(new_state, opts.listen, opts.tls, opts.cert, opts.key).await
+#[derive(Subcommand)]
+enum Commands {
+    /// Start the REST web-server.
+    Serve(Opts),
+    /// Modify credentials in the credential access file.
+    Auth(HtAccessCmd),
+    // Create a configuration from scratch.
+    //Config,
+}
+
+/// The server configuration file should point us to the `.htaccess` file.
+/// If not we complain to the user.
+///
+/// To be nice, if the `.htaccess` file pointed to does not exist, then we create it.
+/// We do so, even if it is not called `.htaccess`.
+impl RusticServer {
+    pub async fn exec(self) -> Result<()> {
+        match self.command {
+            Commands::Auth(cmd) => {
+                cmd.exec()?;
+            }
+            // Commands::Config => {
+            //     rustic_server_configuration()?;
+            // }
+            Commands::Serve(opts) => {
+                serve(opts).await?;
+            }
+        }
+        Ok(())
+    }
 }

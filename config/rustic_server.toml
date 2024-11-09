@@ -1,0 +1,15 @@
+[server]
+host_dns_name = "127.0.0.1"
+port = 8000
+
+[repos]
+storage_path = "./test_data/test_repos/"
+
+[authorization]
+auth_path = "/test_data/test_repo/htaccess"
+use_auth = true
+
+[access_control]
+acl_path = "/test_data/test_repo/acl.toml"
+private_repo = true
+append_only = false
