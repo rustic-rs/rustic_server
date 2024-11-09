@@ -2,10 +2,11 @@ name: Continuous Deployment
 
 on:
   workflow_dispatch:
-  schedule:
-    # “At 00:10.”
-    # https://crontab.guru/#10_0_*_*_*
-    - cron: "10 0 * * *"
+  # FIXME: Don't build nightly until we are sure, new impl is correct
+  # schedule:
+  #   # “At 00:10.”
+  #   # https://crontab.guru/#10_0_*_*_*
+  #   - cron: "10 0 * * *"
 
 defaults:
   run:
