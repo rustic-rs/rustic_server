@@ -32,7 +32,7 @@ jobs:
             architecture: x86_64
             binary-postfix: ".exe"
             use-cross: false
-          - os: macos-latest
+          - os: macos-13
             os-name: macos
             target: x86_64-apple-darwin
             architecture: x86_64
@@ -43,7 +43,7 @@ jobs:
             target: aarch64-apple-darwin
             architecture: arm64
             binary-postfix: ""
-            use-cross: true
+            use-cross: false
           - os: ubuntu-latest
             os-name: linux
             target: x86_64-unknown-linux-gnu
@@ -83,7 +83,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0 # fetch all history so that git describe works
       - name: Create binary artifact
