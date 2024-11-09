@@ -3,6 +3,7 @@
 [workspace]
 pr_draft = true
 dependencies_update = true
+git_release_enable = false # disable GitHub/Gitea releases
 # changelog_config = "cliff.toml" # Don't use this for now, as it will override the default changelog config
 
 [changelog]

@@ -22,6 +22,12 @@ pkg-fmt = "tar.gz"
 algorithm = "minisign"
 pubkey = "RWSWSCEJEEacVeCy0va71hlrVtiW8YzMzOyJeso0Bfy/ZXq5OryWi/8T"
 
+[package.metadata.wix]
+upgrade-guid = "EE4ED7D1-CE20-4919-B988-33482C0C3042"
+path-guid = "F5605741-D1CF-45E2-B082-3A71B58C01C8"
+license = false
+eula = false
+
 [dependencies]
 anyhow = "1.0.75"
 async-std = { version = "1", features = ["attributes"] }
@@ -76,3 +82,8 @@ rpath = false
 lto = true
 debug-assertions = false
 codegen-units = 1
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
