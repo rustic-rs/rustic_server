@@ -37,19 +37,18 @@ jobs:
             architecture: x86_64
             binary-postfix: ".exe"
             use-cross: false
-          - os: macos-latest
+          - os: macos-13
             os-name: macos
             target: x86_64-apple-darwin
             architecture: x86_64
             binary-postfix: ""
             use-cross: false
-          # TODO!: This needs a fix, linking fails #6
-          # - os: macos-latest
-          #   os-name: macos
-          #   target: aarch64-apple-darwin
-          #   architecture: arm64
-          #   binary-postfix: ""
-          #   use-cross: true
+          - os: macos-latest
+            os-name: macos
+            target: aarch64-apple-darwin
+            architecture: arm64
+            binary-postfix: ""
+            use-cross: false
           - os: ubuntu-latest
             os-name: linux
             target: x86_64-unknown-linux-gnu
@@ -90,7 +89,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0 # fetch all history so that git describe works
       - name: Create binary artifact
@@ -121,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@f44cd7b40bfd40b6aa1cc1b9b5b7bf03d3c67110 # v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
       - name: Releasing nightly builds
         shell: bash
         run: |
