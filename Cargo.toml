@@ -23,6 +23,12 @@ pkg-fmt = "tar.gz"
 algorithm = "minisign"
 pubkey = "RWSWSCEJEEacVeCy0va71hlrVtiW8YzMzOyJeso0Bfy/ZXq5OryWi/8T"
 
+[package.metadata.wix]
+upgrade-guid = "EE4ED7D1-CE20-4919-B988-33482C0C3042"
+path-guid = "F5605741-D1CF-45E2-B082-3A71B58C01C8"
+license = false
+eula = false
+
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
@@ -54,6 +60,15 @@ toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = "2"
+
+[dev-dependencies]
+base64 = "0.22.1"
+insta = { version = "1.41.1", features = ["redactions", "ron"] }
+rstest = "0.23.0"
+# reqwest = "0.11.18"
+# serial_test = "*"
+serde_json = "*"
+tower = "*"
 
 # see: https://nnethercote.github.io/perf-book/build-configuration.html
 [profile.dev]
@@ -96,11 +111,7 @@ lto = true
 debug-assertions = false
 codegen-units = 1
 
-[dev-dependencies]
-base64 = "0.22.1"
-insta = { version = "1.41.1", features = ["redactions", "ron"] }
-rstest = "0.23.0"
-# reqwest = "0.11.18"
-# serial_test = "*"
-serde_json = "*"
-tower = "*"
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
