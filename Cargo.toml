@@ -70,13 +70,13 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = "2"
 
 [dev-dependencies]
-base64 = "0.22.1"
-insta = { version = "1.41.1", features = ["redactions", "ron"] }
-rstest = "0.23.0"
+base64 = "0.22"
+insta = { version = "1", features = ["redactions", "ron"] }
+rstest = "0.23"
 # reqwest = "0.11.18"
 # serial_test = "*"
-serde_json = "*"
-tower = "*"
+serde_json = "1"
+tower = "0.5"
 
 # see: https://nnethercote.github.io/perf-book/build-configuration.html
 [profile.dev]
