@@ -1,7 +1,7 @@
 [package]
 name = "rustic_server"
 version = "0.1.1-dev"
-authors = ["rustic-rs Maintainers"]
+authors = ["the rustic-rs team"]
 categories = ["command-line-utilities"]
 edition = "2021"
 homepage = "https://rustic.cli.rs/"
