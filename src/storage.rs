@@ -65,6 +65,7 @@ impl LocalStorage {
         })
     }
 }
+
 #[async_trait::async_trait]
 impl Storage for LocalStorage {
     async fn create_dir(&self, path: &Path, tpe: Option<&str>) -> Result<()> {

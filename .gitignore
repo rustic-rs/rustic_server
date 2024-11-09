@@ -10,3 +10,5 @@
 /tests/test_data/test_repos/repo_remove_me_2
 tests/fixtures/test_data/rustic_server.toml  #often updated with content that should not be archived
 /tmp_test_data
+tests/fixtures/test_data/test_repos/test_repo/keys/__add_file_test_adds_this_one__
+tests/fixtures/test_data/test_repos/test_repo/keys/__get_file_test_adds_this_two__

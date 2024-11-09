@@ -1,6 +1,6 @@
 use axum_extra::routing::TypedPath;
 use serde_derive::{Deserialize, Serialize};
-use strum::{AsRefStr, Display, EnumString, EnumVariantNames, IntoStaticStr};
+use strum::{AsRefStr, Display, EnumString, IntoStaticStr, VariantNames};
 
 pub trait PathParts {
     fn parts(&self) -> (Option<String>, Option<TpeKind>, Option<String>) {
@@ -32,7 +32,7 @@ pub trait PathParts {
     Deserialize,
     IntoStaticStr,
     AsRefStr,
-    EnumVariantNames,
+    VariantNames,
     EnumString,
 )]
 #[serde(rename_all = "lowercase")]
