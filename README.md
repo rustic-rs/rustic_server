@@ -2,14 +2,12 @@
 <img src="https://raw.githubusercontent.com/rustic-rs/assets/main/logos/readme_header_server.png" height="400" />
 </p>
 <p align="center"><b>REST server for rustic</b></p>
-
-<!-- <p align="center">
-<a href="https://crates.io/crates/rustic-rs"><img src="https://img.shields.io/crates/v/rustic-rs.svg" /></a>
-<a href="https://docs.rs/rustic-rs/"><img src="https://img.shields.io/docsrs/rustic-rs?style=flat&amp;labelColor=1c1d42&amp;color=4f396a&amp;logo=Rust&amp;logoColor=white" /></a>
-<a href="https://raw.githubusercontent.com/rustic-rs/rustic/main/"><img src="https://img.shields.io/badge/license-Apache2.0/MIT-blue.svg" /></a>
-<a href="https://crates.io/crates/rustic-rs"><img src="https://img.shields.io/crates/d/rustic-rs.svg" /></a>
-<p> -->
-
+<p align="center">
+<a href="https://crates.io/crates/rustic_server"><img src="https://img.shields.io/crates/v/rustic_server.svg" /></a>
+<a href="https://docs.rs/rustic_server/"><img src="https://img.shields.io/docsrs/rustic_server?style=flat&amp;labelColor=1c1d42&amp;color=4f396a&amp;logo=Rust&amp;logoColor=white" /></a>
+<a href="https://github.com/rustic-rs/rustic_server"><img src="https://img.shields.io/badge/license-Apache2.0/MIT-blue.svg" /></a>
+<a href="https://crates.io/crates/rustic_server"><img src="https://img.shields.io/crates/d/rustic_server.svg" /></a>
+<p>
 <p align="center">
 <a href="https://github.com/rustic-rs/rustic_server/actions/workflows/nightly.yml"><img src="https://github.com/rustic-rs/rustic_server/actions/workflows/nightly.yml/badge.svg" /></a>
 <a href="https://www.gnu.org/licenses/agpl.txt"><img src="https://www.gnu.org/graphics/agplv3-88x31.png" height="20"/></a>
