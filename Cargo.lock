@@ -1731,7 +1731,7 @@ dependencies = [
 
 [[package]]
 name = "rustic_server"
-version = "0.1.1-dev"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1762,7 +1762,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
- "tower 0.5.1",
+ "tower 0.4.13",
  "tracing",
  "tracing-subscriber",
  "walkdir",

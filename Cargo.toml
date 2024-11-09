@@ -1,10 +1,18 @@
 [package]
 name = "rustic_server"
-version = "0.1.1-dev"
+version = "0.1.1"
 authors = ["the rustic-rs team"]
 categories = ["command-line-utilities"]
 edition = "2021"
 homepage = "https://rustic.cli.rs/"
+include = [
+  "src/**/*",
+  "config/**/*",
+  "Cargo.toml",
+  "Cargo.lock",
+  "LICENSE",
+  "README.md",
+]
 keywords = ["backup", "restic", "cli", "server"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/rustic-rs/rustic_server"
