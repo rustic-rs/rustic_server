@@ -62,7 +62,7 @@
         Id='*'
         Name='rustic_server'
         UpgradeCode='EE4ED7D1-CE20-4919-B988-33482C0C3042'
-        Manufacturer='Alexander Weiss'
+        Manufacturer='the rustic-rs team'
         Language='1033'
         Codepage='1252'
         Version='$(var.Version)'>
@@ -71,7 +71,7 @@
             Keywords='Installer'
             Description='rustic server - a REST server built in rust to use with rustic and restic.
 '
-            Manufacturer='Alexander Weiss'
+            Manufacturer='the rustic-rs team'
             InstallerVersion='450'
             Languages='1033'
             Compressed='yes'
