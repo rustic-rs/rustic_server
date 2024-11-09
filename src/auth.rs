@@ -112,7 +112,6 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::auth::Auth;
     use crate::test_helpers::{basic_auth_header_value, init_test_environment};
     use anyhow::Result;
     use axum::body::Body;
@@ -121,7 +120,6 @@ mod test {
     use axum::Router;
     use http_body_util::BodyExt;
     use std::env;
-    use std::path::PathBuf;
     use tower::ServiceExt;
 
     #[test]

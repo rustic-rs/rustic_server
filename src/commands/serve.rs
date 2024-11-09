@@ -19,7 +19,7 @@ use crate::{
 pub async fn serve(opts: Opts) -> Result<()> {
     match &opts.config {
         Some(config) => {
-            let config_path = PathBuf::new().join(config);
+            let config_path = PathBuf::from(config);
             let server_config = ServerConfiguration::from_file(&config_path)?;
 
             if let Some(level) = server_config.log_level {
@@ -28,29 +28,54 @@ pub async fn serve(opts: Opts) -> Result<()> {
                 init_tracing();
             }
 
+            let root = server_config.server.common_root_path.clone();
+
             // Repository storage
-            let storage_path = PathBuf::new().join(server_config.repos.storage_path);
+            //-----------------------------------
+            let storage_path = if root.is_empty() {
+                PathBuf::from(server_config.repos.storage_path)
+            } else {
+                assert!(!server_config.repos.storage_path.starts_with('/'));
+                PathBuf::from(root.clone()).join(server_config.repos.storage_path)
+            };
             let storage = LocalStorage::try_new(&storage_path).map_err(|err| {
                 ErrorKind::GeneralStorageError(format!("Could not create storage: {}", err))
             })?;
 
             // Authorization user/password
+            //-----------------------------------
             let auth_config = server_config.authorization;
             let no_auth = !auth_config.use_auth;
             let path = match auth_config.auth_path {
                 None => PathBuf::new(),
-                Some(p) => PathBuf::new().join(p),
+                Some(p) => {
+                    if root.is_empty() {
+                        PathBuf::from(p)
+                    } else {
+                        assert!(!p.starts_with('/'));
+                        PathBuf::from(root.clone()).join(p)
+                    }
+                }
             };
             let auth = Auth::from_file(no_auth, &path).map_err(|err| {
                 ErrorKind::InternalError(format!("Could not read file: {} at {:?}", err, path))
             })?;
 
             // Access control to the repositories
+            //-----------------------------------
             let acl_config = server_config.access_control;
-            let path = acl_config.acl_path.map(|p| PathBuf::new().join(p));
+            let path = acl_config.acl_path.map(|p| {
+                if root.is_empty() {
+                    PathBuf::from(p)
+                } else {
+                    assert!(!p.starts_with('/'));
+                    PathBuf::from(root.clone()).join(p)
+                }
+            });
             let acl = Acl::from_file(acl_config.append_only, acl_config.private_repo, path)?;
 
             // Server definition
+            //-----------------------------------
             let s_addr = server_config.server;
             let s_str = format!("{}:{}", s_addr.host_dns_name, s_addr.port);
             tracing::info!("[serve] Listening on: {}", &s_str);
@@ -71,7 +96,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
                         err, opts.path
                     ))
                 })?;
-            let acl = Acl::from_file(opts.append_only, opts.private_repo, None)?;
+            let acl = Acl::from_file(opts.append_only, opts.private_repo, opts.acl)?;
 
             start_web_server(
                 acl,
@@ -94,7 +119,7 @@ pub async fn serve(opts: Opts) -> Result<()> {
 #[command(name = "rustic-server")]
 #[command(bin_name = "rustic-server")]
 pub struct Opts {
-    /// Server configuration file
+    /// Server configuration file; Overrides all other options.
     #[arg(short, long)]
     pub config: Option<String>,
     /// listen address
@@ -106,7 +131,7 @@ pub struct Opts {
     /// disable .htpasswd authentication
     #[arg(long)]
     pub no_auth: bool,
-    /// file to read per-repo ACLs from
+    /// Full path including file name to read from. Governs per-repo ACLs
     #[arg(long)]
     pub acl: Option<PathBuf>,
     /// set standard acl to append only mode

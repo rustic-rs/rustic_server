@@ -1,11 +1,9 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use displaydoc::Display;
-use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, ErrorKind>;
 
-#[derive(Debug, Error, Display)]
+#[derive(Debug, thiserror::Error, displaydoc::Display)]
 pub enum ErrorKind {
     /// Internal server error: {0}
     InternalError(String),
@@ -61,120 +59,102 @@ pub enum ErrorKind {
 
 impl IntoResponse for ErrorKind {
     fn into_response(self) -> Response {
-        match self {
+        let response = match self {
             ErrorKind::InternalError(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Internal server error: {}", err),
-            )
-                .into_response(),
+            ),
             ErrorKind::BadRequest(err) => (
                 StatusCode::BAD_REQUEST,
                 format!("Internal server error: {}", err),
-            )
-                .into_response(),
+            ),
             ErrorKind::FilenameNotAllowed(filename) => (
                 StatusCode::FORBIDDEN,
                 format!("filename {filename} not allowed"),
-            )
-                .into_response(),
+            ),
             ErrorKind::PathNotAllowed(path) => {
-                (StatusCode::FORBIDDEN, format!("path {path} not allowed")).into_response()
+                (StatusCode::FORBIDDEN, format!("path {path} not allowed"))
             }
             ErrorKind::NonUnicodePath(path) => (
                 StatusCode::BAD_REQUEST,
                 format!("path {path} is not valid unicode"),
-            )
-                .into_response(),
+            ),
             ErrorKind::InvalidPath(path) => {
-                (StatusCode::BAD_REQUEST, format!("path {path} is not valid")).into_response()
+                (StatusCode::BAD_REQUEST, format!("path {path} is not valid"))
             }
             ErrorKind::CreatingDirectoryFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error creating dir: {:?}", err),
-            )
-                .into_response(),
+            ),
             ErrorKind::NotImplemented => (
                 StatusCode::NOT_IMPLEMENTED,
                 "not yet implemented".to_string(),
-            )
-                .into_response(),
+            ),
             ErrorKind::FileNotFound(path) => {
-                (StatusCode::NOT_FOUND, format!("file not found: {path}")).into_response()
+                (StatusCode::NOT_FOUND, format!("file not found: {path}"))
             }
             ErrorKind::GettingFileMetadataFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error getting file metadata: {err}"),
-            )
-                .into_response(),
-            ErrorKind::RangeNotValid => {
-                (StatusCode::BAD_REQUEST, "range not valid".to_string()).into_response()
-            }
+            ),
+            ErrorKind::RangeNotValid => (StatusCode::BAD_REQUEST, "range not valid".to_string()),
             ErrorKind::SeekingFileFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error seeking file".to_string(),
-            )
-                .into_response(),
+            ),
             ErrorKind::MultipartRangeNotImplemented => (
                 StatusCode::NOT_IMPLEMENTED,
                 "multipart range not implemented".to_string(),
-            )
-                .into_response(),
+            ),
             ErrorKind::ConversionToU64Failed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error converting length to u64".to_string(),
-            )
-                .into_response(),
+            ),
             ErrorKind::OpeningFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error opening file: {err}"),
-            )
-                .into_response(),
+            ),
             ErrorKind::WritingToFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error writing file: {err}"),
-            )
-                .into_response(),
+            ),
             ErrorKind::FinalizingFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error finalizing file: {err}"),
-            )
-                .into_response(),
+            ),
             ErrorKind::GettingFileHandleFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error getting file handle".to_string(),
-            )
-                .into_response(),
+            ),
             ErrorKind::RemovingFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error removing file: {err}"),
-            )
-                .into_response(),
+            ),
             ErrorKind::GeneralRange => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string()).into_response()
+                (StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string())
             }
             ErrorKind::ReadingFromStreamFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error reading from stream".to_string(),
-            )
-                .into_response(),
+            ),
             ErrorKind::RemovingRepositoryFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error removing repository folder: {:?}", err),
-            )
-                .into_response(),
-            ErrorKind::AuthenticationHeaderError => {
-                (StatusCode::FORBIDDEN, "Bad authentication header").into_response()
-            }
+            ),
+            ErrorKind::AuthenticationHeaderError => (
+                StatusCode::FORBIDDEN,
+                "Bad authentication header".to_string(),
+            ),
             ErrorKind::UserAuthenticationError(err) => (
                 StatusCode::FORBIDDEN,
                 format!("Failed to authenticate user: {:?}", err),
-            )
-                .into_response(),
+            ),
             ErrorKind::GeneralStorageError(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Storage error: {:?}", err),
-            )
-                .into_response(),
-        }
+            ),
+        };
+
+        response.into_response()
     }
 }
