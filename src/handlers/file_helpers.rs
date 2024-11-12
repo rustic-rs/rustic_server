@@ -4,6 +4,7 @@ use std::{
     io::Result as IoResult,
     path::PathBuf,
     pin::Pin,
+    result::Result,
     task::{Context, Poll},
 };
 
@@ -13,7 +14,7 @@ use tokio::{
     io::AsyncWrite,
 };
 
-use crate::error::{ErrorKind, Result};
+use crate::error::{ApiErrorKind, ApiResult};
 
 // helper struct which is like a async_std|tokio::fs::File but removes the file
 // if finalize() was not called.
@@ -25,11 +26,11 @@ pub struct WriteOrDeleteFile {
 
 #[async_trait::async_trait]
 pub trait Finalizer {
-    async fn finalize(&mut self) -> Result<()>;
+    async fn finalize(&mut self) -> ApiResult<()>;
 }
 
 impl WriteOrDeleteFile {
-    pub async fn new(file_path: PathBuf) -> Result<Self> {
+    pub async fn new(file_path: PathBuf) -> ApiResult<Self> {
         tracing::debug!("[WriteOrDeleteFile] path: {file_path:?}");
         Ok(Self {
             file: OpenOptions::new()
@@ -38,7 +39,7 @@ impl WriteOrDeleteFile {
                 .open(&file_path)
                 .await
                 .map_err(|err| {
-                    ErrorKind::WritingToFileFailed(format!("Could not write to file: {}", err))
+                    ApiErrorKind::WritingToFileFailed(format!("Could not write to file: {}", err))
                 })?,
             path: file_path,
             finalized: false,
@@ -48,9 +49,9 @@ impl WriteOrDeleteFile {
 
 #[async_trait::async_trait]
 impl Finalizer for WriteOrDeleteFile {
-    async fn finalize(&mut self) -> Result<()> {
+    async fn finalize(&mut self) -> ApiResult<()> {
         self.file.sync_all().await.map_err(|err| {
-            ErrorKind::FinalizingFileFailed(format!("Could not sync file: {}", err))
+            ApiErrorKind::FinalizingFileFailed(format!("Could not sync file: {}", err))
         })?;
         self.finalized = true;
         Ok(())
@@ -94,7 +95,7 @@ where
     I: Iterator,
     I::Item: Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {

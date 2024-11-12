@@ -1,4 +1,3 @@
-use std::str::FromStr;
 
 use axum::{
     body::{Body, Bytes},
@@ -7,26 +6,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use http_body_util::BodyExt;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::error::ErrorKind;
-
-pub fn init_tracing() {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "RUSTIC_SERVER_LOG_LEVEL=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-}
-
-pub fn init_trace_from(level: &str) {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::from_str(level).unwrap())
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-}
+use crate::error::ApiErrorKind;
 
 /// router middleware function to print additional information on the request, and response.
 /// Usage:
@@ -35,7 +16,7 @@ pub fn init_trace_from(level: &str) {
 pub async fn print_request_response(
     req: Request,
     next: Next,
-) -> Result<impl IntoResponse, ErrorKind> {
+) -> Result<impl IntoResponse, ApiErrorKind> {
     let (parts, body) = req.into_parts();
     for (k, v) in parts.headers.iter() {
         tracing::debug!("request-header: {k:?} -> {v:?} ");
@@ -56,7 +37,7 @@ pub async fn print_request_response(
     Ok(res)
 }
 
-async fn buffer_and_print<B>(direction: &str, body: B) -> Result<Bytes, ErrorKind>
+async fn buffer_and_print<B>(direction: &str, body: B) -> Result<Bytes, ApiErrorKind>
 where
     B: axum::body::HttpBody<Data = Bytes>,
     B::Error: std::fmt::Display,
@@ -64,7 +45,7 @@ where
     let bytes = match body.collect().await {
         Ok(collected) => collected.to_bytes(),
         Err(err) => {
-            return Err(ErrorKind::BadRequest(format!(
+            return Err(ApiErrorKind::BadRequest(format!(
                 "failed to read {direction} body: {err}"
             )));
         }

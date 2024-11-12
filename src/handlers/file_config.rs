@@ -8,7 +8,7 @@ use crate::typed_path::PathParts;
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
-    error::{ErrorKind, Result},
+    error::{ApiErrorKind, ApiResult},
     handlers::{
         access_check::check_auth_and_acl,
         file_exchange::{check_name, get_save_file, save_body},
@@ -22,10 +22,10 @@ use crate::{
 pub(crate) async fn has_config(
     RepositoryConfigPath { repo }: RepositoryConfigPath,
     auth: AuthFromRequest,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
     tracing::debug!("[has_config] repository path: {repo}, tpe: {tpe}");
-    let path = std::path::Path::new(&repo);
+    let path = Path::new(&repo);
     check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
@@ -33,7 +33,7 @@ pub(crate) async fn has_config(
     if file.exists() {
         Ok(())
     } else {
-        Err(ErrorKind::FileNotFound(repo))
+        Err(ApiErrorKind::FileNotFound(repo))
     }
 }
 
@@ -43,7 +43,7 @@ pub(crate) async fn get_config<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
     let repo = path.repo().unwrap();
     tracing::debug!("[get_config] repository path: {repo}, tpe: {tpe}");
@@ -58,7 +58,7 @@ pub(crate) async fn get_config<P: PathParts>(
 
     let body = KnownSize::file(file)
         .await
-        .map_err(|err| ErrorKind::GettingFileMetadataFailed(format!("{err:?}")))?;
+        .map_err(|err| ApiErrorKind::GettingFileMetadataFailed(format!("{err:?}")))?;
     let range = range.map(|TypedHeader(range)| range);
     Ok(Ranged::new(range, body).into_response())
 }
@@ -69,7 +69,7 @@ pub(crate) async fn add_config<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     request: Request,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
     let repo = path.repo().unwrap();
     tracing::debug!("[add_config] repository path: {repo}, tpe: {tpe}");
@@ -86,7 +86,7 @@ pub(crate) async fn add_config<P: PathParts>(
 pub(crate) async fn delete_config<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
     let repo = path.repo().unwrap();
     tracing::debug!("[delete_config] repository path: {repo}, tpe: {tpe}");
@@ -96,7 +96,10 @@ pub(crate) async fn delete_config<P: PathParts>(
     check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
-    storage.remove_file(path, tpe.into_str(), None).await?;
+    storage
+        .remove_file(path, tpe.into_str(), None)
+        .await
+        .map_err(|err| ApiErrorKind::RemovingFileFailed(format!("{err:?}")))?;
     Ok(())
 }
 

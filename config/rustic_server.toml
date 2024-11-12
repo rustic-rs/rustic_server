@@ -1,15 +1,19 @@
 [server]
-host_dns_name = "127.0.0.1"
-port = 8000
+listen = "127.0.0.1:8000"
 
-[repos]
-storage_path = "./test_data/test_repos/"
+[storage]
+data-dir = "./test_data/test_repos/"
 
-[authorization]
-auth_path = "/test_data/test_repo/htaccess"
-use_auth = true
+[auth]
+auth-path = "/test_data/test_repo/htaccess"
+disable-auth = false
 
-[access_control]
-acl_path = "/test_data/test_repo/acl.toml"
-private_repo = true
-append_only = false
+[acl]
+acl-path = "/test_data/test_repo/acl.toml"
+private-repo = true
+append-only = false
+
+[tls]
+tls = true
+tls-cert = "/test_data/test_repo/cert.pem"
+tls-key = "/test_data/test_repo/key.pem"

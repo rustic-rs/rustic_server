@@ -4,7 +4,7 @@ use axum::{extract::Query, http::StatusCode, response::IntoResponse};
 use serde_derive::Deserialize;
 
 use crate::{
-    acl::AccessType, auth::AuthFromRequest, error::Result,
+    acl::AccessType, auth::AuthFromRequest, error::ApiResult,
     handlers::access_check::check_auth_and_acl, storage::STORAGE, typed_path::TpeKind,
 };
 
@@ -24,7 +24,7 @@ pub(crate) async fn create_repository<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     Query(params): Query<Create>,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     tracing::debug!(
         "[create_repository] repository path: {}",
         path.repo().unwrap()
@@ -63,7 +63,7 @@ pub(crate) async fn create_repository<P: PathParts>(
 pub(crate) async fn delete_repository<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     tracing::debug!(
         "[delete_repository] repository path: {}",
         &path.repo().unwrap()

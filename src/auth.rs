@@ -5,12 +5,12 @@ use axum_auth::AuthBasic;
 use serde_derive::Deserialize;
 use std::sync::OnceLock;
 
-use crate::error::{ErrorKind, Result};
+use crate::error::{ApiErrorKind, ApiResult, AppResult};
 
 //Static storage of our credentials
 pub static AUTH: OnceLock<Auth> = OnceLock::new();
 
-pub(crate) fn init_auth(auth: Auth) -> Result<()> {
+pub(crate) fn init_auth(auth: Auth) -> AppResult<()> {
     let _ = AUTH.get_or_init(|| auth);
     Ok(())
 }
@@ -71,14 +71,11 @@ pub struct AuthFromRequest {
 
 #[async_trait::async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
-    type Rejection = ErrorKind;
+    type Rejection = ApiErrorKind;
 
     // FIXME: We also have a configuration flag do run without authentication
     // This must be handled here too ... otherwise we get an Auth header missing error.
-    async fn from_request_parts(
-        parts: &mut Parts,
-        state: &S,
-    ) -> std::result::Result<Self, ErrorKind> {
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> ApiResult<Self> {
         let checker = AUTH.get().unwrap();
         let auth_result = AuthBasic::from_request_parts(parts, state).await;
         tracing::debug!("Got authentication result ...:{:?}", &auth_result);
@@ -92,7 +89,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
                         _password: password,
                     })
                 } else {
-                    Err(ErrorKind::UserAuthenticationError(user))
+                    Err(ApiErrorKind::UserAuthenticationError(user))
                 }
             }
             Err(_) => {
@@ -103,7 +100,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
                         _password: "".to_string(),
                     });
                 }
-                Err(ErrorKind::AuthenticationHeaderError)
+                Err(ApiErrorKind::AuthenticationHeaderError)
             }
         };
     }
@@ -123,7 +120,7 @@ mod test {
     use tower::ServiceExt;
 
     #[test]
-    fn test_auth_passes() -> Result<()> {
+    fn test_auth_passes() -> AppResult<()> {
         let cwd = env::current_dir()?;
         let htaccess = PathBuf::new()
             .join(cwd)

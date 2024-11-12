@@ -14,7 +14,7 @@ use serde_derive::{Deserialize, Serialize};
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
-    error::Result,
+    error::ApiResult,
     handlers::{access_check::check_auth_and_acl, file_helpers::IteratorAdapter},
     storage::STORAGE,
     typed_path::PathParts,
@@ -36,7 +36,7 @@ pub(crate) async fn list_files<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     headers: HeaderMap,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let (path, tpe, _) = path.parts();
 
     tracing::debug!("[list_files] path: {path:?}, tpe: {tpe:?}");
@@ -56,7 +56,7 @@ pub(crate) async fn list_files<P: PathParts>(
                 RepoPathEntry {
                     name: e.file_name().to_str().unwrap().to_string(),
                     size: e.metadata().unwrap().len(),
-                    // FIXME:  return Err(ErrorKind::GettingFileMetadataFailed.into());
+                    // FIXME:  return Err(WebErrorKind::GettingFileMetadataFailed.into());
                 }
             });
             let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();

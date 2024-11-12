@@ -1,6 +1,7 @@
 use std::{
     io,
     path::{Path, PathBuf},
+    result::Result,
 };
 
 use axum::{body::Bytes, extract::Request, response::IntoResponse, BoxError};
@@ -14,7 +15,7 @@ use tokio_util::io::StreamReader;
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
-    error::{ErrorKind, Result},
+    error::{ApiErrorKind, ApiResult},
     handlers::{access_check::check_auth_and_acl, file_helpers::Finalizer},
     storage::STORAGE,
     typed_path::{PathParts, TpeKind},
@@ -28,14 +29,14 @@ pub(crate) async fn add_file<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     request: Request,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
 
     tracing::debug!("[get_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
     let path_str = path.unwrap_or_default();
 
     //credential & access check executed in get_save_file()
-    let path = std::path::PathBuf::from(&path_str);
+    let path = PathBuf::from(&path_str);
     let file = get_save_file(auth.user, path, tpe, name).await?;
 
     let stream = request.into_body().into_data_stream();
@@ -50,7 +51,7 @@ pub(crate) async fn add_file<P: PathParts>(
 pub(crate) async fn delete_file<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
 
     tracing::debug!("[delete_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
@@ -63,7 +64,7 @@ pub(crate) async fn delete_file<P: PathParts>(
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
     } else {
-        return Err(ErrorKind::InternalError("tpe is not valid".to_string()));
+        return Err(ApiErrorKind::InternalError("tpe is not valid".to_string()));
     };
 
     let storage = STORAGE.get().unwrap();
@@ -79,7 +80,7 @@ pub(crate) async fn get_file<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
 
     tracing::debug!("[get_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
@@ -93,7 +94,7 @@ pub(crate) async fn get_file<P: PathParts>(
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
     } else {
-        return Err(ErrorKind::InternalError("tpe is not valid".to_string()));
+        return Err(ApiErrorKind::InternalError("tpe is not valid".to_string()));
     };
 
     let storage = STORAGE.get().unwrap();
@@ -101,7 +102,7 @@ pub(crate) async fn get_file<P: PathParts>(
 
     let body = KnownSize::file(file)
         .await
-        .map_err(|err| ErrorKind::GettingFileMetadataFailed(format!("{err:?}")))?;
+        .map_err(|err| ApiErrorKind::GettingFileMetadataFailed(format!("{err:?}")))?;
     let range = range.map(|TypedHeader(range)| range);
     Ok(Ranged::new(range, body).into_response())
 }
@@ -117,7 +118,7 @@ pub(crate) async fn get_save_file(
     path: PathBuf,
     tpe: impl Into<Option<TpeKind>>,
     name: Option<String>,
-) -> Result<impl AsyncWrite + Unpin + Finalizer> {
+) -> ApiResult<impl AsyncWrite + Unpin + Finalizer> {
     let tpe = tpe.into();
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
 
@@ -127,7 +128,7 @@ pub(crate) async fn get_save_file(
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
     } else {
-        return Err(ErrorKind::InternalError("tpe is not valid".to_string()));
+        return Err(ApiErrorKind::InternalError("tpe is not valid".to_string()));
     };
 
     let storage = STORAGE.get().unwrap();
@@ -138,9 +139,9 @@ pub(crate) async fn get_save_file(
 pub(crate) async fn save_body<S, E>(
     mut write_stream: impl AsyncWrite + Unpin + Finalizer,
     stream: S,
-) -> Result<impl IntoResponse>
+) -> ApiResult<impl IntoResponse>
 where
-    S: Stream<Item = std::result::Result<Bytes, E>>,
+    S: Stream<Item = Result<Bytes, E>>,
     E: Into<BoxError>,
 {
     // Convert the stream into an `AsyncRead`.
@@ -149,14 +150,13 @@ where
     pin_mut!(body_reader);
     let byte_count = match tokio::io::copy(&mut body_reader, &mut write_stream).await {
         Ok(b) => b,
-        Err(err) => return Err(ErrorKind::FinalizingFileFailed(format!("{:?}", err))),
+        Err(err) => return Err(ApiErrorKind::FinalizingFileFailed(format!("{:?}", err))),
     };
 
     tracing::debug!("[file written] bytes: {byte_count}");
-    write_stream
-        .finalize()
-        .await
-        .map_err(|err| ErrorKind::FinalizingFileFailed(format!("Could not finalize file: {}", err)))
+    write_stream.finalize().await.map_err(|err| {
+        ApiErrorKind::FinalizingFileFailed(format!("Could not finalize file: {}", err))
+    })
 }
 
 #[cfg(test)]
@@ -180,13 +180,13 @@ fn check_string_sha256(name: &str) -> bool {
 pub(crate) fn check_name(
     tpe: impl Into<Option<TpeKind>>,
     name: Option<&str>,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let tpe = tpe.into();
 
     match (tpe, name) {
         (Some(TpeKind::Config), _) => Ok(()),
         (_, Some(name)) if check_string_sha256(name) => Ok(()),
-        _ => Err(ErrorKind::FilenameNotAllowed(
+        _ => Err(ApiErrorKind::FilenameNotAllowed(
             name.unwrap_or_default().to_string(),
         )),
     }

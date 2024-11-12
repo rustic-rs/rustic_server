@@ -9,7 +9,7 @@ use std::{
 use htpasswd_verify::md5::{format_hash, md5_apr1_encode};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
-use crate::error::{ErrorKind, Result};
+use crate::error::{ApiErrorKind, ApiResult};
 
 pub mod constants {
     pub(super) const SALT_LEN: usize = 8;
@@ -22,12 +22,12 @@ pub struct HtAccess {
 }
 
 impl HtAccess {
-    pub fn from_file(pth: &PathBuf) -> Result<HtAccess> {
+    pub fn from_file(pth: &PathBuf) -> ApiResult<HtAccess> {
         let mut c: HashMap<String, Credential> = HashMap::new();
         if pth.exists() {
             read_to_string(pth)
                 .map_err(|err| {
-                    ErrorKind::InternalError(format!(
+                    ApiErrorKind::InternalError(format!(
                         "Could not read HtAccess file: {} at {:?}",
                         err, pth
                     ))
@@ -70,14 +70,14 @@ impl HtAccess {
         self.credentials.insert(cred.name.clone(), cred);
     }
 
-    pub fn to_file(&self) -> Result<()> {
+    pub fn to_file(&self) -> ApiResult<()> {
         let mut file = fs::OpenOptions::new()
             .create(true)
             .truncate(false)
             .write(true)
             .open(&self.path)
             .map_err(|err| {
-                ErrorKind::OpeningFileFailed(format!(
+                ApiErrorKind::OpeningFileFailed(format!(
                     "Could not open HtAccess file: {} at {:?}",
                     err, self.path
                 ))
@@ -85,7 +85,7 @@ impl HtAccess {
 
         for (_n, c) in self.credentials.iter() {
             let _e = file.write(c.to_line().as_bytes()).map_err(|err| {
-                ErrorKind::WritingToFileFailed(format!(
+                ApiErrorKind::WritingToFileFailed(format!(
                     "Could not write to HtAccess file: {} at {:?}",
                     err, self.path
                 ))

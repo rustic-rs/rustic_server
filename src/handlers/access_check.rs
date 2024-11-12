@@ -7,7 +7,7 @@ use strum::VariantNames;
 
 use crate::{
     acl::{AccessType, AclChecker, ACL},
-    error::{ErrorKind, Result},
+    error::{ApiErrorKind, ApiResult},
     typed_path::TpeKind,
 };
 
@@ -16,7 +16,7 @@ pub(crate) fn check_auth_and_acl(
     tpe: impl Into<Option<TpeKind>>,
     path: &Path,
     append: AccessType,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let tpe = tpe.into();
 
     // don't allow paths that includes any of the defined types
@@ -25,7 +25,7 @@ pub(crate) fn check_auth_and_acl(
         if let Some(part) = part.to_str() {
             for tpe_i in TpeKind::VARIANTS.iter() {
                 if &part == tpe_i {
-                    return Err(ErrorKind::PathNotAllowed(path.display().to_string()));
+                    return Err(ApiErrorKind::PathNotAllowed(path.display().to_string()));
                 }
             }
         }
@@ -35,13 +35,13 @@ pub(crate) fn check_auth_and_acl(
     let path = if let Some(path) = path.to_str() {
         path
     } else {
-        return Err(ErrorKind::NonUnicodePath(path.display().to_string()));
+        return Err(ApiErrorKind::NonUnicodePath(path.display().to_string()));
     };
     let allowed = acl.allowed(&user, path, tpe, append);
     tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe:?}, allowed: {allowed}");
 
     match allowed {
         true => Ok(StatusCode::OK),
-        false => Err(ErrorKind::PathNotAllowed(path.to_string())),
+        false => Err(ApiErrorKind::PathNotAllowed(path.to_string())),
     }
 }

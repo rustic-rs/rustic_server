@@ -3,14 +3,14 @@ use std::{collections::HashMap, fs, path::PathBuf, sync::OnceLock};
 use serde_derive::{Deserialize, Serialize};
 
 use crate::{
-    error::{ErrorKind, Result},
+    error::{ApiErrorKind, ApiResult, AppResult},
     typed_path::TpeKind,
 };
 
 //Static storage of our credentials
 pub static ACL: OnceLock<Acl> = OnceLock::new();
 
-pub fn init_acl(acl: Acl) -> Result<()> {
+pub fn init_acl(acl: Acl) -> AppResult<()> {
     let _ = ACL.get_or_init(|| acl);
     Ok(())
 }
@@ -51,9 +51,9 @@ impl Default for Acl {
 
 // read_toml is a helper func that reads the given file in toml
 // into a Hashmap mapping each user to the whole passwd line
-fn read_toml(file_path: &PathBuf) -> Result<HashMap<String, RepoAcl>> {
+fn read_toml(file_path: &PathBuf) -> ApiResult<HashMap<String, RepoAcl>> {
     let s = fs::read_to_string(file_path).map_err(|err| {
-        ErrorKind::InternalError(format!(
+        ApiErrorKind::InternalError(format!(
             "Could not read toml file: {} at {:?}",
             err, file_path
         ))
@@ -62,7 +62,7 @@ fn read_toml(file_path: &PathBuf) -> Result<HashMap<String, RepoAcl>> {
     let s = Box::leak(s.into_boxed_str());
 
     let mut repos: HashMap<String, RepoAcl> = toml::from_str(s)
-        .map_err(|err| ErrorKind::InternalError(format!("Could not parse TOML: {}", err)))?;
+        .map_err(|err| ApiErrorKind::InternalError(format!("Could not parse TOML: {}", err)))?;
     // copy key "default" into ""
     if let Some(default) = repos.get("default") {
         let default = default.clone();
@@ -76,7 +76,7 @@ impl Acl {
         append_only: bool,
         private_repo: bool,
         file_path: Option<PathBuf>,
-    ) -> Result<Self> {
+    ) -> ApiResult<Self> {
         let repos = match file_path {
             Some(file_path) => read_toml(&file_path)?,
             None => HashMap::new(),
@@ -90,17 +90,17 @@ impl Acl {
 
     // The default repo has not been removed from the self.repos list, so we do not need to add here
     // But we still need to remove the ""-tag that was added during the from_file()
-    pub fn to_file(&self, pth: &PathBuf) -> Result<()> {
+    pub fn to_file(&self, pth: &PathBuf) -> ApiResult<()> {
         let mut clone = self.repos.clone();
         clone.remove("");
         let toml_string = toml::to_string(&clone).map_err(|err| {
-            ErrorKind::InternalError(format!(
+            ApiErrorKind::InternalError(format!(
                 "Could not serialize ACL config to TOML value: {}",
                 err
             ))
         })?;
         fs::write(pth, toml_string).map_err(|err| {
-            ErrorKind::WritingToFileFailed(format!("Could not write ACL file: {}", err))
+            ApiErrorKind::WritingToFileFailed(format!("Could not write ACL file: {}", err))
         })?;
         Ok(())
     }

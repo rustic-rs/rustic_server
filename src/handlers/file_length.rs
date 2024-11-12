@@ -6,7 +6,7 @@ use axum_extra::headers::HeaderMap;
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
-    error::{ErrorKind, Result},
+    error::{ApiErrorKind, ApiResult},
     handlers::access_check::check_auth_and_acl,
     storage::STORAGE,
     typed_path::PathParts,
@@ -17,7 +17,7 @@ use crate::{
 pub(crate) async fn file_length<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
 
     tracing::debug!("[length] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
@@ -28,7 +28,7 @@ pub(crate) async fn file_length<P: PathParts>(
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
     } else {
-        return Err(ErrorKind::InternalError("tpe is not valid".to_string()));
+        return Err(ApiErrorKind::InternalError("tpe is not valid".to_string()));
     };
 
     let storage = STORAGE.get().unwrap();
@@ -38,13 +38,13 @@ pub(crate) async fn file_length<P: PathParts>(
         let file = match storage.open_file(path, tpe, name.as_deref()).await {
             Ok(file) => file,
             Err(_) => {
-                return Err(ErrorKind::FileNotFound(path_str));
+                return Err(ApiErrorKind::FileNotFound(path_str));
             }
         };
         let length = match file.metadata().await {
             Ok(meta) => meta.len(),
             Err(err) => {
-                return Err(ErrorKind::GettingFileMetadataFailed(format!(
+                return Err(ApiErrorKind::GettingFileMetadataFailed(format!(
                     "path: {path:?}, tpe: {tpe}, name: {name:?}, err: {err}",
                 )));
             }
@@ -53,7 +53,7 @@ pub(crate) async fn file_length<P: PathParts>(
         headers.insert(header::CONTENT_LENGTH, length.into());
         Ok(headers)
     } else {
-        Err(ErrorKind::FileNotFound(path_str))
+        Err(ApiErrorKind::FileNotFound(path_str))
     };
 
     res

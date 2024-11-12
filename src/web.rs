@@ -10,7 +10,7 @@ use crate::typed_path::{RepositoryConfigPath, RepositoryPath};
 use crate::{
     acl::{init_acl, Acl},
     auth::{init_auth, Auth},
-    error::Result,
+    error::AppResult,
     handlers::{
         file_config::{add_config, delete_config, get_config, has_config},
         file_exchange::{add_file, delete_file, get_file},
@@ -33,6 +33,17 @@ pub(crate) const TPE_INDEX: &str = "index";
 pub(crate) const _TPE_CONFIG: &str = "config";
 pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TPE_INDEX];
 
+/// Start the web server
+///
+/// # Arguments
+///
+/// * `acl` - The ACL configuration
+/// * `auth` - The Auth configuration
+/// * `storage` - The Storage configuration
+/// * `socket_address` - The socket address to bind to
+/// * `tls` - Enable TLS
+/// * `cert` - The certificate file
+/// * `key` - The key file
 pub async fn start_web_server(
     acl: Acl,
     auth: Auth,
@@ -41,7 +52,7 @@ pub async fn start_web_server(
     tls: bool,
     cert: Option<String>,
     key: Option<String>,
-) -> Result<()> {
+) -> AppResult<()> {
     init_acl(acl)?;
     init_auth(auth)?;
     init_storage(storage)?;
