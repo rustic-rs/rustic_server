@@ -1,16 +1,21 @@
 //! `serve` subcommand
 
-use std::path::PathBuf;
+use std::str::FromStr;
+use std::{net::SocketAddr, path::PathBuf};
 
 use abscissa_core::{
-    config::Override, status_err, tracing::debug, Application, Command, FrameworkError, Runnable,
-    Shutdown,
+    config::Override,
+    status_err,
+    tracing::{debug, info},
+    Application, Command, FrameworkError, Runnable, Shutdown,
 };
 use anyhow::Result;
 use clap::Parser;
 use conflate::Merge;
 
 use crate::{
+    acl::Acl,
+    auth::Auth,
     config::{
         AclSettings, ConnectionSettings, HtpasswdSettings, RusticServerConfig, StorageSettings,
         TlsSettings,
@@ -18,6 +23,7 @@ use crate::{
     error::{AppResult, ErrorKind},
     prelude::RUSTIC_SERVER_APP,
     storage::LocalStorage,
+    web::start_web_server,
 };
 
 /// `serve` subcommand
@@ -87,67 +93,39 @@ impl ServeCmd {
 
         debug!("Successfully created storage: {:?}", storage);
 
-        // let auth_config = server_config.authorization;
-        // let no_auth = !auth_config.use_auth;
-        // let path = match auth_config.auth_path {
-        //     None => PathBuf::new(),
-        //     Some(p) => {
-        //         if root.is_empty() {
-        //             PathBuf::from(p)
-        //         } else {
-        //             assert!(!p.starts_with('/'));
-        //             PathBuf::from(root.clone()).join(p)
-        //         }
-        //     }
-        // };
-        // let auth = Auth::from_file(no_auth, &path).map_err(|err| {
-        //     WebErrorKind::InternalError(format!("Could not read file: {} at {:?}", err, path))
-        // })?;
+        let auth = Auth::from_config(&server_config.auth).map_err(|err| {
+            ErrorKind::GeneralStorageError(format!("Could not create `htpasswd` due to {err}",))
+        })?;
 
-        // // Access control to the repositories
-        // //-----------------------------------
-        // let acl_config = server_config.access_control;
-        // let path = acl_config.acl_path.map(|p| {
-        //     if root.is_empty() {
-        //         PathBuf::from(p)
-        //     } else {
-        //         assert!(!p.starts_with('/'));
-        //         PathBuf::from(root.clone()).join(p)
-        //     }
-        // });
-        // let acl = Acl::from_file(acl_config.append_only, acl_config.private_repo, path)?;
+        debug!("Successfully created auth: {:?}", auth);
 
-        // // Server definition
-        // //-----------------------------------
-        // let s_addr = server_config.server;
-        // let s_str = format!("{}:{}", s_addr.host_dns_name, s_addr.port);
-        // tracing::info!("[serve] Listening on: {}", &s_str);
-        // let socket = s_str.to_socket_addrs().unwrap().next().unwrap();
-        // start_web_server(acl, auth, storage, socket, false, None, self.key).await?;
+        let acl = Acl::from_config(&server_config.acl).map_err(|err| {
+            ErrorKind::GeneralStorageError(format!("Could not create ACL due to {err}"))
+        })?;
 
-        // without config
-        // let storage = LocalStorage::try_new(&self.path).map_err(|err| {
-        //     WebErrorKind::GeneralStorageError(format!("Could not create storage: {}", err))
-        // })?;
+        debug!("Successfully created acl: {:?}", acl);
 
-        // let auth = Auth::from_file(self.no_auth, &self.path.join(".htpasswd")).map_err(|err| {
-        //     WebErrorKind::InternalError(format!(
-        //         "Could not read auth file: {} at {:?}",
-        //         err, self.path
-        //     ))
-        // })?;
-        // let acl = Acl::from_file(self.append_only, self.private_repo, self.acl)?;
+        let socket = server_config.server.listen.parse().map_err(|err| {
+            ErrorKind::GeneralStorageError(format!("Could not create socket address: {err}"))
+        })?;
 
-        // start_web_server(
-        //     acl,
-        //     auth,
-        //     storage,
-        //     SocketAddr::from_str(&self.listen).unwrap(),
-        //     false,
-        //     None,
-        //     self.key,
-        // )
-        // .await?;
+        info!("[serve] Starting web server ...");
+
+        let _ = tokio::spawn(async move {
+            tokio::signal::ctrl_c().await.unwrap();
+            info!("[serve] Shutting down ...");
+            RUSTIC_SERVER_APP.shutdown(Shutdown::Graceful);
+        });
+
+        start_web_server(
+            acl,
+            auth,
+            storage,
+            socket,
+            &server_config.tls,
+            &server_config.logging,
+        )
+        .await?;
 
         Ok(())
     }

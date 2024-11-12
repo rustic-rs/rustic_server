@@ -4,7 +4,7 @@
 //! application's configuration file and/or command-line options
 //! for specifying it.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use conflate::Merge;
@@ -24,8 +24,7 @@ pub struct RusticServerConfig {
 
     /// Htpasswd settings
     #[clap(flatten)]
-    #[merge(strategy = conflate::option::overwrite_none)]
-    pub auth: Option<HtpasswdSettings>,
+    pub auth: HtpasswdSettings,
 
     /// Acl Settings
     #[clap(flatten)]
@@ -33,34 +32,32 @@ pub struct RusticServerConfig {
 
     /// Optional TLS Settings
     #[clap(flatten)]
-    #[merge(strategy = conflate::option::overwrite_none)]
-    pub tls: Option<TlsSettings>,
+    pub tls: TlsSettings,
 
     /// Optional Logging settings
     #[clap(flatten)]
-    #[merge(strategy = conflate::option::overwrite_none)]
-    pub logging: Option<LogSettings>,
+    pub logging: LogSettings,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Merge, Parser)]
-#[serde(default, rename_all = "kebab-case")]
+#[serde(deny_unknown_fields, default, rename_all = "kebab-case")]
 pub struct ConnectionSettings {
     /// IP address and port to bind to
-    #[arg(long, default_value = "localhost:8000")]
-    #[merge(strategy = conflate::option::overwrite_none)]
-    pub listen: Option<String>,
+    #[arg(long, default_value = "127.0.0.1:8000")]
+    #[merge(skip)]
+    pub listen: String,
 }
 
 impl Default for ConnectionSettings {
     fn default() -> Self {
         Self {
-            listen: Some("localhost:8000".to_string()),
+            listen: "127.0.0.1:8000".to_string(),
         }
     }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default, Merge, Parser)]
-#[serde(default, rename_all = "kebab-case")]
+#[serde(deny_unknown_fields, default, rename_all = "kebab-case")]
 pub struct LogSettings {
     /// Write HTTP requests in the combined log format to the specified filename
     #[arg(long = "log")]
@@ -69,10 +66,9 @@ pub struct LogSettings {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Merge, Parser)]
-#[serde(default, rename_all = "kebab-case")]
+#[serde(deny_unknown_fields, default, rename_all = "kebab-case")]
 pub struct StorageSettings {
     /// Optional path to the data directory
-    #[serde(rename = "data_dir")]
     #[arg(long = "path", default_value = "/tmp/restic")]
     #[merge(strategy = conflate::option::overwrite_none)]
     pub data_dir: Option<PathBuf>,
@@ -93,7 +89,7 @@ impl Default for StorageSettings {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default, Merge, Parser)]
-#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct TlsSettings {
     /// Enable TLS support
     #[arg(long)]
@@ -114,11 +110,11 @@ pub struct TlsSettings {
 // TODO: This assumes that it makes no sense to have one but not the other
 // So we if acl_path is given, we require the auth_path too.
 #[derive(Clone, Serialize, Deserialize, Debug, Default, Merge, Parser)]
-#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct HtpasswdSettings {
     /// Disable .htpasswd authentication
     #[arg(long = "no-auth")]
-    #[merge(strategy = conflate::bool::overwrite_true)]
+    #[merge(strategy = conflate::bool::overwrite_false)]
     pub disable_auth: bool,
 
     /// Optional location of .htpasswd file (default: "<data directory>/.htpasswd")
@@ -127,10 +123,24 @@ pub struct HtpasswdSettings {
     pub htpasswd_file: Option<PathBuf>,
 }
 
+impl HtpasswdSettings {
+    pub fn htpasswd_file_or_default(&self, data_dir: &Path) -> PathBuf {
+        self.htpasswd_file.clone().unwrap_or_else(|| {
+            let mut path = data_dir.to_path_buf();
+            path.push(".htpasswd");
+            path
+        })
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.disable_auth
+    }
+}
+
 // This assumes that it makes no sense to have one but not the other
 // So we if acl_path is given, we require the auth_path too.
 #[derive(Clone, Serialize, Deserialize, Debug, Default, Merge, Parser)]
-#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct AclSettings {
     /// Full path including file name to read from. Governs per-repo ACLs.
     #[arg(long)]

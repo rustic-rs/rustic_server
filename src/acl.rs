@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs, path::PathBuf, sync::OnceLock};
 use serde_derive::{Deserialize, Serialize};
 
 use crate::{
+    config::AclSettings,
     error::{ApiErrorKind, ApiResult, AppResult},
     typed_path::TpeKind,
 };
@@ -72,7 +73,7 @@ fn read_toml(file_path: &PathBuf) -> ApiResult<HashMap<String, RepoAcl>> {
 }
 
 impl Acl {
-    pub fn from_file(
+    fn from_file(
         append_only: bool,
         private_repo: bool,
         file_path: Option<PathBuf>,
@@ -86,6 +87,11 @@ impl Acl {
             private_repo,
             repos,
         })
+    }
+
+    pub fn from_config(settings: &AclSettings) -> ApiResult<Self> {
+        let path = settings.acl_path.clone();
+        Self::from_file(settings.append_only, settings.private_repo, path)
     }
 
     // The default repo has not been removed from the self.repos list, so we do not need to add here

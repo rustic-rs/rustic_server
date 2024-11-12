@@ -4,13 +4,13 @@ use axum::routing::{delete, get, head, post};
 use axum::{middleware, Router};
 use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
-use tracing::level_filters::LevelFilter;
+use tracing::{info, level_filters::LevelFilter};
 
-use crate::typed_path::{RepositoryConfigPath, RepositoryPath};
 use crate::{
     acl::{init_acl, Acl},
     auth::{init_auth, Auth},
-    error::AppResult,
+    config::LogSettings,
+    error::{AppResult, ErrorKind},
     handlers::{
         file_config::{add_config, delete_config, get_config, has_config},
         file_exchange::{add_file, delete_file, get_file},
@@ -21,6 +21,10 @@ use crate::{
     log::print_request_response,
     storage::{init_storage, Storage},
     typed_path::{RepositoryTpeNamePath, RepositoryTpePath, TpeNamePath, TpePath},
+};
+use crate::{
+    config::TlsSettings,
+    typed_path::{RepositoryConfigPath, RepositoryPath},
 };
 
 // TPE_LOCKS is defined, but outside the types[] array.
@@ -49,9 +53,8 @@ pub async fn start_web_server(
     auth: Auth,
     storage: impl Storage,
     socket_address: SocketAddr,
-    tls: bool,
-    cert: Option<String>,
-    key: Option<String>,
+    tls_opts: &TlsSettings,
+    log_opts: &LogSettings,
 ) -> AppResult<()> {
     init_acl(acl)?;
     init_auth(auth)?;
@@ -111,9 +114,8 @@ pub async fn start_web_server(
             delete(delete_file::<RepositoryTpeNamePath>),
         );
 
-    // -----------------------------------------------
     // Extra logging requested. Handlers will log too
-    // ----------------------------------------------
+    // TODO: Use LogSettings here!
     let level_filter = LevelFilter::current();
     match level_filter {
         LevelFilter::TRACE | LevelFilter::DEBUG | LevelFilter::INFO => {
@@ -122,32 +124,41 @@ pub async fn start_web_server(
         _ => {}
     };
 
-    // -----------------------------------------------
-    // Start server with or without TLS
-    // -----------------------------------------------
-    match tls {
-        false => {
-            println!("rustic_server listening on {}", &socket_address);
-            axum::serve(
-                TcpListener::bind(socket_address).await.unwrap(),
-                app.into_make_service(),
-            )
-            .await
-            .unwrap();
-        }
-        true => {
-            assert!(cert.is_some());
-            assert!(key.is_some());
-            let config = RustlsConfig::from_pem_file(cert.unwrap(), key.unwrap())
-                .await
-                .unwrap();
+    let TlsSettings {
+        tls,
+        tls_cert,
+        tls_key,
+    } = tls_opts;
 
-            println!("rustic_server listening on {}", &socket_address);
-            axum_server::bind_rustls(socket_address, config)
-                .serve(app.into_make_service())
+    // Start server with or without TLS
+    if !tls {
+        info!("[serve] Listening on: http://{}", socket_address);
+
+        axum::serve(
+            TcpListener::bind(socket_address)
                 .await
-                .unwrap();
-        }
+                .expect("Failed to bind to socket. Please make sure the address is correct."),
+            app.into_make_service(),
+        )
+        .await
+        .expect("Failed to start server. Is the address already in use?");
+    } else {
+        let (Some(cert), Some(key)) = (tls_cert.as_ref(), tls_key.as_ref()) else {
+            return Err(ErrorKind::MissingUserInput(
+                "TLS certificate or key not specified".to_string(),
+            ));
+        };
+
+        let config = RustlsConfig::from_pem_file(cert, key)
+            .await
+            .expect("Failed to load TLS certificate/key. Please make sure the paths are correct.");
+
+        info!("[serve] Listening on: https://{}", socket_address);
+
+        axum_server::bind_rustls(socket_address, config)
+            .serve(app.into_make_service())
+            .await
+            .expect("Failed to start server. Is the address already in use?");
     }
     Ok(())
 }

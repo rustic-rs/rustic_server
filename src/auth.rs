@@ -5,7 +5,10 @@ use axum_auth::AuthBasic;
 use serde_derive::Deserialize;
 use std::sync::OnceLock;
 
-use crate::error::{ApiErrorKind, ApiResult, AppResult};
+use crate::{
+    config::HtpasswdSettings,
+    error::{ApiErrorKind, ApiResult, AppResult},
+};
 
 //Static storage of our credentials
 pub static AUTH: OnceLock<Auth> = OnceLock::new();
@@ -40,13 +43,19 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn from_file(no_auth: bool, path: &PathBuf) -> io::Result<Self> {
+    fn from_file(disable_auth: bool, path: &PathBuf) -> io::Result<Self> {
         Ok(Self {
-            users: match no_auth {
-                true => None,
-                false => Some(read_htpasswd(path)?),
+            users: if disable_auth {
+                None
+            } else {
+                Some(read_htpasswd(path)?)
             },
         })
+    }
+
+    pub fn from_config(settings: &HtpasswdSettings) -> io::Result<Self> {
+        let path = settings.htpasswd_file_or_default(&PathBuf::new());
+        Self::from_file(settings.is_disabled(), &path)
     }
 }
 

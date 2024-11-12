@@ -1,18 +1,14 @@
-[server]
-host_dns_name = "127.0.0.1"
-port = 8000
-protocol = "http"
-# Adapt to your path to the rustic_server git source repository eg. "/home/rvisser/Software/"
-common_root_path = ""
+# [server]
+# listen = "127.0.0.1:8000"
 
-[repos]
-storage_path = "rustic_server/tests/fixtures/test_data/test_repos/"
+[storage]
+data-dir = "tests/fixtures/test_data/test_repos/"
 
-[authorization]
-auth_path = "rustic_server/tests/fixtures/test_data/htaccess"
-use_auth = true
+[auth]
+disable-auth = false
+htpasswd-file = "tests/fixtures/test_data/.htaccess"
 
-[access_control]
-acl_path = "rustic_server/tests/fixtures/test_data/acl.toml"
-private_repo = true
-append_only = false
+[acl]
+acl-path = "tests/fixtures/test_data/acl.toml"
+private-repo = true
+append-only = false

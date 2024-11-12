@@ -5,8 +5,8 @@ listen = "127.0.0.1:8000"
 data-dir = "./test_data/test_repos/"
 
 [auth]
-auth-path = "/test_data/test_repo/htaccess"
 disable-auth = false
+htpasswd-file = "/test_data/test_repo/.htaccess"
 
 [acl]
 acl-path = "/test_data/test_repo/acl.toml"
