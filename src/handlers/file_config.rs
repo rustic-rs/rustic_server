@@ -105,28 +105,32 @@ pub(crate) async fn delete_config<P: PathParts>(
 
 #[cfg(test)]
 mod test {
-    use crate::handlers::file_config::{add_config, delete_config, get_config, has_config};
-    use crate::handlers::repository::{create_repository, delete_repository};
-    use crate::log::print_request_response;
-    use crate::test_helpers::{
-        basic_auth_header_value, init_test_environment, request_uri_for_test,
+    use crate::{
+        handlers::{
+            file_config::{add_config, delete_config, get_config, has_config},
+            repository::{create_repository, delete_repository},
+        },
+        log::print_request_response,
+        test_helpers::{
+            basic_auth_header_value, init_test_environment, request_uri_for_test, server_config,
+        },
+        typed_path::{RepositoryConfigPath, RepositoryPath},
     };
-    use crate::typed_path::{RepositoryConfigPath, RepositoryPath};
-    use axum::http::Method;
+
+    use std::{env, fs, path::PathBuf};
+
     use axum::{
         body::Body,
-        http::{Request, StatusCode},
+        http::{Method, Request, StatusCode},
+        middleware, Router,
     };
-    use axum::{middleware, Router};
     use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
-    use std::path::PathBuf;
-    use std::{env, fs};
     use tower::ServiceExt;
 
     #[tokio::test]
     async fn test_fixture_has_config_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // -----------------------
         // NOT CONFIG
@@ -173,7 +177,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_delete_config_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // -----------------------
         //Start with a clean slate

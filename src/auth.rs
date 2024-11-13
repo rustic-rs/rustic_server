@@ -117,17 +117,19 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_helpers::{basic_auth_header_value, init_test_environment};
+
+    use crate::test_helpers::{basic_auth_header_value, init_test_environment, server_config};
+
     use anyhow::Result;
-    use axum::body::Body;
-    use axum::http::{Method, Request, StatusCode};
-    use axum::routing::get;
-    use axum::Router;
+    use axum::{
+        body::Body,
+        http::{Method, Request, StatusCode},
+        routing::get,
+        Router,
+    };
     use http_body_util::BodyExt;
-
-    use tower::ServiceExt;
-
     use rstest::{fixture, rstest};
+    use tower::ServiceExt;
 
     #[fixture]
     fn auth() -> Auth {
@@ -163,7 +165,7 @@ mod test {
     /// The requests which should be returned OK
     #[tokio::test]
     async fn test_authentication_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // -----------------------------------------
         // Try good basic
@@ -217,7 +219,7 @@ mod test {
 
     #[tokio::test]
     async fn test_fail_authentication_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // -----------------------------------------
         // Try wrong password rustic_server

@@ -61,9 +61,9 @@ pub(crate) async fn file_length<P: PathParts>(
 
 #[cfg(test)]
 mod test {
-    use crate::log::print_request_response;
     use crate::test_helpers::{init_test_environment, request_uri_for_test};
     use crate::{handlers::file_length::file_length, typed_path::RepositoryTpeNamePath};
+    use crate::{log::print_request_response, test_helpers::server_config};
     use axum::http::StatusCode;
     use axum::http::{header, Method};
     use axum::{middleware, Router};
@@ -75,7 +75,7 @@ mod test {
 
     #[tokio::test]
     async fn test_get_file_length_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // ----------------------------------
         // File exists

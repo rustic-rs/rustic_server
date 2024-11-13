@@ -90,12 +90,12 @@ pub(crate) async fn list_files<P: PathParts>(
 
 #[cfg(test)]
 mod test {
-    use crate::log::print_request_response;
     use crate::test_helpers::{basic_auth_header_value, init_test_environment};
     use crate::{
         handlers::files_list::{list_files, RepoPathEntry, API_V1, API_V2},
         typed_path::RepositoryTpePath,
     };
+    use crate::{log::print_request_response, test_helpers::server_config};
     use axum::http::header::{ACCEPT, CONTENT_TYPE};
     use axum::{
         body::Body,
@@ -110,7 +110,7 @@ mod test {
 
     #[tokio::test]
     async fn test_get_list_files_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // V1
         let app = Router::new()

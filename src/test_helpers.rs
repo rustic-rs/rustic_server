@@ -62,10 +62,12 @@ fn init_mutex() {
 // test facility for creating a minimum test environment
 // ------------------------------------------------
 
-pub(crate) fn init_test_environment() {
+pub(crate) fn server_config() -> RusticServerConfig {
     let server_config_path = PathBuf::from("tests/fixtures/test_data/rustic_server.toml");
-    let server_config = RusticServerConfig::from_file(&server_config_path).unwrap();
+    RusticServerConfig::from_file(&server_config_path).unwrap()
+}
 
+pub(crate) fn init_test_environment(server_config: RusticServerConfig) {
     init_tracing();
     init_static_htpasswd(server_config.auth);
     init_static_auth(server_config.acl);

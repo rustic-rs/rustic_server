@@ -228,29 +228,21 @@ impl AclChecker for Acl {
 mod tests {
     use super::AccessType::{Append, Modify, Read};
     use super::*;
+    use crate::test_helpers::server_config;
+    use rstest::rstest;
 
     use std::env;
 
-    #[test]
+    #[rstest]
     fn test_static_acl_access_passes() {
-        let cwd = env::current_dir().unwrap();
-        let acl = PathBuf::new()
-            .join(cwd)
-            .join("tests")
-            .join("fixtures")
-            .join("test_data")
-            .join("acl.toml");
-
-        dbg!(&acl);
-
-        let auth = Acl::from_file(false, true, Some(acl)).unwrap();
+        let auth = Acl::from_config(&server_config().acl).unwrap();
         init_acl(auth).unwrap();
 
         let acl = ACL.get().unwrap();
         assert!(&acl.private_repo);
         assert!(!&acl.append_only);
         let access = acl.repos.get("test_repo").unwrap();
-        let access_type = access.get("test").unwrap();
+        let access_type = access.get("restic").unwrap();
         assert_eq!(access_type, &Append);
     }
 
