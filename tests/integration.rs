@@ -11,6 +11,11 @@
 // use predicates::prelude::{predicate, PredicateBooleanExt};
 // use dircmp::Comparison;
 
+// To test:
+//
+// - [ ] 
+// 
+
 // pub fn server_runner() -> Result<Command> {
 //     let password = "test";
 //     let repo_dir = temp_dir.path().join("repo");

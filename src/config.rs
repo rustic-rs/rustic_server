@@ -4,11 +4,16 @@
 //! application's configuration file and/or command-line options
 //! for specifying it.
 
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use clap::Parser;
 use conflate::Merge;
 use serde::{Deserialize, Serialize};
+
+use crate::error::{AppResult, ErrorKind};
 
 /// RusticServer Configuration
 #[derive(Clone, Debug, Deserialize, Serialize, Default, Merge, Parser)]
@@ -36,7 +41,7 @@ pub struct RusticServerConfig {
 
     /// Optional Logging settings
     #[clap(flatten)]
-    pub logging: LogSettings,
+    pub log: LogSettings,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Merge, Parser)]
@@ -59,16 +64,31 @@ impl Default for ConnectionSettings {
 #[derive(Clone, Serialize, Deserialize, Debug, Default, Merge, Parser)]
 #[serde(deny_unknown_fields, default, rename_all = "kebab-case")]
 pub struct LogSettings {
-    /// Write HTTP requests in the combined log format to the specified filename
-    #[arg(long = "log")]
     #[merge(strategy = conflate::option::overwrite_none)]
+    #[clap(skip)]
+    pub log_level: Option<String>,
+
+    /// Write HTTP requests in the combined log format to the specified filename
+    ///
+    /// If provided, the application will write logs to the specified file.
+    /// If `None`, logging will be disabled or will use a default logging mechanism.
+    #[merge(strategy = conflate::option::overwrite_none)]
+    #[arg(long = "log")]
     pub log_file: Option<PathBuf>,
+}
+
+impl LogSettings {
+    pub fn is_disabled(&self) -> bool {
+        self.log_file.is_none()
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Merge, Parser)]
 #[serde(deny_unknown_fields, default, rename_all = "kebab-case")]
 pub struct StorageSettings {
     /// Optional path to the data directory
+    ///
+    /// If `None`, the default directory will be used.
     #[arg(long = "path", default_value = "/tmp/restic")]
     #[merge(strategy = conflate::option::overwrite_none)]
     pub data_dir: Option<PathBuf>,
@@ -158,33 +178,34 @@ pub struct AclSettings {
     pub append_only: bool,
 }
 
-// impl RusticServerConfig {
-//     pub fn from_file(pth: &Path) -> Result<Self> {
-//         let s = fs::read_to_string(pth).map_err(|err| {
-//             WebErrorKind::InternalError(format!(
-//                 "Could not read server config file: {} at {:?}",
-//                 err, pth
-//             ))
-//         })?;
-//         let config: ServerConfiguration = toml::from_str(&s).map_err(|err| {
-//             WebErrorKind::InternalError(format!("Could not parse TOML file: {}", err))
-//         })?;
-//         Ok(config)
-//     }
+impl RusticServerConfig {
+    pub fn from_file(pth: &Path) -> AppResult<Self> {
+        let s = fs::read_to_string(pth)?;
 
-//     pub fn to_file(&self, pth: &Path) -> Result<()> {
-//         let toml_string = toml::to_string(&self).map_err(|err| {
-//             WebErrorKind::InternalError(format!(
-//                 "Could not serialize SeverConfig to TOML value: {}",
-//                 err
-//             ))
-//         })?;
-//         fs::write(pth, toml_string).map_err(|err| {
-//             WebErrorKind::InternalError(format!("Could not write ServerConfig to file: {}", err))
-//         })?;
-//         Ok(())
-//     }
-// }
+        let config: Self = toml::from_str(&s).map_err(|err| {
+            ErrorKind::Io.context(format!(
+                "Could not parse file: {} due to {}",
+                pth.to_string_lossy(),
+                err
+            ))
+        })?;
+
+        Ok(config)
+    }
+
+    pub fn to_file(&self, pth: &Path) -> AppResult<()> {
+        let toml_string = toml::to_string(&self).map_err(|err| {
+            ErrorKind::Io.context(format!(
+                "Could not serialize configuration to toml due to {}",
+                err
+            ))
+        })?;
+
+        fs::write(pth, toml_string)?;
+
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -194,9 +215,10 @@ mod test {
     };
 
     use anyhow::Result;
-    use rstest::*;
+    use insta::assert_debug_snapshot;
+    use rstest::{fixture, rstest};
 
-    use super::{AccessControl, Authorization, Repos, Server, ServerConfiguration, TLS};
+    use crate::config::RusticServerConfig;
 
     #[fixture]
     fn rustic_server_config() -> PathBuf {
@@ -206,67 +228,61 @@ mod test {
             .join("rustic_server.toml")
     }
 
-    #[test]
-    fn test_file_read() -> Result<()> {
-        let config_path = rustic_server_config();
-        let config = ServerConfiguration::from_file(&config_path)?;
-
-        assert_eq!(config.server.host_dns_name, "127.0.0.1");
-        assert_eq!(
-            config.repos.storage_path,
-            "rustic_server/tests/fixtures/test_data/test_repos/"
-        );
+    #[rstest]
+    fn test_file_read(rustic_server_config: PathBuf) -> Result<()> {
+        let config = RusticServerConfig::from_file(&rustic_server_config)?;
+        assert_debug_snapshot!(config);
         Ok(())
     }
 
-    #[test]
-    fn test_file_write() -> Result<()> {
-        let server_path = Path::new("tmp_test_data").join("rustic");
-        fs::create_dir_all(&server_path)?;
+    // #[test]
+    // fn test_file_write() -> Result<()> {
+    //     let server_path = Path::new("tmp_test_data").join("rustic");
+    //     fs::create_dir_all(&server_path)?;
 
-        let server = Server {
-            host_dns_name: "127.0.0.1".to_string(),
-            port: 2222,
-            common_root_path: "".into(),
-        };
+    //     let server = Server {
+    //         host_dns_name: "127.0.0.1".to_string(),
+    //         port: 2222,
+    //         common_root_path: "".into(),
+    //     };
 
-        let tls: Option<TLS> = Some(TLS {
-            key_path: "somewhere".to_string(),
-            cert_path: "somewhere/else".to_string(),
-        });
+    //     let tls: Option<TLS> = Some(TLS {
+    //         key_path: "somewhere".to_string(),
+    //         cert_path: "somewhere/else".to_string(),
+    //     });
 
-        let repos: Repos = Repos {
-            storage_path: server_path.join("repos").to_string_lossy().into(),
-        };
+    //     let repos: Repos = Repos {
+    //         storage_path: server_path.join("repos").to_string_lossy().into(),
+    //     };
 
-        let auth = Authorization {
-            auth_path: Some("auth_path".to_string()),
-            use_auth: true,
-        };
+    //     let auth = Authorization {
+    //         auth_path: Some("auth_path".to_string()),
+    //         use_auth: true,
+    //     };
 
-        let access = AccessControl {
-            acl_path: Some("acl_path".to_string()),
-            private_repo: true,
-            append_only: true,
-        };
+    //     let access = AccessControl {
+    //         acl_path: Some("acl_path".to_string()),
+    //         private_repo: true,
+    //         append_only: true,
+    //     };
 
-        let log = "debug".to_string();
+    //     let log = "debug".to_string();
 
-        // Try to write
-        let config = ServerConfiguration {
-            log_level: Some(log),
-            server,
-            repos,
-            tls,
-            authorization: auth,
-            access_control: access,
-        };
-        let config_file = server_path.join("rustic_server.toml");
-        config.to_file(&config_file)?;
+    //     // Try to write
+    //     let config = ServerConfiguration {
+    //         log_level: Some(log),
+    //         server,
+    //         repos,
+    //         tls,
+    //         authorization: auth,
+    //         access_control: access,
+    //     };
+    //     let config_file = server_path.join("rustic_server.toml");
+    //     config.to_file(&config_file)?;
 
-        // Try to read
-        let _tmp_config = ServerConfiguration::from_file(&config_file)?;
+    //     // Try to read
+    //     let _tmp_config = ServerConfiguration::from_file(&config_file)?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }

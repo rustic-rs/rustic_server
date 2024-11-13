@@ -1,0 +1,39 @@
+---
+source: src/config.rs
+assertion_line: 234
+expression: config
+snapshot_kind: text
+---
+RusticServerConfig {
+    server: ConnectionSettings {
+        listen: "127.0.0.1:8000",
+    },
+    storage: StorageSettings {
+        data_dir: Some(
+            "tests/generated/test_repos/",
+        ),
+        max_size: None,
+    },
+    auth: HtpasswdSettings {
+        disable_auth: false,
+        htpasswd_file: Some(
+            "tests/fixtures/test_data/.htpasswd",
+        ),
+    },
+    acl: AclSettings {
+        acl_path: Some(
+            "tests/fixtures/test_data/acl.toml",
+        ),
+        private_repo: false,
+        append_only: false,
+    },
+    tls: TlsSettings {
+        tls: false,
+        tls_key: None,
+        tls_cert: None,
+    },
+    log: LogSettings {
+        log_level: None,
+        log_file: None,
+    },
+}

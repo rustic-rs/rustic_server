@@ -24,7 +24,7 @@ pub trait AuthChecker: Send + Sync + 'static {
 
 /// read_htpasswd is a helper func that reads the given file in .httpasswd format
 /// into a Hashmap mapping each user to the whole passwd line
-fn read_htpasswd(file_path: &PathBuf) -> io::Result<HashMap<&'static str, &'static str>> {
+fn read_htpasswd(file_path: &PathBuf) -> AppResult<HashMap<&'static str, &'static str>> {
     let s = fs::read_to_string(file_path)?;
     // make the contents static in memory
     let s = Box::leak(s.into_boxed_str());
@@ -43,7 +43,7 @@ pub struct Auth {
 }
 
 impl Auth {
-    fn from_file(disable_auth: bool, path: &PathBuf) -> io::Result<Self> {
+    pub fn from_file(disable_auth: bool, path: &PathBuf) -> AppResult<Self> {
         Ok(Self {
             users: if disable_auth {
                 None
@@ -53,7 +53,7 @@ impl Auth {
         })
     }
 
-    pub fn from_config(settings: &HtpasswdSettings) -> io::Result<Self> {
+    pub fn from_config(settings: &HtpasswdSettings) -> AppResult<Self> {
         let path = settings.htpasswd_file_or_default(&PathBuf::new());
         Self::from_file(settings.is_disabled(), &path)
     }
@@ -86,8 +86,11 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
     // This must be handled here too ... otherwise we get an Auth header missing error.
     async fn from_request_parts(parts: &mut Parts, state: &S) -> ApiResult<Self> {
         let checker = AUTH.get().unwrap();
+
         let auth_result = AuthBasic::from_request_parts(parts, state).await;
-        tracing::debug!("Got authentication result ...:{:?}", &auth_result);
+
+        tracing::debug!("Got authentication result: {auth_result:?}");
+
         return match auth_result {
             Ok(auth) => {
                 let AuthBasic((user, passw)) = auth;
@@ -129,15 +132,15 @@ mod test {
     use tower::ServiceExt;
 
     #[test]
-    fn test_auth_passes() -> AppResult<()> {
+    fn test_auth_passes() -> Result<()> {
         let cwd = env::current_dir()?;
-        let htaccess = PathBuf::new()
+        let htpasswd = PathBuf::new()
             .join(cwd)
             .join("tests")
             .join("fixtures")
             .join("test_data")
-            .join("htaccess");
-        let auth = Auth::from_file(false, &htaccess)?;
+            .join(".htpasswd");
+        let auth = Auth::from_file(false, &htpasswd)?;
         assert!(auth.verify("test", "test_pw"));
         assert!(!auth.verify("test", "__test_pw"));
 
@@ -147,16 +150,16 @@ mod test {
     #[test]
     fn test_auth_from_file_passes() {
         let cwd = env::current_dir().unwrap();
-        let htaccess = PathBuf::new()
+        let htpasswd = PathBuf::new()
             .join(cwd)
             .join("tests")
             .join("fixtures")
             .join("test_data")
-            .join("htaccess");
+            .join(".htpasswd");
 
-        dbg!(&htaccess);
+        dbg!(&htpasswd);
 
-        let auth = Auth::from_file(false, &htaccess).unwrap();
+        let auth = Auth::from_file(false, &htpasswd).unwrap();
         init_auth(auth).unwrap();
 
         let auth = AUTH.get().unwrap();

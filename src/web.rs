@@ -115,9 +115,10 @@ pub async fn start_web_server(
         );
 
     // Extra logging requested. Handlers will log too
-    // TODO: Use LogSettings here!
-    let level_filter = LevelFilter::current();
-    match level_filter {
+    // TODO: Use LogSettings here, this should be set from the cli by `--log`
+    // TODO: and then needs to go to a file
+    // e.g. log_opts.is_disabled() or other checks
+    match LevelFilter::current() {
         LevelFilter::TRACE | LevelFilter::DEBUG | LevelFilter::INFO => {
             app = app.layer(middleware::from_fn(print_request_response));
         }
@@ -144,9 +145,9 @@ pub async fn start_web_server(
         .expect("Failed to start server. Is the address already in use?");
     } else {
         let (Some(cert), Some(key)) = (tls_cert.as_ref(), tls_key.as_ref()) else {
-            return Err(ErrorKind::MissingUserInput(
-                "TLS certificate or key not specified".to_string(),
-            ));
+            return Err(ErrorKind::MissingUserInput
+                .context("TLS certificate or key not specified".to_string())
+                .into());
         };
 
         let config = RustlsConfig::from_pem_file(cert, key)

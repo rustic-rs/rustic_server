@@ -37,7 +37,7 @@ use crate::{
 pub struct ServeCmd {
     /// Server settings
     #[clap(flatten)]
-    config: RusticServerConfig,
+    context: RusticServerConfig,
 }
 
 impl Override<RusticServerConfig> for ServeCmd {
@@ -45,7 +45,7 @@ impl Override<RusticServerConfig> for ServeCmd {
         &self,
         mut config: RusticServerConfig,
     ) -> Result<RusticServerConfig, FrameworkError> {
-        config.merge(self.config.clone());
+        config.merge(self.context.clone());
         Ok(config)
     }
 }
@@ -72,9 +72,9 @@ impl ServeCmd {
         debug!("Successfully loaded configuration: {:?}", server_config);
 
         let Some(data_dir) = &server_config.storage.data_dir else {
-            return Err(ErrorKind::MissingUserInput(
-                "No data directory specified".to_string(),
-            ));
+            return Err(ErrorKind::MissingUserInput
+                .context("No data directory specified".to_string())
+                .into());
         };
 
         debug!("Data directory: {:?}", data_dir);
@@ -83,30 +83,33 @@ impl ServeCmd {
             debug!("Creating data directory: {:?}", data_dir);
 
             std::fs::create_dir_all(&data_dir).map_err(|err| {
-                ErrorKind::GeneralStorageError(format!("Could not create data directory: {}", err))
+                ErrorKind::GeneralStorageError
+                    .context(format!("Could not create data directory: {}", err))
             })?;
         }
 
         let storage = LocalStorage::try_new(&data_dir).map_err(|err| {
-            ErrorKind::GeneralStorageError(format!("Could not create storage: {}", err))
+            ErrorKind::GeneralStorageError.context(format!("Could not create storage: {}", err))
         })?;
 
         debug!("Successfully created storage: {:?}", storage);
 
         let auth = Auth::from_config(&server_config.auth).map_err(|err| {
-            ErrorKind::GeneralStorageError(format!("Could not create `htpasswd` due to {err}",))
+            ErrorKind::GeneralStorageError
+                .context(format!("Could not create `htpasswd` due to {err}",))
         })?;
 
         debug!("Successfully created auth: {:?}", auth);
 
         let acl = Acl::from_config(&server_config.acl).map_err(|err| {
-            ErrorKind::GeneralStorageError(format!("Could not create ACL due to {err}"))
+            ErrorKind::GeneralStorageError.context(format!("Could not create ACL due to {err}"))
         })?;
 
         debug!("Successfully created acl: {:?}", acl);
 
         let socket = server_config.server.listen.parse().map_err(|err| {
-            ErrorKind::GeneralStorageError(format!("Could not create socket address: {err}"))
+            ErrorKind::GeneralStorageError
+                .context(format!("Could not create socket address: {err}"))
         })?;
 
         info!("[serve] Starting web server ...");
@@ -123,7 +126,7 @@ impl ServeCmd {
             storage,
             socket,
             &server_config.tls,
-            &server_config.logging,
+            &server_config.log,
         )
         .await?;
 

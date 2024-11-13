@@ -1,8 +1,11 @@
 [test_repo]
-test = "Append"
+restic = "Append"
 
 [repo_remove_me]
-test = "Modify"
+restic = "Modify"
 
 [repo_remove_me_2]
-test = "Modify"
+restic = "Modify"
+
+# [test]
+# restic = "Modify"

@@ -6,10 +6,10 @@ This folder contains a few configuration files as an example.
 
 - access control list (acl.toml)
 - server configuration (rustic_server.toml)
-- basic http credential authentication (.htaccess)
+- basic http credential authentication (.htpasswd)
 
 See also the rustic configuration, described in:
-https://github.com/rustic-rs/rustic/tree/main/config
+<https://github.com/rustic-rs/rustic/tree/main/config>
 
 # Server config file `rustic_server.toml`
 
@@ -71,15 +71,15 @@ The `access_type` can have values:
 
 Todo: Describe "default" tag in the file.
 
-# user credential file `.htaccess`
+# user credential file `.htpasswd`
 
-This file is formatted as a vanilla `Apache` `.htacces` file.
+This file is formatted as a vanilla `Apache` `.htpasswd` file.
 
 Using the server configuration file, this file may have any name, but requires
 valid formatting.
 
 A **path** to this file can be entered on the command line when starting the
-server. In that case the file name has to be `.htaccess`.
+server. In that case the file name has to be `.htpasswd`.
 
 The server binary allows this file to be created from the command line. Execute
 `rustic_server --help` for details.

@@ -21,12 +21,12 @@ use crate::{
 /// Interface: HEAD {repo}/config
 pub(crate) async fn has_config(
     RepositoryConfigPath { repo }: RepositoryConfigPath,
-    auth: AuthFromRequest,
+    AuthFromRequest { user, .. }: AuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
     tracing::debug!("[has_config] repository path: {repo}, tpe: {tpe}");
     let path = Path::new(&repo);
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+    check_auth_and_acl(user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = storage.filename(path, tpe.into_str(), None);

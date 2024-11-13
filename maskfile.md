@@ -324,13 +324,14 @@ PowerShell:
 Bash:
 
 ```bash
-set -x
-set -e
-set -o pipefail
-
-export RESTIC_REPOSITORY=rest:http://127.0.0.1:8000/test
+export RESTIC_REPOSITORY=rest:http://127.0.0.1:8000/test_repo
 export RESTIC_PASSWORD=restic
+export RESTIC_REST_USERNAME=restic
+export RESTIC_REST_PASSWORD=restic
+
+
 restic init
+restic backup tests/fixtures/test_data/test_repo_source
 ```
 
 PowerShell:
@@ -338,7 +339,10 @@ PowerShell:
 ```powershell
 $env:RESTIC_REPOSITORY = "rest:http://127.0.0.1:8000/test";
 $env:RESTIC_PASSWORD = "restic";
+$env:RESTIC_REST_USERNAME = "restic";
+$env:RESTIC_REST_PASSWORD = "restic";
 restic init
+restic backup tests/fixtures/test_data/test_repo_source
 ```
 
 ## test-server

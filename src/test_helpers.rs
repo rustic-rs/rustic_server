@@ -63,21 +63,21 @@ fn init_mutex() {
 
 pub(crate) fn init_test_environment() {
     init_tracing();
-    init_static_htaccess();
+    init_static_htpasswd();
     init_static_auth();
     init_static_storage();
 }
 
-fn init_static_htaccess() {
+fn init_static_htpasswd() {
     let cwd = env::current_dir().unwrap();
-    let htaccess = PathBuf::new()
+    let htpasswd = PathBuf::new()
         .join(cwd)
         .join("tests")
         .join("fixtures")
         .join("test_data")
-        .join("htaccess");
-    tracing::debug!("[test_init_static_storage] repo: {:?}", &htaccess);
-    let auth = Auth::from_file(false, &htaccess).unwrap();
+        .join(".htpasswd");
+    tracing::debug!("[test_init_static_storage] repo: {:?}", &htpasswd);
+    let auth = Auth::from_file(false, &htpasswd).unwrap();
     init_auth(auth).unwrap();
 }
 

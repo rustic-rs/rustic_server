@@ -10,7 +10,7 @@ use std::{
     result::Result,
 };
 
-pub type AppResult<T> = Result<T, ErrorKind>;
+pub type AppResult<T> = Result<T, Error>;
 pub type ApiResult<T> = Result<T, ApiErrorKind>;
 
 /// Kinds of errors
@@ -25,35 +25,37 @@ pub enum ErrorKind {
     Io,
 
     /// General storage error
-    #[error("storage error: `{0}`")]
-    GeneralStorageError(String),
+    #[error("storage error")]
+    GeneralStorageError,
 
     /// Missing user input
-    #[error("missing user input: `{0}`")]
-    MissingUserInput(String),
+    #[error("missing user input")]
+    MissingUserInput,
 }
 
 #[derive(Debug, thiserror::Error, displaydoc::Display)]
 pub enum ApiErrorKind {
-    /// Internal server error: {0}
+    /// Internal server error: `{0}`
     InternalError(String),
-    /// Bad request: {0}
+    /// Bad request: `{0}`
     BadRequest(String),
-    /// Filename {0} not allowed
+    /// Filename `{0}` not allowed
     FilenameNotAllowed(String),
-    /// Path {0} not allowed
+    /// Path `{0}` is ambiguous with internal types and not allowed
+    AmbiguousPath(String),
+    /// Path `{0}` not allowed
     PathNotAllowed(String),
-    /// Path {0} is not valid
+    /// Path `{0}` is not valid
     InvalidPath(String),
-    /// Path {0} is not valid unicode
+    /// Path `{0}` is not valid unicode
     NonUnicodePath(String),
-    /// Creating directory failed: {0}
+    /// Creating directory failed: `{0}`
     CreatingDirectoryFailed(String),
     /// Not yet implemented
     NotImplemented,
-    /// File not found: {0}
+    /// File not found: `{0}`
     FileNotFound(String),
-    /// Fetting file metadata failed: {0}
+    /// Fetting file metadata failed: `{0}`
     GettingFileMetadataFailed(String),
     /// Range not valid
     RangeNotValid,
@@ -65,25 +67,25 @@ pub enum ApiErrorKind {
     GeneralRange,
     /// Conversion from length to u64 failed
     ConversionToU64Failed,
-    /// Opening file failed: {0}
+    /// Opening file failed: `{0}`
     OpeningFileFailed(String),
-    /// Writing file failed: {0}
+    /// Writing file failed: `{0}`
     WritingToFileFailed(String),
-    /// Finalizing file failed: {0}
+    /// Finalizing file failed: `{0}`
     FinalizingFileFailed(String),
     /// Getting file handle failed
     GettingFileHandleFailed,
-    /// Removing file failed: {0}
+    /// Removing file failed: `{0}`
     RemovingFileFailed(String),
     /// Reading from stream failed
     ReadingFromStreamFailed,
-    /// Removing repository folder failed: {0}
+    /// Removing repository folder failed: `{0}`
     RemovingRepositoryFailed(String),
     /// Bad authentication header
     AuthenticationHeaderError,
-    /// Failed to authenticate user: {0}
+    /// Failed to authenticate user: `{0}`
     UserAuthenticationError(String),
-    /// General Storage error: {0}
+    /// General Storage error: `{0}`
     GeneralStorageError(String),
 }
 
@@ -101,6 +103,10 @@ impl IntoResponse for ApiErrorKind {
             ApiErrorKind::FilenameNotAllowed(filename) => (
                 StatusCode::FORBIDDEN,
                 format!("filename {filename} not allowed"),
+            ),
+            ApiErrorKind::AmbiguousPath(path) => (
+                StatusCode::FORBIDDEN,
+                format!("path {path} is ambiguous with internal types and not allowed"),
             ),
             ApiErrorKind::PathNotAllowed(path) => {
                 (StatusCode::FORBIDDEN, format!("path {path} not allowed"))

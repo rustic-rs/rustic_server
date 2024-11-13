@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use axum::{http::StatusCode, response::IntoResponse};
+use tracing::debug;
 
 // used for using auto-generated TpeKind variant names
 use strum::VariantNames;
@@ -11,11 +12,12 @@ use crate::{
     typed_path::TpeKind,
 };
 
+#[tracing::instrument(skip(tpe))]
 pub(crate) fn check_auth_and_acl(
     user: String,
     tpe: impl Into<Option<TpeKind>>,
     path: &Path,
-    append: AccessType,
+    access_type: AccessType,
 ) -> ApiResult<impl IntoResponse> {
     let tpe = tpe.into();
 
@@ -25,7 +27,8 @@ pub(crate) fn check_auth_and_acl(
         if let Some(part) = part.to_str() {
             for tpe_i in TpeKind::VARIANTS.iter() {
                 if &part == tpe_i {
-                    return Err(ApiErrorKind::PathNotAllowed(path.display().to_string()));
+                    debug!("PathNotAllowed: {:?}", part);
+                    return Err(ApiErrorKind::AmbiguousPath(path.display().to_string()));
                 }
             }
         }
@@ -37,7 +40,7 @@ pub(crate) fn check_auth_and_acl(
     } else {
         return Err(ApiErrorKind::NonUnicodePath(path.display().to_string()));
     };
-    let allowed = acl.allowed(&user, path, tpe, append);
+    let allowed = acl.is_allowed(&user, path, tpe, access_type);
     tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe:?}, allowed: {allowed}");
 
     match allowed {

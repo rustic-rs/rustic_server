@@ -1,4 +1,3 @@
-
 use axum::{
     body::{Body, Bytes},
     extract::Request,
@@ -18,6 +17,9 @@ pub async fn print_request_response(
     next: Next,
 ) -> Result<impl IntoResponse, ApiErrorKind> {
     let (parts, body) = req.into_parts();
+
+    tracing::debug!("request-method: {}", parts.method);
+
     for (k, v) in parts.headers.iter() {
         tracing::debug!("request-header: {k:?} -> {v:?} ");
     }
@@ -33,6 +35,8 @@ pub async fn print_request_response(
     }
     let bytes = buffer_and_print("response", body).await?;
     let res = Response::from_parts(parts, Body::from(bytes));
+
+    tracing::debug!("response-status: {}", res.status());
 
     Ok(res)
 }

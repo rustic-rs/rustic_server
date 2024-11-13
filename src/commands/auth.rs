@@ -6,7 +6,7 @@ use abscissa_core::{status_err, Application, Command, Runnable, Shutdown};
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 
-use crate::{htaccess::HtAccess, prelude::RUSTIC_SERVER_APP};
+use crate::{htpasswd::Htpasswd, prelude::RUSTIC_SERVER_APP};
 
 /// `auth` subcommand
 ///
@@ -33,14 +33,14 @@ impl Runnable for AuthCmd {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Add a new credential to the .htaccess file.
+    /// Add a new credential to the .htpasswd file.
     /// If the username already exists it will update the password only.
     Add(AddArg),
     /// Change the password for an existing user.
     Update(AddArg),
-    /// Delete an existing credential from the .htaccess file.
+    /// Delete an existing credential from the .htpasswd file.
     Delete(DelArg),
-    /// List all users known in the .htaccess file.
+    /// List all users known in the .htpasswd file.
     List(PrintArg),
 }
 
@@ -74,11 +74,11 @@ struct PrintArg {
     pub config_path: PathBuf,
 }
 
-/// The server configuration file should point us to the `.htaccess` file.
+/// The server configuration file should point us to the `.htpasswd` file.
 /// If not we complain to the user.
 ///
-/// To be nice, if the `.htaccess` file pointed to does not exist, then we create it.
-/// We do so, even if it is not called `.htaccess`.
+/// To be nice, if the `.htpasswd` file pointed to does not exist, then we create it.
+/// We do so, even if it is not called `.htpasswd`.
 impl AuthCmd {
     pub fn inner_run(&self) -> Result<()> {
         match &self.command {
@@ -117,7 +117,7 @@ fn check(path: &PathBuf) -> Result<()> {
             .open(path)
         {
             bail!(
-                "No write access to the htaccess file: {} due to {}",
+                "No write access to the htpasswd file: {} due to {}",
                 path.to_string_lossy(),
                 err
             );
@@ -144,7 +144,7 @@ fn check(path: &PathBuf) -> Result<()> {
 fn add(arg: &AddArg) -> Result<()> {
     let ht_access_path = PathBuf::from(&arg.config_path);
     check(&ht_access_path)?;
-    let mut ht_access = HtAccess::from_file(&ht_access_path)?;
+    let mut ht_access = Htpasswd::from_file(&ht_access_path)?;
 
     if ht_access.users().contains(&arg.user.to_string()) {
         bail!(
@@ -162,7 +162,7 @@ fn add(arg: &AddArg) -> Result<()> {
 fn update(arg: &AddArg) -> Result<()> {
     let ht_access_path = PathBuf::from(&arg.config_path);
     check(&ht_access_path)?;
-    let mut ht_access = HtAccess::from_file(&ht_access_path)?;
+    let mut ht_access = Htpasswd::from_file(&ht_access_path)?;
 
     if !ht_access.credentials.contains_key(arg.user.as_str()) {
         bail!(
@@ -178,7 +178,7 @@ fn update(arg: &AddArg) -> Result<()> {
 fn delete(arg: &DelArg) -> Result<()> {
     let ht_access_path = PathBuf::from(&arg.config_path);
     check(&ht_access_path)?;
-    let mut ht_access = HtAccess::from_file(&ht_access_path)?;
+    let mut ht_access = Htpasswd::from_file(&ht_access_path)?;
 
     if ht_access.users().contains(&arg.user.to_string()) {
         println!("Deleting user with name {}.", arg.user.as_str());
@@ -196,7 +196,7 @@ fn delete(arg: &DelArg) -> Result<()> {
 fn print(arg: &PrintArg) -> Result<()> {
     let ht_access_path = PathBuf::from(&arg.config_path);
     check(&ht_access_path)?;
-    let ht_access = HtAccess::from_file(&ht_access_path)?;
+    let ht_access = Htpasswd::from_file(&ht_access_path)?;
 
     println!("Listing users in the access file for a rustic_server.");
     println!(

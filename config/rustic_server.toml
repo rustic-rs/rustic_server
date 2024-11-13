@@ -6,7 +6,7 @@ data-dir = "./test_data/test_repos/"
 
 [auth]
 disable-auth = false
-htpasswd-file = "/test_data/test_repo/.htaccess"
+htpasswd-file = "/test_data/test_repo/.htpasswd"
 
 [acl]
 acl-path = "/test_data/test_repo/acl.toml"
@@ -17,3 +17,7 @@ append-only = false
 tls = true
 tls-cert = "/test_data/test_repo/cert.pem"
 tls-key = "/test_data/test_repo/key.pem"
+
+[log]
+log-level = "info"
+log-file = "/test_data/test_repo/rustic.log"

@@ -16,19 +16,19 @@ pub mod constants {
 }
 
 #[derive(Clone)]
-pub struct HtAccess {
+pub struct Htpasswd {
     pub path: PathBuf,
     pub credentials: HashMap<String, Credential>,
 }
 
-impl HtAccess {
-    pub fn from_file(pth: &PathBuf) -> ApiResult<HtAccess> {
+impl Htpasswd {
+    pub fn from_file(pth: &PathBuf) -> ApiResult<Htpasswd> {
         let mut c: HashMap<String, Credential> = HashMap::new();
         if pth.exists() {
             read_to_string(pth)
                 .map_err(|err| {
                     ApiErrorKind::InternalError(format!(
-                        "Could not read HtAccess file: {} at {:?}",
+                        "Could not read htpasswd file: {} at {:?}",
                         err, pth
                     ))
                 })?
@@ -41,7 +41,7 @@ impl HtAccess {
                     }
                 })
         }
-        Ok(HtAccess {
+        Ok(Htpasswd {
             path: pth.clone(),
             credentials: c,
         })
@@ -78,7 +78,7 @@ impl HtAccess {
             .open(&self.path)
             .map_err(|err| {
                 ApiErrorKind::OpeningFileFailed(format!(
-                    "Could not open HtAccess file: {} at {:?}",
+                    "Could not open htpasswd file: {} at {:?}",
                     err, self.path
                 ))
             })?;
@@ -86,7 +86,7 @@ impl HtAccess {
         for (_n, c) in self.credentials.iter() {
             let _e = file.write(c.to_line().as_bytes()).map_err(|err| {
                 ApiErrorKind::WritingToFileFailed(format!(
-                    "Could not write to HtAccess file: {} at {:?}",
+                    "Could not write to htpasswd file: {} at {:?}",
                     err, self.path
                 ))
             });
@@ -119,8 +119,7 @@ impl Credential {
         }
     }
 
-    /// Returns a credential struct from a htaccess file line
-    /// Of cause without password :-)
+    /// Returns a credential struct from a htpasswd file line
     pub fn from_line(line: String) -> Option<Credential> {
         let spl: Vec<&str> = line.split(':').collect();
         if !spl.is_empty() {
@@ -163,28 +162,26 @@ impl Display for Credential {
 #[cfg(test)]
 mod test {
     use crate::auth::{Auth, AuthChecker};
-    use crate::config::auth_file::HtAccess;
+    use crate::htpasswd::Htpasswd;
     use anyhow::Result;
     use std::fs;
     use std::path::Path;
 
     #[test]
-    fn test_htaccess() -> Result<()> {
-        let htaccess_pth = Path::new("tmp_test_data").join("rustic");
-        fs::create_dir_all(&htaccess_pth).unwrap();
+    fn test_htpasswd() -> Result<()> {
+        let htpasswd_path = Path::new("tests/fixtures/test_data");
+        let htpasswd_file = htpasswd_path.join(".htpasswd");
 
-        let ht_file = htaccess_pth.join("htaccess");
-
-        let mut ht = HtAccess::from_file(&ht_file)?;
+        let mut ht = Htpasswd::from_file(&htpasswd_file)?;
         ht.update("Administrator", "stuff");
         ht.update("backup-user", "its_me");
         ht.to_file()?;
 
-        let ht = HtAccess::from_file(&ht_file)?;
+        let ht = Htpasswd::from_file(&htpasswd_file)?;
         assert!(ht.get("Administrator").is_some());
         assert!(ht.get("backup-user").is_some());
 
-        let auth = Auth::from_file(false, &ht_file).unwrap();
+        let auth = Auth::from_file(false, &htpasswd_file)?;
         assert!(auth.verify("Administrator", "stuff"));
         assert!(auth.verify("backup-user", "its_me"));
 
