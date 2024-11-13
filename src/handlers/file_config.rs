@@ -93,7 +93,7 @@ pub(crate) async fn delete_config<P: PathParts>(
 
     let _ = check_name(tpe, None)?;
     let path = Path::new(&repo);
-    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Write)?;
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
     storage
@@ -118,9 +118,7 @@ mod test {
         http::{Request, StatusCode},
     };
     use axum::{middleware, Router};
-    use axum_extra::routing::{
-        RouterExt, // for `Router::typed_*`
-    };
+    use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
     use std::path::PathBuf;
     use std::{env, fs};
@@ -142,7 +140,7 @@ mod test {
             .method(Method::HEAD)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(Body::empty())
             .unwrap();

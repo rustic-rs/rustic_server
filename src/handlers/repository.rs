@@ -30,7 +30,7 @@ pub(crate) async fn create_repository<P: PathParts>(
         path.repo().unwrap()
     );
     let path = PathBuf::new().join(path.repo().unwrap());
-    let _ = check_auth_and_acl(auth.user, None, &path, AccessType::Write)?;
+    let _ = check_auth_and_acl(auth.user, None, &path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
     match params.create {
@@ -69,7 +69,7 @@ pub(crate) async fn delete_repository<P: PathParts>(
         &path.repo().unwrap()
     );
     let path = PathBuf::new().join(path.repo().unwrap());
-    let _ = check_auth_and_acl(auth.user, None, &path, AccessType::Delete)?;
+    let _ = check_auth_and_acl(auth.user, None, &path, AccessType::Modify)?;
 
     let storage = STORAGE.get().unwrap();
     storage.remove_repository(&path).await?;

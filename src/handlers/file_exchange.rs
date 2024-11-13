@@ -59,7 +59,7 @@ pub(crate) async fn delete_file<P: PathParts>(
     let path = Path::new(&path_str);
 
     let _ = check_name(tpe, name.as_deref())?;
-    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Write)?;
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
 
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
@@ -123,7 +123,7 @@ pub(crate) async fn get_save_file(
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
 
     let _ = check_name(tpe, name.as_deref())?;
-    let _ = check_auth_and_acl(user, tpe, path.as_path(), AccessType::Write)?;
+    let _ = check_auth_and_acl(user, tpe, path.as_path(), AccessType::Append)?;
 
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()

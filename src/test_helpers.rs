@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, sync::Mutex, sync::OnceLock};
+use std::{path::PathBuf, sync::Mutex, sync::OnceLock};
 
 use axum::{
     body::Body,
@@ -10,6 +10,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::{
     acl::{init_acl, Acl},
     auth::{init_auth, Auth},
+    config::{AclSettings, HtpasswdSettings, RusticServerConfig, StorageSettings},
     storage::{init_storage, LocalStorage},
 };
 
@@ -62,48 +63,31 @@ fn init_mutex() {
 // ------------------------------------------------
 
 pub(crate) fn init_test_environment() {
+    let server_config_path = PathBuf::from("tests/fixtures/test_data/rustic_server.toml");
+    let server_config = RusticServerConfig::from_file(&server_config_path).unwrap();
+
     init_tracing();
-    init_static_htpasswd();
-    init_static_auth();
-    init_static_storage();
+    init_static_htpasswd(server_config.auth);
+    init_static_auth(server_config.acl);
+    init_static_storage(server_config.storage);
 }
 
-fn init_static_htpasswd() {
-    let cwd = env::current_dir().unwrap();
-    let htpasswd = PathBuf::new()
-        .join(cwd)
-        .join("tests")
-        .join("fixtures")
-        .join("test_data")
-        .join(".htpasswd");
-    tracing::debug!("[test_init_static_storage] repo: {:?}", &htpasswd);
-    let auth = Auth::from_file(false, &htpasswd).unwrap();
+fn init_static_htpasswd(htpasswd_settings: HtpasswdSettings) {
+    let auth = Auth::from_config(&htpasswd_settings).unwrap();
     init_auth(auth).unwrap();
 }
 
-fn init_static_auth() {
-    let cwd = env::current_dir().unwrap();
-    let acl_path = PathBuf::new()
-        .join(cwd)
-        .join("tests")
-        .join("fixtures")
-        .join("test_data")
-        .join("acl.toml");
-    tracing::debug!("[test_init_static_storage] repo: {:?}", &acl_path);
-    let acl = Acl::from_file(false, true, Some(acl_path)).unwrap();
+fn init_static_auth(acl_settings: AclSettings) {
+    let acl = Acl::from_config(&acl_settings).unwrap();
     init_acl(acl).unwrap();
 }
 
-fn init_static_storage() {
-    let cwd = env::current_dir().unwrap();
-    let repo_path = PathBuf::new()
-        .join(cwd)
-        .join("tests")
-        .join("fixtures")
-        .join("test_data")
-        .join("test_repos");
-    tracing::debug!("[test_init_static_storage] repo: {:?}", &repo_path);
-    let local_storage = LocalStorage::try_new(&repo_path).unwrap();
+fn init_static_storage(storage_settings: StorageSettings) {
+    let data_dir = storage_settings
+        .data_dir
+        .unwrap_or_else(|| PathBuf::from("tests/generated/test_repos/"));
+
+    let local_storage = LocalStorage::try_new(&data_dir).unwrap();
     init_storage(local_storage).unwrap();
 }
 

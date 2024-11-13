@@ -20,6 +20,7 @@
 
 use abscissa_core::testing::prelude::*;
 use once_cell::sync::Lazy;
+use std::io::Read;
 
 /// Executes your application binary via `cargo run`.
 ///
@@ -86,5 +87,15 @@ pub static RUNNER: Lazy<CmdRunner> = Lazy::new(|| CmdRunner::default());
 fn version_no_args() {
     let mut runner = RUNNER.clone();
     let mut cmd = runner.arg("--version").capture_stdout().run();
-    cmd.stdout().expect_regex(r"\A\w+ [\d\.\-]+\z");
+    let mut buf = String::new();
+    let _ = cmd.stdout().read_to_string(&mut buf);
+    if buf.contains(env!("CARGO_PKG_VERSION")) {
+        cmd.wait().unwrap().expect_success();
+    } else {
+        panic!(
+            "Version mismatch: expected {} but got {}",
+            env!("CARGO_PKG_VERSION"),
+            buf
+        );
+    }
 }

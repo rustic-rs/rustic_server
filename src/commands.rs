@@ -104,3 +104,14 @@ impl Configurable<RusticServerConfig> for EntryPoint {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::commands::EntryPoint;
+    use clap::CommandFactory;
+
+    #[test]
+    fn verify_cli() {
+        EntryPoint::command().debug_assert();
+    }
+}

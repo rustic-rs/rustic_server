@@ -1,0 +1,28 @@
+---
+source: src/acl.rs
+expression: acl
+---
+Acl {
+    repos: {
+        "all": RepoAcl(
+            {
+                "bob": Modify,
+                "paul": Read,
+                "sam": Append,
+            },
+        ),
+        "bob": RepoAcl(
+            {
+                "bob": Modify,
+            },
+        ),
+        "sam": RepoAcl(
+            {
+                "bob": Read,
+                "sam": Append,
+            },
+        ),
+    },
+    append_only: true,
+    private_repo: true,
+}
