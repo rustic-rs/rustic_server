@@ -316,3 +316,45 @@ PowerShell:
 [Diagnostics.Process]::Start("mask", "lint").WaitForExit()
 [Diagnostics.Process]::Start("cargo", "test --all-features").WaitForExit()
 ```
+
+## test-restic
+
+> Run a restic test against the server
+
+Bash:
+
+```bash
+set -x
+set -e
+set -o pipefail
+
+export RESTIC_REPOSITORY=rest:http://127.0.0.1:8000/test
+export RESTIC_PASSWORD=restic
+restic init
+```
+
+PowerShell:
+
+```powershell
+$env:RESTIC_REPOSITORY = "rest:http://127.0.0.1:8000/test";
+$env:RESTIC_PASSWORD = "restic";
+restic init
+```
+
+## test-server
+
+> Run our server for testing
+
+Bash:
+
+```bash
+cargo run -- serve -c tests/fixtures/test_data/rustic_server.toml -v
+```
+
+PowerShell:
+
+```powershell
+[Diagnostics.Process]::Start("cargo", "run -- serve -c tests/fixtures/test_data/rustic_server.toml -v").WaitForExit()
+
+```
+<!-- cargo run -- serve -c tests/fixtures/test_data/rustic_server.toml -v -->
