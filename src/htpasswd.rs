@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap},
     fmt::{Display, Formatter},
     fs::{self, read_to_string},
     io::Write,
@@ -9,13 +9,14 @@ use std::{
 use htpasswd_verify::md5::{format_hash, md5_apr1_encode};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
-use crate::error::{ApiErrorKind, ApiResult};
+use crate::error::{ApiErrorKind, ApiResult, AppResult, ErrorKind};
+use abscissa_core::SecretString;
 
 pub mod constants {
     pub(super) const SALT_LEN: usize = 8;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Htpasswd {
     pub path: PathBuf,
     pub credentials: HashMap<String, Credential>,
@@ -37,7 +38,7 @@ impl Htpasswd {
                 .for_each(|line| match Credential::from_line(line) {
                     None => {}
                     Some(cred) => {
-                        c.insert(cred.name.clone(), cred);
+                        let _ = c.insert(cred.name.clone(), cred);
                     }
                 })
         }
@@ -47,27 +48,50 @@ impl Htpasswd {
         })
     }
 
-    pub fn get(&self, name: &str) -> Option<&Credential> {
-        self.credentials.get(name)
-    }
-
     pub fn users(&self) -> Vec<String> {
         self.credentials.keys().cloned().collect()
     }
 
-    /// Update can be used for both new, and existing credentials
-    pub fn update(&mut self, name: &str, pass: &str) {
+    pub fn create(&mut self, name: &str, pass: &str) -> AppResult<()> {
         let cred = Credential::new(name, pass);
-        self.insert(cred);
+
+        let _ = self.insert(cred)?;
+
+        Ok(())
+    }
+
+    pub fn read(&self, name: &str) -> Option<&Credential> {
+        self.credentials.get(name)
+    }
+
+    /// Update can be used for both new, and existing credentials
+    pub fn update(&mut self, name: &str, pass: &str) -> AppResult<()> {
+        let cred = Credential::new(name, pass);
+
+        let _ = self.insert(cred)?;
+
+        Ok(())
     }
 
     /// Removes one credential by username
-    pub fn delete(&mut self, name: &str) {
-        self.credentials.remove(name);
+    pub fn delete(&mut self, name: &str) -> Option<Credential> {
+        self.credentials.remove(name)
     }
 
-    fn insert(&mut self, cred: Credential) {
-        self.credentials.insert(cred.name.clone(), cred);
+    pub fn insert(&mut self, cred: Credential) -> AppResult<Credential> {
+        let result = self.credentials.entry(cred.name.clone());
+
+        match result {
+            Entry::Occupied(mut entry) => Ok(entry.insert(cred)),
+            Entry::Vacant(entry) => {
+                return Err(ErrorKind::Io
+                    .context(format!(
+                        "Entry already exists, could not insert credential: `{}`. Please use update instead.",
+                        entry.key()
+                    ))
+                    .into());
+            }
+        }
     }
 
     pub fn to_file(&self) -> ApiResult<()> {
@@ -95,11 +119,11 @@ impl Htpasswd {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Credential {
     name: String,
     hash_val: Option<String>,
-    pw: Option<String>,
+    pw: Option<SecretString>,
 }
 
 impl Credential {
@@ -153,7 +177,7 @@ impl Display for Credential {
         if self.pw.is_none() {
             writeln!(f, "\tPassword: None")?;
         } else {
-            writeln!(f, "\tPassword: {}", &self.pw.as_ref().unwrap())?;
+            writeln!(f, "\tPassword: {:?}", &self.pw.as_ref().unwrap())?;
         }
         Ok(())
     }
@@ -164,7 +188,8 @@ mod test {
     use crate::auth::{Auth, AuthChecker};
     use crate::htpasswd::Htpasswd;
     use anyhow::Result;
-    use std::fs;
+    use insta::assert_debug_snapshot;
+    
     use std::path::Path;
 
     #[test]
@@ -173,13 +198,13 @@ mod test {
         let htpasswd_file = htpasswd_path.join(".htpasswd");
 
         let mut ht = Htpasswd::from_file(&htpasswd_file)?;
-        ht.update("Administrator", "stuff");
-        ht.update("backup-user", "its_me");
-        ht.to_file()?;
 
-        let ht = Htpasswd::from_file(&htpasswd_file)?;
-        assert!(ht.get("Administrator").is_some());
-        assert!(ht.get("backup-user").is_some());
+        assert_debug_snapshot!(ht);
+
+        let _ = ht.update("Administrator", "stuff");
+        let _ = ht.update("backup-user", "its_me");
+
+        assert_debug_snapshot!(ht);
 
         let auth = Auth::from_file(false, &htpasswd_file)?;
         assert!(auth.verify("Administrator", "stuff"));

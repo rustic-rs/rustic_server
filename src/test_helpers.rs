@@ -45,7 +45,7 @@ pub(crate) fn init_tracing() {
 /// Since we do not need this in production code, it is located in the test code.
 static TRACER: OnceLock<Mutex<usize>> = OnceLock::new();
 fn init_mutex() {
-    TRACER.get_or_init(|| {
+    let _ = TRACER.get_or_init(|| {
         tracing_subscriber::registry()
             .with(
                 tracing_subscriber::EnvFilter::try_from_default_env()

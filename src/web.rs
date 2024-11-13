@@ -54,7 +54,7 @@ pub async fn start_web_server(
     storage: impl Storage,
     socket_address: SocketAddr,
     tls_opts: &TlsSettings,
-    log_opts: &LogSettings,
+    _log_opts: &LogSettings,
 ) -> AppResult<()> {
     init_acl(acl)?;
     init_auth(auth)?;

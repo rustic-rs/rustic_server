@@ -1,5 +1,6 @@
-use std::{collections::HashMap, fs, io, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
+use abscissa_core::SecretString;
 use axum::{extract::FromRequestParts, http::request::Parts};
 use axum_auth::AuthBasic;
 use serde_derive::Deserialize;
@@ -32,7 +33,7 @@ fn read_htpasswd(file_path: &PathBuf) -> AppResult<HashMap<&'static str, &'stati
     let mut user_map = HashMap::new();
     for line in s.lines() {
         let user = line.split(':').collect::<Vec<&str>>()[0];
-        user_map.insert(user, line);
+        let _ = user_map.insert(user, line);
     }
     Ok(user_map)
 }
@@ -72,10 +73,10 @@ impl AuthChecker for Auth {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct AuthFromRequest {
     pub(crate) user: String,
-    pub(crate) _password: String,
+    pub(crate) _password: SecretString,
 }
 
 #[async_trait::async_trait]
@@ -98,7 +99,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
                 if checker.verify(user.as_str(), password.as_str()) {
                     Ok(Self {
                         user,
-                        _password: password,
+                        _password: password.into(),
                     })
                 } else {
                     Err(ApiErrorKind::UserAuthenticationError(user))
@@ -109,7 +110,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
                 if checker.verify("", "") {
                     return Ok(Self {
                         user,
-                        _password: "".to_string(),
+                        _password: "".to_string().into(),
                     });
                 }
                 Err(ApiErrorKind::AuthenticationHeaderError)

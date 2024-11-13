@@ -42,7 +42,7 @@ pub(crate) async fn list_files<P: PathParts>(
     tracing::debug!("[list_files] path: {path:?}, tpe: {tpe:?}");
     let path = path.unwrap_or_default();
     let path = Path::new(&path);
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let read_dir = storage.read_dir(path, tpe.map(|f| f.into()));
@@ -61,7 +61,7 @@ pub(crate) async fn list_files<P: PathParts>(
             });
             let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();
             tracing::debug!("[list_files::dir_content(V2)] {:?}", response.body());
-            response.headers_mut().insert(
+            let _ = response.headers_mut().insert(
                 header::CONTENT_TYPE,
                 header::HeaderValue::from_static(API_V2),
             );
@@ -72,7 +72,7 @@ pub(crate) async fn list_files<P: PathParts>(
         _ => {
             let read_dir_version = read_dir.map(|e| e.file_name().to_str().unwrap().to_string());
             let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();
-            response.headers_mut().insert(
+            let _ = response.headers_mut().insert(
                 header::CONTENT_TYPE,
                 header::HeaderValue::from_static(API_V1),
             );
@@ -81,8 +81,10 @@ pub(crate) async fn list_files<P: PathParts>(
             response
         }
     };
-    res.headers_mut()
+    let _ = res
+        .headers_mut()
         .insert(AUTHORIZATION, headers.get(AUTHORIZATION).unwrap().clone());
+
     Ok(res)
 }
 

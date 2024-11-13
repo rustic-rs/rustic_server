@@ -209,10 +209,7 @@ impl RusticServerConfig {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-    };
+    use std::path::{Path, PathBuf};
 
     use anyhow::Result;
     use insta::assert_debug_snapshot;

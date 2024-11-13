@@ -40,7 +40,7 @@ pub(crate) async fn add_file<P: PathParts>(
     let file = get_save_file(auth.user, path, tpe, name).await?;
 
     let stream = request.into_body().into_data_stream();
-    save_body(file, stream).await?;
+    let _ = save_body(file, stream).await?;
 
     //FIXME: Do we need to check if the file exists here? (For now it seems we should get an error if NOK)
     Ok(())
@@ -58,8 +58,8 @@ pub(crate) async fn delete_file<P: PathParts>(
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
 
-    check_name(tpe, name.as_deref())?;
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
+    let _ = check_name(tpe, name.as_deref())?;
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Write)?;
 
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
@@ -85,11 +85,11 @@ pub(crate) async fn get_file<P: PathParts>(
 
     tracing::debug!("[get_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
 
-    check_name(tpe, name.as_deref())?;
+    let _ = check_name(tpe, name.as_deref())?;
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
 
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
@@ -122,8 +122,8 @@ pub(crate) async fn get_save_file(
     let tpe = tpe.into();
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
 
-    check_name(tpe, name.as_deref())?;
-    check_auth_and_acl(user, tpe, path.as_path(), AccessType::Append)?;
+    let _ = check_name(tpe, name.as_deref())?;
+    let _ = check_auth_and_acl(user, tpe, path.as_path(), AccessType::Write)?;
 
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()

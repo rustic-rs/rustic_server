@@ -23,7 +23,7 @@ pub(crate) async fn file_length<P: PathParts>(
     tracing::debug!("[length] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
     let path_str = path.unwrap_or_default();
     let path = Path::new(&path_str);
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
@@ -50,7 +50,7 @@ pub(crate) async fn file_length<P: PathParts>(
             }
         };
         let mut headers = HeaderMap::new();
-        headers.insert(header::CONTENT_LENGTH, length.into());
+        let _ = headers.insert(header::CONTENT_LENGTH, length.into());
         Ok(headers)
     } else {
         Err(ApiErrorKind::FileNotFound(path_str))

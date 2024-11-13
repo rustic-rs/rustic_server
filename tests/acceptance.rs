@@ -20,7 +20,6 @@
 
 use abscissa_core::testing::prelude::*;
 use once_cell::sync::Lazy;
-use rustic_server::config::RusticServerConfig;
 
 /// Executes your application binary via `cargo run`.
 ///

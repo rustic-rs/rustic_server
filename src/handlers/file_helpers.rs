@@ -18,6 +18,7 @@ use crate::error::{ApiErrorKind, ApiResult};
 
 // helper struct which is like a async_std|tokio::fs::File but removes the file
 // if finalize() was not called.
+#[derive(Debug)]
 pub struct WriteOrDeleteFile {
     file: File,
     path: PathBuf,

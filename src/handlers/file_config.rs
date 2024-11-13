@@ -26,7 +26,7 @@ pub(crate) async fn has_config(
     let tpe = TpeKind::Config;
     tracing::debug!("[has_config] repository path: {repo}, tpe: {tpe}");
     let path = Path::new(&repo);
-    check_auth_and_acl(user, tpe, path, AccessType::Read)?;
+    let _ = check_auth_and_acl(user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = storage.filename(path, tpe.into_str(), None);
@@ -48,10 +48,10 @@ pub(crate) async fn get_config<P: PathParts>(
     let repo = path.repo().unwrap();
     tracing::debug!("[get_config] repository path: {repo}, tpe: {tpe}");
 
-    check_name(tpe, None)?;
+    let _ = check_name(tpe, None)?;
     let path = Path::new(&repo);
 
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
     let file = storage.open_file(path, tpe.into_str(), None).await?;
@@ -77,7 +77,7 @@ pub(crate) async fn add_config<P: PathParts>(
     let file = get_save_file(auth.user, path, tpe, None).await?;
 
     let stream = request.into_body().into_data_stream();
-    save_body(file, stream).await?;
+    let _ = save_body(file, stream).await?;
     Ok(())
 }
 
@@ -91,9 +91,9 @@ pub(crate) async fn delete_config<P: PathParts>(
     let repo = path.repo().unwrap();
     tracing::debug!("[delete_config] repository path: {repo}, tpe: {tpe}");
 
-    check_name(tpe, None)?;
+    let _ = check_name(tpe, None)?;
     let path = Path::new(&repo);
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Append)?;
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Write)?;
 
     let storage = STORAGE.get().unwrap();
     storage

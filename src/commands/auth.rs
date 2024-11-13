@@ -153,7 +153,7 @@ fn add(arg: &AddArg) -> Result<()> {
         );
     }
 
-    ht_access.update(arg.user.as_str(), arg.password.as_str());
+    let _ = ht_access.update(arg.user.as_str(), arg.password.as_str());
 
     ht_access.to_file()?;
     Ok(())
@@ -170,7 +170,7 @@ fn update(arg: &AddArg) -> Result<()> {
             arg.user.as_str()
         );
     }
-    ht_access.update(arg.user.as_str(), arg.password.as_str());
+    let _ = ht_access.update(arg.user.as_str(), arg.password.as_str());
     ht_access.to_file()?;
     Ok(())
 }
@@ -182,7 +182,7 @@ fn delete(arg: &DelArg) -> Result<()> {
 
     if ht_access.users().contains(&arg.user.to_string()) {
         println!("Deleting user with name {}.", arg.user.as_str());
-        ht_access.delete(arg.user.as_str());
+        let _ = ht_access.delete(arg.user.as_str());
         ht_access.to_file()?;
     } else {
         println!(

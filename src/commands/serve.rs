@@ -1,7 +1,5 @@
 //! `serve` subcommand
 
-use std::str::FromStr;
-use std::{net::SocketAddr, path::PathBuf};
 
 use abscissa_core::{
     config::Override,
@@ -16,10 +14,7 @@ use conflate::Merge;
 use crate::{
     acl::Acl,
     auth::Auth,
-    config::{
-        AclSettings, ConnectionSettings, HtpasswdSettings, RusticServerConfig, StorageSettings,
-        TlsSettings,
-    },
+    config::RusticServerConfig,
     error::{AppResult, ErrorKind},
     prelude::RUSTIC_SERVER_APP,
     storage::LocalStorage,

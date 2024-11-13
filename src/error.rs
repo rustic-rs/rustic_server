@@ -14,7 +14,7 @@ pub type AppResult<T> = Result<T, Error>;
 pub type ApiResult<T> = Result<T, ApiErrorKind>;
 
 /// Kinds of errors
-#[derive(Clone, Debug, Eq, thiserror::Error, PartialEq)]
+#[derive(Clone, Debug, Eq, thiserror::Error, PartialEq, Copy)]
 pub enum ErrorKind {
     /// Error in configuration file
     #[error("config error")]
