@@ -10,5 +10,5 @@ htpasswd-file = "tests/fixtures/test_data/.htpasswd"
 
 [acl]
 acl-path = "tests/fixtures/test_data/acl.toml"
-private-repo = false
+private-repo = true
 append-only = false

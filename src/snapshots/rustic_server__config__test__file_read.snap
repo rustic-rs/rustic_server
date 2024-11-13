@@ -22,7 +22,7 @@ RusticServerConfig {
         acl_path: Some(
             "tests/fixtures/test_data/acl.toml",
         ),
-        private_repo: false,
+        private_repo: true,
         append_only: false,
     },
     tls: TlsSettings {
