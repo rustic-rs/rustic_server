@@ -23,20 +23,26 @@ pub(crate) fn init_storage(storage: impl Storage) -> AppResult<()> {
 //#[enum_dispatch(StorageEnum)]
 pub trait Storage: Send + Sync + 'static {
     async fn create_dir(&self, path: &Path, tpe: Option<&str>) -> ApiResult<()>;
+
     fn read_dir(
         &self,
         path: &Path,
         tpe: Option<&str>,
     ) -> Box<dyn Iterator<Item = walkdir::DirEntry>>;
+
     fn filename(&self, path: &Path, tpe: &str, name: Option<&str>) -> PathBuf;
+
     async fn open_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> ApiResult<File>;
+
     async fn create_file(
         &self,
         path: &Path,
         tpe: &str,
         name: Option<&str>,
     ) -> ApiResult<WriteOrDeleteFile>;
+
     async fn remove_file(&self, path: &Path, tpe: &str, name: Option<&str>) -> ApiResult<()>;
+
     async fn remove_repository(&self, path: &Path) -> ApiResult<()>;
 }
 
@@ -110,7 +116,9 @@ impl Storage for LocalStorage {
         let walker = WalkDir::new(path)
             .into_iter()
             .filter_map(walkdir::Result::ok)
+            // FIXME: Why do we filter out directories!?
             .filter(|e| e.file_type().is_file());
+
         Box::new(walker)
     }
 
@@ -160,21 +168,16 @@ impl Storage for LocalStorage {
 
 #[cfg(test)]
 mod test {
-    use crate::storage::{init_storage, LocalStorage, STORAGE};
-    use std::env;
-    use std::path::PathBuf;
+    use crate::{
+        storage::{init_storage, LocalStorage, STORAGE},
+        test_helpers::server_config,
+    };
+    use std::{env, path::PathBuf};
 
     #[test]
     fn test_file_access_passes() {
-        let cwd = env::current_dir().unwrap();
-        let repo_path = PathBuf::new()
-            .join(cwd)
-            .join("tests")
-            .join("fixtures")
-            .join("test_data")
-            .join("test_repos");
-
-        let local_storage = LocalStorage::try_new(&repo_path).unwrap();
+        let local_storage =
+            LocalStorage::try_new(&PathBuf::from("tests/fixtures/test_storage")).unwrap();
         init_storage(local_storage).unwrap();
 
         let storage = STORAGE.get().unwrap();
@@ -185,7 +188,7 @@ mod test {
         let mut found = false;
         for a in c.into_iter() {
             let file_name = a.file_name().to_string_lossy();
-            if file_name == "2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5" {
+            if file_name == "3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295" {
                 found = true;
                 break;
             }
@@ -195,15 +198,8 @@ mod test {
 
     #[tokio::test]
     async fn test_config_access_passes() {
-        let cwd = env::current_dir().unwrap();
-        let repo_path = PathBuf::new()
-            .join(cwd)
-            .join("tests")
-            .join("fixtures")
-            .join("test_data")
-            .join("test_repos");
-
-        let local_storage = LocalStorage::try_new(&repo_path).unwrap();
+        let local_storage =
+            LocalStorage::try_new(&PathBuf::from("tests/fixtures/test_storage")).unwrap();
         init_storage(local_storage).unwrap();
 
         let storage = STORAGE.get().unwrap();

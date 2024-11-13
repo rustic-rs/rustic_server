@@ -10,6 +10,5 @@
 .vscode
 
 # Test data created may accidentally be included
-tests/fixtures/test_data/rustic_server.toml  #often updated with content that should not be archived
 tests/fixtures/rest_server
 tests/generated
