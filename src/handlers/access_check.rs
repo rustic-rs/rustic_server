@@ -12,7 +12,6 @@ use crate::{
     typed_path::TpeKind,
 };
 
-#[tracing::instrument(skip(tpe))]
 pub(crate) fn check_auth_and_acl(
     user: String,
     tpe: impl Into<Option<TpeKind>>,
@@ -41,7 +40,7 @@ pub(crate) fn check_auth_and_acl(
         return Err(ApiErrorKind::NonUnicodePath(path.display().to_string()));
     };
     let allowed = acl.is_allowed(&user, path, tpe, access_type);
-    tracing::debug!("[auth] user: {user}, path: {path}, tpe: {tpe:?}, allowed: {allowed}");
+    tracing::debug!(name: "auth", %user, %path, "type" = ?tpe, allowed);
 
     match allowed {
         true => Ok(StatusCode::OK),

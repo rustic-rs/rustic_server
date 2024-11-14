@@ -18,30 +18,39 @@ pub async fn print_request_response(
 ) -> Result<impl IntoResponse, ApiErrorKind> {
     let (parts, body) = req.into_parts();
 
-    tracing::debug!("request-method: {}", parts.method);
+    let span = tracing::span!(
+        tracing::Level::DEBUG,
+        "request",
+        method = %parts.method,
+        uri = %parts.uri,
+    );
 
-    for (k, v) in parts.headers.iter() {
-        tracing::debug!("request-header: {k:?} -> {v:?} ");
-    }
-    tracing::debug!("request-uri: {}", parts.uri);
-    let bytes = buffer_and_print("request", body).await?;
+    let _enter = span.enter();
+
+    tracing::debug!(headers = ?parts.headers, "[new request]");
+
+    let bytes = buffer_and_print(body).await?;
     let req = Request::from_parts(parts, Body::from(bytes));
 
     let res = next.run(req).await;
-
     let (parts, body) = res.into_parts();
-    for (k, v) in parts.headers.iter() {
-        tracing::debug!("reply-header: {k:?} -> {v:?} ");
-    }
-    let bytes = buffer_and_print("response", body).await?;
-    let res = Response::from_parts(parts, Body::from(bytes));
 
-    tracing::debug!("response-status: {}", res.status());
+    let span = tracing::span!(
+        tracing::Level::DEBUG,
+        "response",
+        headers = ?parts.headers,
+        status = %parts.status,
+    );
+
+    let _enter = span.enter();
+
+    let bytes = buffer_and_print(body).await?;
+    let res = Response::from_parts(parts, Body::from(bytes));
 
     Ok(res)
 }
 
-async fn buffer_and_print<B>(direction: &str, body: B) -> Result<Bytes, ApiErrorKind>
+async fn buffer_and_print<B>(body: B) -> Result<Bytes, ApiErrorKind>
 where
     B: axum::body::HttpBody<Data = Bytes>,
     B::Error: std::fmt::Display,
@@ -50,13 +59,13 @@ where
         Ok(collected) => collected.to_bytes(),
         Err(err) => {
             return Err(ApiErrorKind::BadRequest(format!(
-                "failed to read {direction} body: {err}"
+                "failed to read body: {err}"
             )));
         }
     };
 
     if let Ok(body) = std::str::from_utf8(&bytes) {
-        tracing::debug!("{direction} body = {body:?}");
+        tracing::debug!(body = %body);
     }
 
     Ok(bytes)

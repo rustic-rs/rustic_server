@@ -24,12 +24,17 @@ pub(crate) async fn has_config(
     AuthFromRequest { user, .. }: AuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
-    tracing::debug!("[has_config] repository path: {repo}, tpe: {tpe}");
+
+    tracing::debug!(path = %repo, "type" = %tpe, "[has_config]");
+
     let path = Path::new(&repo);
+
     let _ = check_auth_and_acl(user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
+
     let path_to_storage = storage.filename(path, tpe.into_str(), None);
+
     if path_to_storage.exists() {
         let file = storage.open_file(path, tpe.into_str(), None).await?;
         let length = file
