@@ -2,7 +2,7 @@
 # listen = "127.0.0.1:8000"
 
 [storage]
-data-dir = "tests/generated/test_repos/"
+data-dir = "tests/generated/test_storage/"
 
 [auth]
 disable-auth = false

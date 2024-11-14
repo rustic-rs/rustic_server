@@ -8,7 +8,7 @@ RusticServerConfig {
     },
     storage: StorageSettings {
         data_dir: Some(
-            "tests/generated/test_repos/",
+            "tests/generated/test_storage/",
         ),
         max_size: None,
     },

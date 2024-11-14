@@ -11,4 +11,5 @@
 
 # Test data created may accidentally be included
 tests/fixtures/rest_server
-tests/generated
+repo_remove_me*
+__*

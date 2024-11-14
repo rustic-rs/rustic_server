@@ -174,7 +174,7 @@ mod test {
     #[test]
     fn test_file_access_passes() {
         let local_storage =
-            LocalStorage::try_new(&PathBuf::from("tests/fixtures/test_storage")).unwrap();
+            LocalStorage::try_new(&PathBuf::from("tests/generated/test_storage")).unwrap();
         init_storage(local_storage).unwrap();
 
         let storage = STORAGE.get().unwrap();
@@ -196,7 +196,7 @@ mod test {
     #[tokio::test]
     async fn test_config_access_passes() {
         let local_storage =
-            LocalStorage::try_new(&PathBuf::from("tests/fixtures/test_storage")).unwrap();
+            LocalStorage::try_new(&PathBuf::from("tests/generated/test_storage")).unwrap();
         init_storage(local_storage).unwrap();
 
         let storage = STORAGE.get().unwrap();

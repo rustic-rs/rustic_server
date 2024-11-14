@@ -83,8 +83,6 @@ pub(crate) async fn list_files<P: PathParts>(
 
     let read_dir = storage.read_dir(path, tpe.map(|f| f.into()));
 
-    let api_version = ApiVersionKind::V2.to_static_str();
-
     let mut res = match headers
         .get(header::ACCEPT)
         .and_then(|header| header.to_str().ok())
@@ -168,9 +166,7 @@ mod test {
 
     #[tokio::test]
     async fn test_get_list_files_passes() {
-        let mut server_config = server_config();
-        server_config.storage.data_dir = Some(PathBuf::from("tests/fixtures/test_storage"));
-        init_test_environment(server_config);
+        init_test_environment(server_config());
 
         // V1
         let app = Router::new()

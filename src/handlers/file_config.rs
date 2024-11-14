@@ -130,9 +130,7 @@ mod test {
 
     #[tokio::test]
     async fn test_fixture_has_config_passes() {
-        let mut server_config = server_config();
-        server_config.storage.data_dir = Some(PathBuf::from("tests/fixtures/test_storage"));
-        init_test_environment(server_config);
+        init_test_environment(server_config());
 
         // -----------------------
         // NOT CONFIG
@@ -189,7 +187,7 @@ mod test {
         let path = PathBuf::new()
             .join("tests")
             .join("generated")
-            .join("test_repos")
+            .join("test_storage")
             .join(&repo);
 
         if path.exists() {
@@ -235,9 +233,13 @@ mod test {
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
+
         let conf_pth = path.join("config");
+
         assert!(conf_pth.exists());
+
         let conf_str = fs::read_to_string(conf_pth).unwrap();
+
         assert_eq!(&conf_str, &test_vec);
 
         // -----------------------
@@ -300,13 +302,11 @@ mod test {
 
     #[tokio::test]
     async fn test_get_config_passes() {
-        let mut server_config = server_config();
-        server_config.storage.data_dir = Some(PathBuf::from("tests/fixtures/test_storage"));
-        init_test_environment(server_config);
+        init_test_environment(server_config());
 
         let path = PathBuf::new()
             .join("tests")
-            .join("fixtures")
+            .join("generated")
             .join("test_storage")
             .join("test_repo")
             .join("config");

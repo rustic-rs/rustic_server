@@ -224,7 +224,7 @@ mod test {
         let path = PathBuf::new()
             .join("tests")
             .join("generated")
-            .join("test_repos")
+            .join("test_storage")
             .join("test_repo")
             .join("keys")
             .join(file_name);
@@ -291,14 +291,16 @@ mod test {
         init_test_environment(server_config());
 
         let file_name = "__get_file_test_adds_this_two__";
+
         //Start with a clean slate ...
         let path = PathBuf::new()
             .join("tests")
             .join("generated")
-            .join("test_repos")
+            .join("test_storage")
             .join("test_repo")
             .join("keys")
             .join(file_name);
+
         if path.exists() {
             tracing::debug!("[server_get_file_tester] test file found and removed");
             fs::remove_file(&path).unwrap();
@@ -311,8 +313,11 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let test_vec = "Hello Sweet World".to_string();
+
         let body = Body::new(test_vec.clone());
+
         let uri = ["/test_repo/keys/", file_name].concat();
+
         let request = Request::builder()
             .uri(uri)
             .method(Method::POST)
@@ -326,8 +331,11 @@ mod test {
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
+
         assert!(path.exists());
+
         let body = fs::read_to_string(&path).unwrap();
+
         assert_eq!(body, test_vec);
 
         // Now we can start to test
@@ -339,21 +347,26 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
+
         let request = request_uri_for_test(&uri, Method::GET);
+
         let resp = app.clone().oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
+
         let (_parts, body) = resp.into_parts();
+
         let byte_vec = body.collect().await.unwrap().to_bytes();
+
         let body_str = String::from_utf8(byte_vec.to_vec()).unwrap();
+
         assert_eq!(body_str, test_vec);
 
         //----------------------------------------
         // Read a partial file
         //----------------------------------------
-        //  let test_vec = "Hello Sweet World".to_string();
-
         let uri = ["/test_repo/keys/", file_name].concat();
+
         let request = Request::builder()
             .uri(uri)
             .method(Method::GET)
@@ -370,9 +383,13 @@ mod test {
         let test_vec = "Sweet W".to_string(); // bytes 6 - 13 from in the file
 
         assert_eq!(resp.status(), StatusCode::PARTIAL_CONTENT);
+
         let (_parts, body) = resp.into_parts();
+
         let byte_vec = body.collect().await.unwrap().to_bytes();
+
         let body_str = String::from_utf8(byte_vec.to_vec()).unwrap();
+
         assert_eq!(body_str, test_vec);
 
         //----------------------------------------------
@@ -383,7 +400,9 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri = ["/test_repo/keys/", file_name].concat();
+
         let request = request_uri_for_test(&uri, Method::DELETE);
+
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);

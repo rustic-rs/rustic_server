@@ -87,7 +87,7 @@ fn init_static_auth(acl_settings: AclSettings) {
 fn init_static_storage(storage_settings: StorageSettings) {
     let data_dir = storage_settings
         .data_dir
-        .unwrap_or_else(|| PathBuf::from("tests/generated/test_repos/"));
+        .unwrap_or_else(|| PathBuf::from("tests/generate/test_storage/"));
 
     let local_storage = LocalStorage::try_new(&data_dir).unwrap();
     init_storage(local_storage).unwrap();

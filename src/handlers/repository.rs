@@ -110,7 +110,7 @@ mod test {
         let path = PathBuf::new()
             .join("tests")
             .join("generated")
-            .join("test_repos")
+            .join("test_storage")
             .join("repo_remove_me");
 
         if path.exists() {
@@ -121,7 +121,7 @@ mod test {
         let not_allowed_path = PathBuf::new()
             .join("tests")
             .join("generated")
-            .join("test_repos")
+            .join("test_storage")
             .join("repo_not_allowed");
 
         if not_allowed_path.exists() {

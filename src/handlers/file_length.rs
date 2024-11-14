@@ -80,9 +80,7 @@ mod test {
 
     #[tokio::test]
     async fn test_get_file_length_passes() {
-        let mut server_config = server_config();
-        server_config.storage.data_dir = Some(PathBuf::from("tests/fixtures/test_storage"));
-        init_test_environment(server_config);
+        init_test_environment(server_config());
 
         // ----------------------------------
         // File exists
