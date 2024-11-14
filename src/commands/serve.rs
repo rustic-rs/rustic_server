@@ -1,6 +1,5 @@
 //! `serve` subcommand
 
-
 use abscissa_core::{
     config::Override,
     status_err,

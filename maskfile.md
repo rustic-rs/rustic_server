@@ -363,8 +363,8 @@ PowerShell:
 
 ```powershell
 [Diagnostics.Process]::Start("cargo", "run -- serve -c tests/fixtures/test_data/rustic_server.toml -v").WaitForExit()
-
 ```
+
 <!-- cargo run -- serve -c tests/fixtures/test_data/rustic_server.toml -v -->
 
 ## test-restic-server
