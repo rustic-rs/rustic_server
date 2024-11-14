@@ -218,7 +218,7 @@ mod test {
         // -----------------------
         // Create a new repository
         // -----------------------
-        let repo_name_uri = ["/", &repo, "?create=true"].concat();
+        let repo_name_uri = ["/", &repo, "/", "?create=true"].concat();
         let app = Router::new()
             .typed_post(create_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
@@ -307,7 +307,7 @@ mod test {
         // -----------------------
         // CLEAN UP DELETE REPO
         // -----------------------
-        let repo_name_uri = ["/", &repo].concat();
+        let repo_name_uri = ["/", &repo, "/"].concat();
         let app = Router::new()
             .typed_delete(delete_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));

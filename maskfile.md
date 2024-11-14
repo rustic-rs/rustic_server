@@ -408,3 +408,25 @@ PowerShell:
 ```powershell
 hurl -i tests/fixtures/hurl/endpoints.hurl
 ```
+
+## debug-test (test)
+
+> Run a single test with debug output
+
+- test
+  - flags: -t, --test
+  - type: string
+  - desc: Only run the specified test target
+  - required
+
+Bash:
+
+```bash
+$env:RUST_LOG="debug"; cargo test --package rustic_server --lib -- $test --exact --nocapture --show-output
+```
+
+PowerShell:
+
+```powershell
+$env:RUST_LOG="debug"; cargo test --package rustic_server --lib -- $test --exact --nocapture --show-output
+```

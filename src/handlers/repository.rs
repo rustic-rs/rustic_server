@@ -131,7 +131,7 @@ mod test {
         // ------------------------------------
         // Create a new repository: {path}?create=true
         // ------------------------------------
-        let repo_name_uri = "/repo_remove_me?create=true".to_string();
+        let repo_name_uri = "/repo_remove_me/?create=true".to_string();
         let app = Router::new()
             .typed_post(create_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
@@ -145,7 +145,7 @@ mod test {
         // ------------------------------------------
         // Create a new repository WITHOUT ACL access
         // ------------------------------------------
-        let repo_name_uri = "/repo_not_allowed?create=true".to_string();
+        let repo_name_uri = "/repo_not_allowed/?create=true".to_string();
         let app = Router::new()
             .typed_post(create_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
@@ -159,7 +159,7 @@ mod test {
         // ------------------------------------------
         // Delete a repository WITHOUT ACL access
         // ------------------------------------------
-        let repo_name_uri = "/repo_remove_me?create=true".to_string();
+        let repo_name_uri = "/repo_remove_me/?create=true".to_string();
         let app = Router::new()
             .typed_delete(delete_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));
@@ -183,7 +183,7 @@ mod test {
         // Delete a repository WITH access...
         // ------------------------------------------
         assert!(path.exists()); // pre condition: repo exists
-        let repo_name_uri = "/repo_remove_me".to_string();
+        let repo_name_uri = "/repo_remove_me/".to_string();
         let app = Router::new()
             .typed_delete(delete_repository::<RepositoryPath>)
             .layer(middleware::from_fn(print_request_response));

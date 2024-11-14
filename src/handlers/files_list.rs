@@ -172,7 +172,7 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
-            .uri("/test_repo/keys")
+            .uri("/test_repo/keys/")
             .header(ACCEPT, ApiVersionKind::V1.to_static_str())
             .header(
                 "Authorization",
@@ -220,7 +220,7 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
-            .uri("/test_repo/keys")
+            .uri("/test_repo/keys/")
             .header(ACCEPT, ApiVersionKind::V2.to_static_str())
             .header(
                 "Authorization",
