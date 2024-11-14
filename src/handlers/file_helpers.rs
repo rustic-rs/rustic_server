@@ -31,18 +31,31 @@ pub trait Finalizer {
 }
 
 impl WriteOrDeleteFile {
-    pub async fn new(file_path: PathBuf) -> ApiResult<Self> {
-        tracing::debug!("[WriteOrDeleteFile] path: {file_path:?}");
+    pub async fn new(path: PathBuf) -> ApiResult<Self> {
+        tracing::debug!("[WriteOrDeleteFile] path: {path:?}");
+
+        if !path.exists() {
+            let parent = path.parent().ok_or_else(|| {
+                ApiErrorKind::WritingToFileFailed("Could not get parent directory".to_string())
+            })?;
+
+            fs::create_dir_all(parent).map_err(|err| {
+                ApiErrorKind::WritingToFileFailed(format!("Could not create directory: {}", err))
+            })?;
+        }
+
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .await
+            .map_err(|err| {
+                ApiErrorKind::WritingToFileFailed(format!("Could not write to file: {}", err))
+            })?;
+
         Ok(Self {
-            file: OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&file_path)
-                .await
-                .map_err(|err| {
-                    ApiErrorKind::WritingToFileFailed(format!("Could not write to file: {}", err))
-                })?,
-            path: file_path,
+            file,
+            path,
             finalized: false,
         })
     }

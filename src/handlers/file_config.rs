@@ -117,7 +117,7 @@ mod test {
         typed_path::{RepositoryConfigPath, RepositoryPath},
     };
 
-    use std::{env, fs, path::PathBuf};
+    use std::{fs, path::PathBuf};
 
     use axum::{
         body::Body,
@@ -130,7 +130,9 @@ mod test {
 
     #[tokio::test]
     async fn test_fixture_has_config_passes() {
-        init_test_environment(server_config());
+        let mut server_config = server_config();
+        server_config.storage.data_dir = Some(PathBuf::from("tests/fixtures/test_storage"));
+        init_test_environment(server_config);
 
         // -----------------------
         // NOT CONFIG
@@ -165,7 +167,7 @@ mod test {
             .method(Method::HEAD)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -184,14 +186,12 @@ mod test {
         // -----------------------
         let repo = "repo_remove_me_2".to_string();
         //Start with a clean slate ...
-        let cwd = env::current_dir().unwrap();
         let path = PathBuf::new()
-            .join(cwd)
             .join("tests")
-            .join("fixtures")
-            .join("test_data")
+            .join("generated")
             .join("test_repos")
             .join(&repo);
+
         if path.exists() {
             fs::remove_dir_all(&path).unwrap();
             assert!(!path.exists());
@@ -227,7 +227,7 @@ mod test {
             .method(Method::POST)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(body)
             .unwrap();
@@ -296,5 +296,35 @@ mod test {
 
         assert_eq!(resp.status(), StatusCode::OK);
         assert!(!path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_get_config_passes() {
+        let mut server_config = server_config();
+        server_config.storage.data_dir = Some(PathBuf::from("tests/fixtures/test_storage"));
+        init_test_environment(server_config);
+
+        let path = PathBuf::new()
+            .join("tests")
+            .join("fixtures")
+            .join("test_storage")
+            .join("test_repo")
+            .join("config");
+
+        let test_vec = fs::read(path).unwrap();
+
+        let app = Router::new()
+            .typed_get(get_config::<RepositoryConfigPath>)
+            .layer(middleware::from_fn(print_request_response));
+
+        let uri = "/test_repo/config";
+        let request = request_uri_for_test(uri, Method::GET);
+        let resp = app.clone().oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let (_parts, body) = resp.into_parts();
+        let byte_vec = body.collect().await.unwrap().to_bytes();
+        let body_str = byte_vec.to_vec();
+        assert_eq!(body_str, test_vec);
     }
 }

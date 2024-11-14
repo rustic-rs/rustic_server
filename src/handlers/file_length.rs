@@ -61,21 +61,28 @@ pub(crate) async fn file_length<P: PathParts>(
 
 #[cfg(test)]
 mod test {
-    use crate::test_helpers::{init_test_environment, request_uri_for_test};
-    use crate::{handlers::file_length::file_length, typed_path::RepositoryTpeNamePath};
-    use crate::{log::print_request_response, test_helpers::server_config};
-    use axum::http::StatusCode;
-    use axum::http::{header, Method};
-    use axum::{middleware, Router};
-    use axum_extra::routing::{
-        RouterExt, // for `Router::typed_*`
+    use std::path::PathBuf;
+
+    use axum::{
+        http::{header, Method, StatusCode},
+        middleware, Router,
     };
+    use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
+    use crate::{
+        handlers::file_length::file_length,
+        log::print_request_response,
+        test_helpers::{init_test_environment, request_uri_for_test, server_config},
+        typed_path::RepositoryTpeNamePath,
+    };
+
     #[tokio::test]
     async fn test_get_file_length_passes() {
-        init_test_environment(server_config());
+        let mut server_config = server_config();
+        server_config.storage.data_dir = Some(PathBuf::from("tests/fixtures/test_storage"));
+        init_test_environment(server_config);
 
         // ----------------------------------
         // File exists
@@ -85,7 +92,7 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri =
-            "/test_repo/keys/2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5";
+            "/test_repo/keys/3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295";
         let request = request_uri_for_test(uri, Method::HEAD);
         let resp = app.oneshot(request).await.unwrap();
 
@@ -97,7 +104,8 @@ mod test {
             .unwrap()
             .to_str()
             .unwrap();
-        assert_eq!(length, "363");
+
+        assert_eq!(length, "460");
 
         let b = resp
             .into_body()

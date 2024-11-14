@@ -195,27 +195,22 @@ pub(crate) fn check_name(
 #[cfg(test)]
 mod test {
     use crate::{
-        handlers::{
-            file_config::get_config,
-            file_exchange::{add_file, delete_file, get_file},
-        },
+        handlers::file_exchange::{add_file, delete_file, get_file},
         log::print_request_response,
         test_helpers::{
             basic_auth_header_value, init_test_environment, request_uri_for_test, server_config,
         },
-        typed_path::{RepositoryConfigPath, RepositoryTpeNamePath},
+        typed_path::RepositoryTpeNamePath,
     };
 
-    use std::{env, fs, path::PathBuf};
+    use std::{fs, path::PathBuf};
 
     use axum::{
         body::Body,
         http::{header, Method, Request, StatusCode},
         middleware, Router,
     };
-    use axum_extra::routing::{
-        RouterExt, // for `Router::typed_*`
-    };
+    use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
@@ -226,16 +221,14 @@ mod test {
         let file_name = "__add_file_test_adds_this_one__";
 
         //Start with a clean slate ...
-        let cwd = env::current_dir().unwrap();
         let path = PathBuf::new()
-            .join(cwd)
             .join("tests")
-            .join("fixtures")
-            .join("test_data")
+            .join("generated")
             .join("test_repos")
             .join("test_repo")
             .join("keys")
             .join(file_name);
+
         if path.exists() {
             fs::remove_file(&path).unwrap();
             assert!(!path.exists());
@@ -256,7 +249,7 @@ mod test {
             .method(Method::POST)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(body)
             .unwrap();
@@ -282,7 +275,7 @@ mod test {
             .method(Method::DELETE)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(body)
             .unwrap();
@@ -299,12 +292,9 @@ mod test {
 
         let file_name = "__get_file_test_adds_this_two__";
         //Start with a clean slate ...
-        let cwd = env::current_dir().unwrap();
         let path = PathBuf::new()
-            .join(cwd)
             .join("tests")
-            .join("fixtures")
-            .join("test_data")
+            .join("generated")
             .join("test_repos")
             .join("test_repo")
             .join("keys")
@@ -328,7 +318,7 @@ mod test {
             .method(Method::POST)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(body)
             .unwrap();
@@ -370,7 +360,7 @@ mod test {
             .header(header::RANGE, "bytes=6-12")
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -398,35 +388,5 @@ mod test {
 
         assert_eq!(resp.status(), StatusCode::OK);
         assert!(!path.exists());
-    }
-
-    #[tokio::test]
-    async fn test_get_config_passes() {
-        init_test_environment(server_config());
-
-        let cwd = env::current_dir().unwrap();
-        let path = PathBuf::new()
-            .join(cwd)
-            .join("tests")
-            .join("fixtures")
-            .join("test_data")
-            .join("test_repos")
-            .join("test_repo")
-            .join("config");
-        let test_vec = fs::read(path).unwrap();
-
-        let app = Router::new()
-            .typed_get(get_config::<RepositoryConfigPath>)
-            .layer(middleware::from_fn(print_request_response));
-
-        let uri = "/test_repo/config";
-        let request = request_uri_for_test(uri, Method::GET);
-        let resp = app.clone().oneshot(request).await.unwrap();
-
-        assert_eq!(resp.status(), StatusCode::OK);
-        let (_parts, body) = resp.into_parts();
-        let byte_vec = body.collect().await.unwrap().to_bytes();
-        let body_str = byte_vec.to_vec();
-        assert_eq!(body_str, test_vec);
     }
 }

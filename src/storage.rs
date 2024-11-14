@@ -168,11 +168,8 @@ impl Storage for LocalStorage {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        storage::{init_storage, LocalStorage, STORAGE},
-        test_helpers::server_config,
-    };
-    use std::{env, path::PathBuf};
+    use crate::storage::{init_storage, LocalStorage, STORAGE};
+    use std::path::PathBuf;
 
     #[test]
     fn test_file_access_passes() {

@@ -26,7 +26,7 @@ pub fn request_uri_for_test(uri: &str, method: Method) -> axum::http::Request<Bo
         .method(method)
         .header(
             "Authorization",
-            basic_auth_header_value("test", Some("test_pw")),
+            basic_auth_header_value("restic", Some("restic")),
         )
         .body(Body::empty())
         .unwrap()

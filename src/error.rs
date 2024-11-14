@@ -87,11 +87,17 @@ pub enum ApiErrorKind {
     UserAuthenticationError(String),
     /// General Storage error: `{0}`
     GeneralStorageError(String),
+    /// Invalid API version: `{0}`
+    InvalidApiVersion(String),
 }
 
 impl IntoResponse for ApiErrorKind {
     fn into_response(self) -> Response {
         let response = match self {
+            ApiErrorKind::InvalidApiVersion(err) => (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid API version: {err}"),
+            ),
             ApiErrorKind::InternalError(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Internal server error: {}", err),

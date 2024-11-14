@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::BTreeMap, fs, path::PathBuf};
+use std::{borrow::Borrow, path::PathBuf};
 
 use abscissa_core::SecretString;
 use axum::{extract::FromRequestParts, http::request::Parts};

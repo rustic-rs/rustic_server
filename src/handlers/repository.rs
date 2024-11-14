@@ -47,12 +47,12 @@ pub(crate) async fn create_repository<P: PathParts>(
 
             Ok((
                 StatusCode::OK,
-                format!("Called create_files with path {:?}\n", &path),
+                format!("Called create_files with path {:?}", &path),
             ))
         }
         false => Ok((
             StatusCode::OK,
-            format!("Called create_files with path {:?}, create=false\n", &path),
+            format!("Called create_files with path {:?}, create=false", &path),
         )),
     }
 }
@@ -107,27 +107,23 @@ mod test {
         init_test_environment(server_config());
 
         //Start with a clean slate ...
-        let cwd = env::current_dir().unwrap();
         let path = PathBuf::new()
-            .join(cwd)
             .join("tests")
-            .join("fixtures")
-            .join("test_data")
+            .join("generated")
             .join("test_repos")
             .join("repo_remove_me");
+
         if path.exists() {
             fs::remove_dir_all(&path).await.unwrap();
             assert!(!path.exists());
         }
 
-        let cwd = env::current_dir().unwrap();
         let not_allowed_path = PathBuf::new()
-            .join(cwd)
             .join("tests")
-            .join("fixtures")
-            .join("test_data")
+            .join("generated")
             .join("test_repos")
             .join("repo_not_allowed");
+
         if not_allowed_path.exists() {
             fs::remove_dir_all(&not_allowed_path).await.unwrap();
             assert!(!not_allowed_path.exists());
@@ -174,7 +170,7 @@ mod test {
             .method(Method::DELETE)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("__wrong_password__")),
+                basic_auth_header_value("restic", Some("__wrong_password__")),
             )
             .body(Body::empty())
             .unwrap();

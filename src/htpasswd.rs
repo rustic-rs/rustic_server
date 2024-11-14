@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::{btree_map::Entry, BTreeMap},
     fmt::{Display, Formatter},
     fs::{self, read_to_string},
@@ -12,7 +11,6 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Serialize;
 
 use crate::error::{ApiErrorKind, ApiResult, AppResult, ErrorKind};
-use abscissa_core::SecretString;
 
 pub mod constants {
     pub(super) const SALT_LEN: usize = 8;
