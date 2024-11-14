@@ -32,31 +32,33 @@ pub(crate) async fn file_length<P: PathParts>(
     };
 
     let storage = STORAGE.get().unwrap();
+
     let file = storage.filename(path, tpe, name.as_deref());
-    let res = if file.exists() {
+
+    if file.exists() {
         let storage = STORAGE.get().unwrap();
-        let file = match storage.open_file(path, tpe, name.as_deref()).await {
-            Ok(file) => file,
-            Err(_) => {
-                return Err(ApiErrorKind::FileNotFound(path_str));
-            }
-        };
-        let length = match file.metadata().await {
-            Ok(meta) => meta.len(),
-            Err(err) => {
-                return Err(ApiErrorKind::GettingFileMetadataFailed(format!(
-                    "path: {path:?}, tpe: {tpe}, name: {name:?}, err: {err}",
-                )));
-            }
-        };
-        let mut headers = HeaderMap::new();
-        let _ = headers.insert(header::CONTENT_LENGTH, length.into());
-        Ok(headers)
+        let file = storage
+            .open_file(path, tpe, name.as_deref())
+            .await
+            .map_err(|err| {
+                ApiErrorKind::OpeningFileFailed(format!("Could not open file: {err}"))
+            })?;
+
+        let length = file
+            .metadata()
+            .await
+            .map_err(|err| {
+                ApiErrorKind::GettingFileMetadataFailed(format!(
+                    "path: {path:?}, tpe: {tpe}, name: {name:?}, err: {err}"
+                ))
+            })?
+            .len()
+            .to_string();
+
+        Ok([(header::CONTENT_LENGTH, length)])
     } else {
         Err(ApiErrorKind::FileNotFound(path_str))
-    };
-
-    res
+    }
 }
 
 #[cfg(test)]

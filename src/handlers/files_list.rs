@@ -71,7 +71,7 @@ pub(crate) async fn list_files<P: PathParts>(
 ) -> ApiResult<impl IntoResponse> {
     let (path, tpe, _) = path.parts();
 
-    tracing::debug!("[list_files] path: {path:?}, tpe: {tpe:?}");
+    tracing::debug!(?path, "type" = ?tpe, "[list_files]");
 
     let path = path.unwrap_or_default();
 
