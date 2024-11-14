@@ -324,20 +324,20 @@ PowerShell:
 Bash:
 
 ```bash
-export RESTIC_REPOSITORY=rest:http://127.0.0.1:8000/test_repo
+export RESTIC_REPOSITORY=rest:http://127.0.0.1:8000/ci_repo
 export RESTIC_PASSWORD=restic
 export RESTIC_REST_USERNAME=restic
 export RESTIC_REST_PASSWORD=restic
 
 
 restic init
-restic backup tests/fixtures/test_data/test_repo_source
+restic backup src
 ```
 
 PowerShell:
 
 ```powershell
-$env:RESTIC_REPOSITORY = "rest:http://127.0.0.1:8000/test";
+$env:RESTIC_REPOSITORY = "rest:http://127.0.0.1:8000/ci_repo";
 $env:RESTIC_PASSWORD = "restic";
 $env:RESTIC_REST_USERNAME = "restic";
 $env:RESTIC_REST_PASSWORD = "restic";

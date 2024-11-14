@@ -13,3 +13,4 @@
 tests/fixtures/rest_server
 repo_remove_me*
 __*
+ci_repo

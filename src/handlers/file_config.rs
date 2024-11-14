@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use axum::{extract::Request, response::IntoResponse};
+use axum::{extract::Request, http::header, response::IntoResponse};
 use axum_extra::{headers::Range, TypedHeader};
 use axum_range::{KnownSize, Ranged};
 
@@ -29,9 +29,17 @@ pub(crate) async fn has_config(
     let _ = check_auth_and_acl(user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.filename(path, tpe.into_str(), None);
-    if file.exists() {
-        Ok(())
+    let path_to_storage = storage.filename(path, tpe.into_str(), None);
+    if path_to_storage.exists() {
+        let file = storage.open_file(path, tpe.into_str(), None).await?;
+        let length = file
+            .metadata()
+            .await
+            .map_err(|err| ApiErrorKind::GettingFileMetadataFailed(format!("{err:?}")))?
+            .len()
+            .to_string();
+
+        Ok([(header::CONTENT_LENGTH, length)])
     } else {
         Err(ApiErrorKind::FileNotFound(repo))
     }

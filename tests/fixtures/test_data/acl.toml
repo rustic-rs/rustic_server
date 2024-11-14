@@ -7,5 +7,5 @@ restic = "Modify"
 [repo_remove_me_2]
 restic = "Modify"
 
-# [test]
-# restic = "Modify"
+[ci_repo]
+restic = "Modify"

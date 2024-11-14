@@ -55,7 +55,7 @@ pub enum ApiErrorKind {
     NotImplemented,
     /// File not found: `{0}`
     FileNotFound(String),
-    /// Fetting file metadata failed: `{0}`
+    /// Getting file metadata failed: `{0}`
     GettingFileMetadataFailed(String),
     /// Range not valid
     RangeNotValid,
