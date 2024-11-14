@@ -21,8 +21,11 @@ pub(crate) async fn file_length<P: PathParts>(
     let (path, tpe, name) = path.parts();
 
     tracing::debug!("[length] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
+
     let path_str = path.unwrap_or_default();
+
     let path = Path::new(&path_str);
+
     let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let tpe = if let Some(tpe) = tpe {
@@ -37,6 +40,7 @@ pub(crate) async fn file_length<P: PathParts>(
 
     if file.exists() {
         let storage = STORAGE.get().unwrap();
+
         let file = storage
             .open_file(path, tpe, name.as_deref())
             .await
@@ -93,7 +97,9 @@ mod test {
 
         let uri =
             "/test_repo/keys/3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295";
+
         let request = request_uri_for_test(uri, Method::HEAD);
+
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
@@ -114,7 +120,7 @@ mod test {
             .unwrap()
             .to_bytes()
             .to_vec();
-        
+
         assert!(b.is_empty());
 
         // ----------------------------------
@@ -125,7 +131,9 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri = "/test_repo/keys/__I_do_not_exist__";
+
         let request = request_uri_for_test(uri, Method::HEAD);
+
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -137,6 +145,7 @@ mod test {
             .unwrap()
             .to_bytes()
             .to_vec();
+
         assert!(b.is_empty());
     }
 }

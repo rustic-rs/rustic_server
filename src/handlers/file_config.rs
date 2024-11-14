@@ -39,6 +39,7 @@ pub(crate) async fn has_config(
 
     if path_to_storage.exists() {
         let file = storage.open_file(path, tpe.into_str(), None).await?;
+
         let length = file
             .metadata()
             .await
@@ -60,7 +61,9 @@ pub(crate) async fn get_config<P: PathParts>(
     range: Option<TypedHeader<Range>>,
 ) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
+
     let repo = path.repo().unwrap();
+
     tracing::debug!("[get_config] repository path: {repo}, tpe: {tpe}");
 
     let _ = check_name(tpe, None)?;

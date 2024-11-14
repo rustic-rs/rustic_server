@@ -377,3 +377,13 @@ PowerShell:
 ```powershell
 [Diagnostics.Process]::Start(".\\tests\\fixtures\\rest_server\\rest-server.exe", "--path .\\tests\\generated\\test_storage\\ --htpasswd-file .\\tests\\fixtures\\test_data\\.htpasswd --log .\\tests\\fixtures\\rest_server\\response2.log").WaitForExit()
 ```
+
+## loop-test-server
+
+> Run our server for testing in a loop
+
+PowerShell:
+
+```powershell
+watchexec --stop-signal "CTRL+C" -r -w src -- "cargo run -- serve -c tests/fixtures/test_data/rustic_server.toml -v"
+```
