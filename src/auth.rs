@@ -1,109 +1,109 @@
-use std::{collections::HashMap, fs, io, path::PathBuf};
+use std::{borrow::Borrow, path::PathBuf};
 
+use abscissa_core::SecretString;
 use axum::{extract::FromRequestParts, http::request::Parts};
 use axum_auth::AuthBasic;
 use serde_derive::Deserialize;
 use std::sync::OnceLock;
 
-use crate::error::{ErrorKind, Result};
+use crate::{
+    config::HtpasswdSettings,
+    error::{ApiErrorKind, ApiResult, AppResult},
+    htpasswd::{CredentialMap, Htpasswd},
+};
 
 //Static storage of our credentials
 pub static AUTH: OnceLock<Auth> = OnceLock::new();
 
-pub(crate) fn init_auth(auth: Auth) -> Result<()> {
+pub(crate) fn init_auth(auth: Auth) -> AppResult<()> {
     let _ = AUTH.get_or_init(|| auth);
     Ok(())
 }
 
-pub trait AuthChecker: Send + Sync + 'static {
-    fn verify(&self, user: &str, passwd: &str) -> bool;
-}
-
-/// read_htpasswd is a helper func that reads the given file in .httpasswd format
-/// into a Hashmap mapping each user to the whole passwd line
-fn read_htpasswd(file_path: &PathBuf) -> io::Result<HashMap<&'static str, &'static str>> {
-    let s = fs::read_to_string(file_path)?;
-    // make the contents static in memory
-    let s = Box::leak(s.into_boxed_str());
-
-    let mut user_map = HashMap::new();
-    for line in s.lines() {
-        let user = line.split(':').collect::<Vec<&str>>()[0];
-        user_map.insert(user, line);
-    }
-    Ok(user_map)
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct Auth {
-    users: Option<HashMap<&'static str, &'static str>>,
+    users: Option<CredentialMap>,
 }
 
-impl Auth {
-    pub fn from_file(no_auth: bool, path: &PathBuf) -> io::Result<Self> {
-        Ok(Self {
-            users: match no_auth {
-                true => None,
-                false => Some(read_htpasswd(path)?),
-            },
-        })
+impl From<CredentialMap> for Auth {
+    fn from(users: CredentialMap) -> Self {
+        Self { users: Some(users) }
     }
 }
 
-impl AuthChecker for Auth {
-    // verify verifies user/passwd against the credentials saved in users.
-    // returns true if Auth::users is None.
-    fn verify(&self, user: &str, passwd: &str) -> bool {
-        match &self.users {
-            Some(users) => {
-                matches!(users.get(user), Some(passwd_data) if htpasswd_verify::Htpasswd::from(*passwd_data).check(user, passwd))
-            }
-            None => true,
+impl From<Htpasswd> for Auth {
+    fn from(htpasswd: Htpasswd) -> Self {
+        Self {
+            users: Some(htpasswd.credentials),
         }
     }
 }
 
-#[derive(Deserialize)]
+impl Auth {
+    pub fn from_file(disable_auth: bool, path: &PathBuf) -> AppResult<Self> {
+        Ok(if disable_auth {
+            Self::default()
+        } else {
+            Htpasswd::from_file(path)?.into()
+        })
+    }
+
+    pub fn from_config(settings: &HtpasswdSettings) -> AppResult<Self> {
+        let path = settings.htpasswd_file_or_default(&PathBuf::new());
+        Self::from_file(settings.is_disabled(), &path)
+    }
+
+    // verify verifies user/passwd against the credentials saved in users.
+    // returns true if Auth::users is None.
+    pub fn verify(&self, user: impl Into<String>, passwd: impl Into<String>) -> bool {
+        let user = user.into();
+        let passwd = passwd.into();
+
+        self.users.as_ref().map_or(true, |users| matches!(users.get(&user), Some(passwd_data) if htpasswd_verify::Htpasswd::from(passwd_data.to_string().borrow()).check(user, passwd)))
+    }
+}
+
+#[derive(Deserialize, Debug)]
 pub struct AuthFromRequest {
     pub(crate) user: String,
-    pub(crate) _password: String,
+    pub(crate) _password: SecretString,
 }
 
 #[async_trait::async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
-    type Rejection = ErrorKind;
+    type Rejection = ApiErrorKind;
 
     // FIXME: We also have a configuration flag do run without authentication
     // This must be handled here too ... otherwise we get an Auth header missing error.
-    async fn from_request_parts(
-        parts: &mut Parts,
-        state: &S,
-    ) -> std::result::Result<Self, ErrorKind> {
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> ApiResult<Self> {
         let checker = AUTH.get().unwrap();
+
         let auth_result = AuthBasic::from_request_parts(parts, state).await;
-        tracing::debug!("Got authentication result ...:{:?}", &auth_result);
+
+        tracing::debug!(?auth_result, "[AUTH]");
+
         return match auth_result {
             Ok(auth) => {
                 let AuthBasic((user, passw)) = auth;
-                let password = passw.unwrap_or_else(|| "".to_string());
+                let password = passw.unwrap_or_else(String::new);
                 if checker.verify(user.as_str(), password.as_str()) {
                     Ok(Self {
                         user,
-                        _password: password,
+                        _password: password.into(),
                     })
                 } else {
-                    Err(ErrorKind::UserAuthenticationError(user))
+                    Err(ApiErrorKind::UserAuthenticationError(user))
                 }
             }
             Err(_) => {
-                let user = "".to_string();
+                let user = String::new();
                 if checker.verify("", "") {
                     return Ok(Self {
                         user,
-                        _password: "".to_string(),
+                        _password: String::new().into(),
                     });
                 }
-                Err(ErrorKind::AuthenticationHeaderError)
+                Err(ApiErrorKind::AuthenticationHeaderError)
             }
         };
     }
@@ -112,50 +112,41 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_helpers::{basic_auth_header_value, init_test_environment};
+
+    use crate::test_helpers::{basic_auth_header_value, init_test_environment, server_config};
+
     use anyhow::Result;
-    use axum::body::Body;
-    use axum::http::{Method, Request, StatusCode};
-    use axum::routing::get;
-    use axum::Router;
+    use axum::{
+        body::Body,
+        http::{Method, Request, StatusCode},
+        routing::get,
+        Router,
+    };
     use http_body_util::BodyExt;
-    use std::env;
+    use rstest::{fixture, rstest};
     use tower::ServiceExt;
 
-    #[test]
-    fn test_auth_passes() -> Result<()> {
-        let cwd = env::current_dir()?;
-        let htaccess = PathBuf::new()
-            .join(cwd)
-            .join("tests")
-            .join("fixtures")
-            .join("test_data")
-            .join("htaccess");
-        let auth = Auth::from_file(false, &htaccess)?;
-        assert!(auth.verify("test", "test_pw"));
-        assert!(!auth.verify("test", "__test_pw"));
+    #[fixture]
+    fn auth() -> Auth {
+        let htpasswd = PathBuf::from("tests/fixtures/test_data/.htpasswd");
+        Auth::from_file(false, &htpasswd).unwrap()
+    }
+
+    #[rstest]
+    fn test_auth_passes(auth: Auth) -> Result<()> {
+        assert!(auth.verify("restic", "restic"));
+        assert!(!auth.verify("restic", "_restic"));
 
         Ok(())
     }
 
-    #[test]
-    fn test_auth_from_file_passes() {
-        let cwd = env::current_dir().unwrap();
-        let htaccess = PathBuf::new()
-            .join(cwd)
-            .join("tests")
-            .join("fixtures")
-            .join("test_data")
-            .join("htaccess");
-
-        dbg!(&htaccess);
-
-        let auth = Auth::from_file(false, &htaccess).unwrap();
+    #[rstest]
+    fn test_auth_from_file_passes(auth: Auth) {
         init_auth(auth).unwrap();
 
         let auth = AUTH.get().unwrap();
-        assert!(auth.verify("test", "test_pw"));
-        assert!(!auth.verify("test", "__test_pw"));
+        assert!(auth.verify("restic", "restic"));
+        assert!(!auth.verify("restic", "_restic"));
     }
 
     async fn format_auth_basic(AuthBasic((id, password)): AuthBasic) -> String {
@@ -169,7 +160,7 @@ mod test {
     /// The requests which should be returned OK
     #[tokio::test]
     async fn test_authentication_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // -----------------------------------------
         // Try good basic
@@ -207,7 +198,7 @@ mod test {
             .method(Method::GET)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -218,12 +209,12 @@ mod test {
         let body = resp.into_parts().1;
         let byte_vec = body.collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(byte_vec.to_vec()).unwrap();
-        assert_eq!(body_str, String::from("User = test"));
+        assert_eq!(body_str, String::from("User = restic"));
     }
 
     #[tokio::test]
     async fn test_fail_authentication_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // -----------------------------------------
         // Try wrong password rustic_server
@@ -235,7 +226,7 @@ mod test {
             .method(Method::GET)
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("__test_pw")),
+                basic_auth_header_value("restic", Some("_restic")),
             )
             .body(Body::empty())
             .unwrap();

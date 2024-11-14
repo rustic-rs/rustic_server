@@ -7,14 +7,14 @@ against the rustic server?
 
 ## Basic files for test access to a repository
 
-### `HTACCESS`
+### `htpasswd`
 
 File governing the access to the server. Without access all is rejected.
 
-htaccess file has one entry:
+htpasswd file has one entry:
 
-- user: test
-- password: test_pw
+- user: restic
+- password: restic
 
 ### `acl.toml`
 
@@ -23,7 +23,7 @@ repository.
 
 Most used seems to be the `test_repo` with members
 
-- user: test
+- user: restic
 - Access level: Read But there are 2 more in the file.
 
 ### `rustic_server.toml`
@@ -31,9 +31,9 @@ Most used seems to be the `test_repo` with members
 Server configuration file which allows the `rustic_server` to be started with
 only a pointer to this file. This file points to:
 
-- HTACCESS file
+- htpasswd file
 
-  **Note**: that the HTACCESS file does not need to be a hidden file. Rustic
+  **Note**: that the htpasswd file does not need to be a hidden file. Rustic
   will use the file you point to.
 - acl.toml file
 - path to: repository (where all your backups are)

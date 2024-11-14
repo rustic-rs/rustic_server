@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, sync::Mutex, sync::OnceLock};
+use std::{path::PathBuf, sync::Mutex, sync::OnceLock};
 
 use axum::{
     body::Body,
@@ -10,6 +10,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::{
     acl::{init_acl, Acl},
     auth::{init_auth, Auth},
+    config::{AclSettings, HtpasswdSettings, RusticServerConfig, StorageSettings},
     storage::{init_storage, LocalStorage},
 };
 
@@ -25,7 +26,7 @@ pub fn request_uri_for_test(uri: &str, method: Method) -> axum::http::Request<Bo
         .method(method)
         .header(
             "Authorization",
-            basic_auth_header_value("test", Some("test_pw")),
+            basic_auth_header_value("restic", Some("restic")),
         )
         .body(Body::empty())
         .unwrap()
@@ -41,11 +42,11 @@ pub(crate) fn init_tracing() {
 
 /// When we initialize the global tracing subscriber, this must only happen once.
 /// During tests, each test will initialize, to make sure we have at least tracing once.
-/// This means that the init() call must be robust for this.
+/// This means that the `init()` call must be robust for this.
 /// Since we do not need this in production code, it is located in the test code.
 static TRACER: OnceLock<Mutex<usize>> = OnceLock::new();
 fn init_mutex() {
-    TRACER.get_or_init(|| {
+    let _ = TRACER.get_or_init(|| {
         tracing_subscriber::registry()
             .with(
                 tracing_subscriber::EnvFilter::try_from_default_env()
@@ -61,49 +62,34 @@ fn init_mutex() {
 // test facility for creating a minimum test environment
 // ------------------------------------------------
 
-pub(crate) fn init_test_environment() {
-    init_tracing();
-    init_static_htaccess();
-    init_static_auth();
-    init_static_storage();
+pub(crate) fn server_config() -> RusticServerConfig {
+    let server_config_path = PathBuf::from("tests/fixtures/test_data/rustic_server.toml");
+    RusticServerConfig::from_file(&server_config_path).unwrap()
 }
 
-fn init_static_htaccess() {
-    let cwd = env::current_dir().unwrap();
-    let htaccess = PathBuf::new()
-        .join(cwd)
-        .join("tests")
-        .join("fixtures")
-        .join("test_data")
-        .join("htaccess");
-    tracing::debug!("[test_init_static_storage] repo: {:?}", &htaccess);
-    let auth = Auth::from_file(false, &htaccess).unwrap();
+pub(crate) fn init_test_environment(server_config: RusticServerConfig) {
+    init_tracing();
+    init_static_htpasswd(server_config.auth);
+    init_static_auth(server_config.acl);
+    init_static_storage(server_config.storage);
+}
+
+fn init_static_htpasswd(htpasswd_settings: HtpasswdSettings) {
+    let auth = Auth::from_config(&htpasswd_settings).unwrap();
     init_auth(auth).unwrap();
 }
 
-fn init_static_auth() {
-    let cwd = env::current_dir().unwrap();
-    let acl_path = PathBuf::new()
-        .join(cwd)
-        .join("tests")
-        .join("fixtures")
-        .join("test_data")
-        .join("acl.toml");
-    tracing::debug!("[test_init_static_storage] repo: {:?}", &acl_path);
-    let acl = Acl::from_file(false, true, Some(acl_path)).unwrap();
+fn init_static_auth(acl_settings: AclSettings) {
+    let acl = Acl::from_config(&acl_settings).unwrap();
     init_acl(acl).unwrap();
 }
 
-fn init_static_storage() {
-    let cwd = env::current_dir().unwrap();
-    let repo_path = PathBuf::new()
-        .join(cwd)
-        .join("tests")
-        .join("fixtures")
-        .join("test_data")
-        .join("test_repos");
-    tracing::debug!("[test_init_static_storage] repo: {:?}", &repo_path);
-    let local_storage = LocalStorage::try_new(&repo_path).unwrap();
+fn init_static_storage(storage_settings: StorageSettings) {
+    let data_dir = storage_settings
+        .data_dir
+        .unwrap_or_else(|| PathBuf::from("tests/generate/test_storage/"));
+
+    let local_storage = LocalStorage::try_new(&data_dir).unwrap();
     init_storage(local_storage).unwrap();
 }
 

@@ -4,6 +4,7 @@ use std::{
     io::Result as IoResult,
     path::PathBuf,
     pin::Pin,
+    result::Result,
     task::{Context, Poll},
 };
 
@@ -13,10 +14,11 @@ use tokio::{
     io::AsyncWrite,
 };
 
-use crate::error::{ErrorKind, Result};
+use crate::error::{ApiErrorKind, ApiResult};
 
 // helper struct which is like a async_std|tokio::fs::File but removes the file
 // if finalize() was not called.
+#[derive(Debug)]
 pub struct WriteOrDeleteFile {
     file: File,
     path: PathBuf,
@@ -25,22 +27,35 @@ pub struct WriteOrDeleteFile {
 
 #[async_trait::async_trait]
 pub trait Finalizer {
-    async fn finalize(&mut self) -> Result<()>;
+    async fn finalize(&mut self) -> ApiResult<()>;
 }
 
 impl WriteOrDeleteFile {
-    pub async fn new(file_path: PathBuf) -> Result<Self> {
-        tracing::debug!("[WriteOrDeleteFile] path: {file_path:?}");
+    pub async fn new(path: PathBuf) -> ApiResult<Self> {
+        tracing::debug!("[WriteOrDeleteFile] path: {path:?}");
+
+        if !path.exists() {
+            let parent = path.parent().ok_or_else(|| {
+                ApiErrorKind::WritingToFileFailed("Could not get parent directory".to_string())
+            })?;
+
+            fs::create_dir_all(parent).map_err(|err| {
+                ApiErrorKind::WritingToFileFailed(format!("Could not create directory: {}", err))
+            })?;
+        }
+
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .await
+            .map_err(|err| {
+                ApiErrorKind::WritingToFileFailed(format!("Could not write to file: {}", err))
+            })?;
+
         Ok(Self {
-            file: OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&file_path)
-                .await
-                .map_err(|err| {
-                    ErrorKind::WritingToFileFailed(format!("Could not write to file: {}", err))
-                })?,
-            path: file_path,
+            file,
+            path,
             finalized: false,
         })
     }
@@ -48,9 +63,9 @@ impl WriteOrDeleteFile {
 
 #[async_trait::async_trait]
 impl Finalizer for WriteOrDeleteFile {
-    async fn finalize(&mut self) -> Result<()> {
+    async fn finalize(&mut self) -> ApiResult<()> {
         self.file.sync_all().await.map_err(|err| {
-            ErrorKind::FinalizingFileFailed(format!("Could not sync file: {}", err))
+            ApiErrorKind::FinalizingFileFailed(format!("Could not sync file: {}", err))
         })?;
         self.finalized = true;
         Ok(())
@@ -84,7 +99,7 @@ impl Drop for WriteOrDeleteFile {
 pub struct IteratorAdapter<I>(RefCell<I>);
 
 impl<I> IteratorAdapter<I> {
-    pub fn new(iterator: I) -> Self {
+    pub const fn new(iterator: I) -> Self {
         Self(RefCell::new(iterator))
     }
 }
@@ -94,7 +109,7 @@ where
     I: Iterator,
     I::Item: Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {

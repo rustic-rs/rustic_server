@@ -1,29 +1,61 @@
+//! Error types
+
+use abscissa_core::error::{BoxError, Context};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use std::{
+    fmt::{self, Display},
+    io,
+    ops::Deref,
+    result::Result,
+};
 
-pub type Result<T> = std::result::Result<T, ErrorKind>;
+pub type AppResult<T> = Result<T, Error>;
+pub type ApiResult<T> = Result<T, ApiErrorKind>;
+
+/// Kinds of errors
+#[derive(Clone, Debug, Eq, thiserror::Error, PartialEq, Copy)]
+pub enum ErrorKind {
+    /// Error in configuration file
+    #[error("config error")]
+    Config,
+
+    /// Input/output error
+    #[error("I/O error")]
+    Io,
+
+    /// General storage error
+    #[error("storage error")]
+    GeneralStorageError,
+
+    /// Missing user input
+    #[error("missing user input")]
+    MissingUserInput,
+}
 
 #[derive(Debug, thiserror::Error, displaydoc::Display)]
-pub enum ErrorKind {
-    /// Internal server error: {0}
+pub enum ApiErrorKind {
+    /// Internal server error: `{0}`
     InternalError(String),
-    /// Bad request: {0}
+    /// Bad request: `{0}`
     BadRequest(String),
-    /// Filename {0} not allowed
+    /// Filename `{0}` not allowed
     FilenameNotAllowed(String),
-    /// Path {0} not allowed
+    /// Path `{0}` is ambiguous with internal types and not allowed
+    AmbiguousPath(String),
+    /// Path `{0}` not allowed
     PathNotAllowed(String),
-    /// Path {0} is not valid
+    /// Path `{0}` is not valid
     InvalidPath(String),
-    /// Path {0} is not valid unicode
+    /// Path `{0}` is not valid unicode
     NonUnicodePath(String),
-    /// Creating directory failed: {0}
+    /// Creating directory failed: `{0}`
     CreatingDirectoryFailed(String),
     /// Not yet implemented
     NotImplemented,
-    /// File not found: {0}
+    /// File not found: `{0}`
     FileNotFound(String),
-    /// Fetting file metadata failed: {0}
+    /// Getting file metadata failed: `{0}`
     GettingFileMetadataFailed(String),
     /// Range not valid
     RangeNotValid,
@@ -35,126 +67,181 @@ pub enum ErrorKind {
     GeneralRange,
     /// Conversion from length to u64 failed
     ConversionToU64Failed,
-    /// Opening file failed: {0}
+    /// Opening file failed: `{0}`
     OpeningFileFailed(String),
-    /// Writing file failed: {0}
+    /// Writing file failed: `{0}`
     WritingToFileFailed(String),
-    /// Finalizing file failed: {0}
+    /// Finalizing file failed: `{0}`
     FinalizingFileFailed(String),
     /// Getting file handle failed
     GettingFileHandleFailed,
-    /// Removing file failed: {0}
+    /// Removing file failed: `{0}`
     RemovingFileFailed(String),
     /// Reading from stream failed
     ReadingFromStreamFailed,
-    /// Removing repository folder failed: {0}
+    /// Removing repository folder failed: `{0}`
     RemovingRepositoryFailed(String),
     /// Bad authentication header
     AuthenticationHeaderError,
-    /// Failed to authenticate user: {0}
+    /// Failed to authenticate user: `{0}`
     UserAuthenticationError(String),
-    /// General Storage error: {0}
+    /// General Storage error: `{0}`
     GeneralStorageError(String),
+    /// Invalid API version: `{0}`
+    InvalidApiVersion(String),
 }
 
-impl IntoResponse for ErrorKind {
+impl IntoResponse for ApiErrorKind {
     fn into_response(self) -> Response {
         let response = match self {
-            ErrorKind::InternalError(err) => (
+            Self::InvalidApiVersion(err) => (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid API version: {err}"),
+            ),
+            Self::InternalError(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Internal server error: {}", err),
             ),
-            ErrorKind::BadRequest(err) => (
+            Self::BadRequest(err) => (
                 StatusCode::BAD_REQUEST,
                 format!("Internal server error: {}", err),
             ),
-            ErrorKind::FilenameNotAllowed(filename) => (
+            Self::FilenameNotAllowed(filename) => (
                 StatusCode::FORBIDDEN,
                 format!("filename {filename} not allowed"),
             ),
-            ErrorKind::PathNotAllowed(path) => {
+            Self::AmbiguousPath(path) => (
+                StatusCode::FORBIDDEN,
+                format!("path {path} is ambiguous with internal types and not allowed"),
+            ),
+            Self::PathNotAllowed(path) => {
                 (StatusCode::FORBIDDEN, format!("path {path} not allowed"))
             }
-            ErrorKind::NonUnicodePath(path) => (
+            Self::NonUnicodePath(path) => (
                 StatusCode::BAD_REQUEST,
                 format!("path {path} is not valid unicode"),
             ),
-            ErrorKind::InvalidPath(path) => {
+            Self::InvalidPath(path) => {
                 (StatusCode::BAD_REQUEST, format!("path {path} is not valid"))
             }
-            ErrorKind::CreatingDirectoryFailed(err) => (
+            Self::CreatingDirectoryFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error creating dir: {:?}", err),
             ),
-            ErrorKind::NotImplemented => (
+            Self::NotImplemented => (
                 StatusCode::NOT_IMPLEMENTED,
                 "not yet implemented".to_string(),
             ),
-            ErrorKind::FileNotFound(path) => {
-                (StatusCode::NOT_FOUND, format!("file not found: {path}"))
-            }
-            ErrorKind::GettingFileMetadataFailed(err) => (
+            Self::FileNotFound(path) => (StatusCode::NOT_FOUND, format!("file not found: {path}")),
+            Self::GettingFileMetadataFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error getting file metadata: {err}"),
             ),
-            ErrorKind::RangeNotValid => (StatusCode::BAD_REQUEST, "range not valid".to_string()),
-            ErrorKind::SeekingFileFailed => (
+            Self::RangeNotValid => (StatusCode::BAD_REQUEST, "range not valid".to_string()),
+            Self::SeekingFileFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error seeking file".to_string(),
             ),
-            ErrorKind::MultipartRangeNotImplemented => (
+            Self::MultipartRangeNotImplemented => (
                 StatusCode::NOT_IMPLEMENTED,
                 "multipart range not implemented".to_string(),
             ),
-            ErrorKind::ConversionToU64Failed => (
+            Self::ConversionToU64Failed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error converting length to u64".to_string(),
             ),
-            ErrorKind::OpeningFileFailed(err) => (
+            Self::OpeningFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error opening file: {err}"),
             ),
-            ErrorKind::WritingToFileFailed(err) => (
+            Self::WritingToFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error writing file: {err}"),
             ),
-            ErrorKind::FinalizingFileFailed(err) => (
+            Self::FinalizingFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error finalizing file: {err}"),
             ),
-            ErrorKind::GettingFileHandleFailed => (
+            Self::GettingFileHandleFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error getting file handle".to_string(),
             ),
-            ErrorKind::RemovingFileFailed(err) => (
+            Self::RemovingFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error removing file: {err}"),
             ),
-            ErrorKind::GeneralRange => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string())
-            }
-            ErrorKind::ReadingFromStreamFailed => (
+            Self::GeneralRange => (StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string()),
+            Self::ReadingFromStreamFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error reading from stream".to_string(),
             ),
-            ErrorKind::RemovingRepositoryFailed(err) => (
+            Self::RemovingRepositoryFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error removing repository folder: {:?}", err),
             ),
-            ErrorKind::AuthenticationHeaderError => (
+            Self::AuthenticationHeaderError => (
                 StatusCode::FORBIDDEN,
                 "Bad authentication header".to_string(),
             ),
-            ErrorKind::UserAuthenticationError(err) => (
+            Self::UserAuthenticationError(err) => (
                 StatusCode::FORBIDDEN,
                 format!("Failed to authenticate user: {:?}", err),
             ),
-            ErrorKind::GeneralStorageError(err) => (
+            Self::GeneralStorageError(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Storage error: {:?}", err),
             ),
         };
 
         response.into_response()
+    }
+}
+
+impl ErrorKind {
+    /// Create an error context from this error
+    pub fn context(self, source: impl Into<BoxError>) -> Context<Self> {
+        Context::new(self, Some(source.into()))
+    }
+}
+
+/// Error type
+#[derive(Debug)]
+pub struct Error(Box<Context<ErrorKind>>);
+
+impl Deref for Error {
+    type Target = Context<ErrorKind>;
+
+    fn deref(&self) -> &Context<ErrorKind> {
+        &self.0
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Self {
+        Context::new(kind, None).into()
+    }
+}
+
+impl From<Context<ErrorKind>> for Error {
+    fn from(context: Context<ErrorKind>) -> Self {
+        Self(Box::new(context))
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        ErrorKind::Io.context(err).into()
     }
 }
