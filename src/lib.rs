@@ -1,4 +1,4 @@
-//! RusticServer
+//! `RusticServer`
 //!
 //! Application based on the [Abscissa] framework.
 //!
@@ -64,7 +64,7 @@ pub mod typed_path;
 /// Web module
 ///
 /// implements a REST server as specified by
-/// https://restic.readthedocs.io/en/stable/REST_backend.html?highlight=Rest%20API
+/// <https://restic.readthedocs.io/en/stable/REST_backend.html>
 pub mod web;
 
 #[cfg(test)]

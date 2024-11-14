@@ -27,10 +27,10 @@ enum ApiVersionKind {
 }
 
 impl ApiVersionKind {
-    pub fn to_static_str(&self) -> &'static str {
+    pub const fn to_static_str(self) -> &'static str {
         match self {
-            ApiVersionKind::V1 => "application/vnd.x.restic.rest.v1",
-            ApiVersionKind::V2 => "application/vnd.x.restic.rest.v2",
+            Self::V1 => "application/vnd.x.restic.rest.v1",
+            Self::V2 => "application/vnd.x.restic.rest.v2",
         }
     }
 }
@@ -38,8 +38,8 @@ impl ApiVersionKind {
 impl std::fmt::Display for ApiVersionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ApiVersionKind::V1 => write!(f, "application/vnd.x.restic.rest.v1"),
-            ApiVersionKind::V2 => write!(f, "application/vnd.x.restic.rest.v2"),
+            Self::V1 => write!(f, "application/vnd.x.restic.rest.v1"),
+            Self::V2 => write!(f, "application/vnd.x.restic.rest.v2"),
         }
     }
 }
@@ -49,8 +49,8 @@ impl FromStr for ApiVersionKind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "application/vnd.x.restic.rest.v1" => Ok(ApiVersionKind::V1),
-            "application/vnd.x.restic.rest.v2" => Ok(ApiVersionKind::V2),
+            "application/vnd.x.restic.rest.v1" => Ok(Self::V1),
+            "application/vnd.x.restic.rest.v2" => Ok(Self::V2),
             _ => Err(ApiErrorKind::InvalidApiVersion(s.to_string())),
         }
     }
@@ -64,7 +64,7 @@ struct RepoPathEntry {
     size: u64,
 }
 
-pub(crate) async fn list_files<P: PathParts>(
+pub async fn list_files<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     headers: HeaderMap,

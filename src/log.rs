@@ -60,7 +60,7 @@ pub async fn print_request_response(
 
 async fn buffer_and_print<B>(uuid: &uuid::Uuid, body: B) -> Result<Bytes, ApiErrorKind>
 where
-    B: axum::body::HttpBody<Data = Bytes>,
+    B: axum::body::HttpBody<Data = Bytes> + Send,
     B::Error: std::fmt::Display,
 {
     let bytes = match body.collect().await {

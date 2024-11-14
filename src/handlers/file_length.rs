@@ -14,7 +14,7 @@ use crate::{
 
 /// Length
 /// Interface: HEAD {path}/{type}/{name}
-pub(crate) async fn file_length<P: PathParts>(
+pub async fn file_length<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {

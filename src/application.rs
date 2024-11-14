@@ -1,4 +1,4 @@
-//! RusticServer Abscissa Application
+//! `RusticServer` Abscissa Application
 
 use crate::{commands::EntryPoint, config::RusticServerConfig};
 use abscissa_core::{
@@ -11,7 +11,7 @@ use abscissa_tokio::TokioComponent;
 /// Application state
 pub static RUSTIC_SERVER_APP: AppCell<RusticServerApp> = AppCell::new();
 
-/// RusticServer Application
+/// `RusticServer` Application
 #[derive(Debug)]
 pub struct RusticServerApp {
     /// Application configuration.
@@ -75,8 +75,7 @@ impl Application for RusticServerApp {
     /// possible.
     fn after_config(&mut self, config: Self::Cfg) -> Result<(), FrameworkError> {
         // Configure components
-        let mut components = self.state.components_mut();
-        components.after_config(&config)?;
+        self.state.components_mut().after_config(&config)?;
         self.config.set_once(config);
         Ok(())
     }

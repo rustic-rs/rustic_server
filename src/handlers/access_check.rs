@@ -12,7 +12,7 @@ use crate::{
     typed_path::TpeKind,
 };
 
-pub(crate) fn check_auth_and_acl(
+pub fn check_auth_and_acl(
     user: String,
     tpe: impl Into<Option<TpeKind>>,
     path: &Path,

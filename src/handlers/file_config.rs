@@ -21,7 +21,7 @@ use crate::{
 /// has_config
 /// Interface: HEAD {repo}/config
 #[debug_handler]
-pub(crate) async fn has_config(
+pub async fn has_config(
     RepositoryConfigPath { repo }: RepositoryConfigPath,
     AuthFromRequest { user, .. }: AuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
@@ -53,9 +53,9 @@ pub(crate) async fn has_config(
     }
 }
 
-/// get_config
+/// `get_config`
 /// Interface: GET {repo}/config
-pub(crate) async fn get_config<P: PathParts>(
+pub async fn get_config<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
@@ -81,9 +81,9 @@ pub(crate) async fn get_config<P: PathParts>(
     Ok(Ranged::new(range, body).into_response())
 }
 
-/// add_config
+/// `add_config`
 /// Interface: POST {repo}/config
-pub(crate) async fn add_config<P: PathParts>(
+pub async fn add_config<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     request: Request,
@@ -92,17 +92,17 @@ pub(crate) async fn add_config<P: PathParts>(
     let repo = path.repo().unwrap();
     tracing::debug!("[add_config] repository path: {repo}, tpe: {tpe}");
     let path = PathBuf::from(&repo);
-    let file = get_save_file(auth.user, path, tpe, None).await?;
+    let file = get_save_file(auth.user, path, Some(tpe), None).await?;
 
     let stream = request.into_body().into_data_stream();
     let _ = save_body(file, stream).await?;
     Ok(())
 }
 
-/// delete_config
+/// `delete_config`
 /// Interface: DELETE {repo}/config
 #[allow(dead_code)]
-pub(crate) async fn delete_config<P: PathParts>(
+pub async fn delete_config<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {

@@ -188,7 +188,7 @@ fn delete(arg: &DelArg) -> Result<()> {
         println!(
             "Could not find a user with name {}. No changes were made.",
             arg.user.as_str()
-        )
+        );
     };
     Ok(())
 }

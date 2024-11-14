@@ -1,4 +1,4 @@
-//! RusticServer Subcommands
+//! `RusticServer` Subcommands
 //!
 //! This is where you specify the subcommands of your application.
 //!
@@ -24,10 +24,10 @@ use clap::builder::{
 };
 use std::path::PathBuf;
 
-/// RusticServer Configuration Filename
+/// `RusticServer` Configuration Filename
 pub const CONFIG_FILE: &str = "rustic_server.toml";
 
-/// RusticServer Subcommands
+/// `RusticServer` Subcommands
 /// Subcommands need to be listed in an enum.
 #[derive(clap::Parser, Command, Debug, Runnable)]
 pub enum RusticServerCmd {
@@ -65,7 +65,7 @@ pub struct EntryPoint {
 
 impl Runnable for EntryPoint {
     fn run(&self) {
-        self.cmd.run()
+        self.cmd.run();
     }
 }
 

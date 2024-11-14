@@ -12,15 +12,15 @@ use crate::{
 use crate::typed_path::PathParts;
 use strum::VariantNames;
 
-/// Create_repository
+/// `Create_repository`
 /// Interface: POST {path}?create=true
 #[derive(Default, Deserialize)]
 #[serde(default)]
-pub(crate) struct Create {
+pub struct Create {
     create: bool,
 }
 
-pub(crate) async fn create_repository<P: PathParts>(
+pub async fn create_repository<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     Query(params): Query<Create>,
@@ -42,7 +42,7 @@ pub(crate) async fn create_repository<P: PathParts>(
                     continue;
                 }
 
-                storage.create_dir(&path, Some(tpe)).await?
+                storage.create_dir(&path, Some(tpe)).await?;
             }
 
             Ok((
@@ -57,10 +57,10 @@ pub(crate) async fn create_repository<P: PathParts>(
     }
 }
 
-/// Delete_repository
+/// `Delete_repository`
 /// Interface: Delete {path}
 // FIXME: The input path should at least NOT point to a file in any repository
-pub(crate) async fn delete_repository<P: PathParts>(
+pub async fn delete_repository<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {

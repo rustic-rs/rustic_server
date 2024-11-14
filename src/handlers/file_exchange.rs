@@ -21,11 +21,11 @@ use crate::{
     typed_path::{PathParts, TpeKind},
 };
 
-/// add_file
+/// `add_file`
 /// Interface: POST {path}/{type}/{name}
-/// Background info: https://github.com/tokio-rs/axum/blob/main/examples/stream-to-file/src/main.rs
-/// Future on ranges: https://www.rfc-editor.org/rfc/rfc9110.html#name-partial-put
-pub(crate) async fn add_file<P: PathParts>(
+/// Background info: <https://github.com/tokio-rs/axum/blob/main/examples/stream-to-file/src/main.rs>
+/// Future on ranges: <https://www.rfc-editor.org/rfc/rfc9110.html#name-partial-put>
+pub async fn add_file<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     request: Request,
@@ -46,9 +46,9 @@ pub(crate) async fn add_file<P: PathParts>(
     Ok(())
 }
 
-/// delete_file
+/// `delete_file`
 /// Interface: DELETE {path}/{type}/{name}
-pub(crate) async fn delete_file<P: PathParts>(
+pub async fn delete_file<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
@@ -74,9 +74,9 @@ pub(crate) async fn delete_file<P: PathParts>(
     Ok(())
 }
 
-/// get_file
+/// `get_file`
 /// Interface: GET {path}/{type}/{name}
-pub(crate) async fn get_file<P: PathParts>(
+pub async fn get_file<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     range: Option<TypedHeader<Range>>,
@@ -124,13 +124,12 @@ pub(crate) async fn get_file<P: PathParts>(
 //==============================================================================
 
 /// Returns a stream for the given path in the repository.
-pub(crate) async fn get_save_file(
+pub async fn get_save_file(
     user: String,
     path: PathBuf,
-    tpe: impl Into<Option<TpeKind>>,
+    tpe: Option<TpeKind>,
     name: Option<String>,
 ) -> ApiResult<impl AsyncWrite + Unpin + Finalizer> {
-    let tpe = tpe.into();
     tracing::debug!("[get_save_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
 
     let _ = check_name(tpe, name.as_deref())?;
@@ -147,12 +146,12 @@ pub(crate) async fn get_save_file(
 }
 
 /// saves the content in the HTML request body to a file stream.
-pub(crate) async fn save_body<S, E>(
-    mut write_stream: impl AsyncWrite + Unpin + Finalizer,
+pub async fn save_body<S, E>(
+    mut write_stream: impl AsyncWrite + Unpin + Finalizer + Send,
     stream: S,
 ) -> ApiResult<impl IntoResponse>
 where
-    S: Stream<Item = Result<Bytes, E>>,
+    S: Stream<Item = Result<Bytes, E>> + Send,
     E: Into<BoxError>,
 {
     // Convert the stream into an `AsyncRead`.
@@ -171,7 +170,7 @@ where
 }
 
 #[cfg(test)]
-fn check_string_sha256(_name: &str) -> bool {
+const fn check_string_sha256(_name: &str) -> bool {
     true
 }
 
@@ -188,7 +187,7 @@ fn check_string_sha256(name: &str) -> bool {
     true
 }
 
-pub(crate) fn check_name(
+pub fn check_name(
     tpe: impl Into<Option<TpeKind>>,
     name: Option<&str>,
 ) -> ApiResult<impl IntoResponse> {

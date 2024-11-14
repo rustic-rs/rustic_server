@@ -2,7 +2,7 @@ use axum_extra::routing::TypedPath;
 use serde_derive::{Deserialize, Serialize};
 use strum::{AsRefStr, Display, EnumString, IntoStaticStr, VariantNames};
 
-pub trait PathParts {
+pub trait PathParts: Send {
     fn parts(&self) -> (Option<String>, Option<TpeKind>, Option<String>) {
         (self.repo(), self.tpe(), self.name())
     }

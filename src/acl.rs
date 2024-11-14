@@ -21,7 +21,7 @@ pub fn init_acl(acl: Acl) -> AppResult<()> {
 ///
 // IMPORTANT: The order of the variants is important, as it is used
 // to determine the access level! Don't change it!
-#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Serialize, Deserialize, Copy)]
 pub enum AccessType {
     /// No access
     NoAccess,
@@ -205,9 +205,7 @@ impl AclChecker for Acl {
             access_type
         };
 
-        if let Some(repo_acl) = self.repos.get(path) {
-            matches!(repo_acl.get(user), Some(user_access) if user_access >= &access)
-        } else {
+        self.repos.get(path).map_or_else(|| {
             let is_user_path = user == path;
             let is_not_private_repo = !self.private_repo;
             let is_not_modify_access = access != AccessType::Modify;
@@ -220,7 +218,7 @@ impl AclChecker for Acl {
             // If the user is the path, and the repo is not private, or the user has modify access
             // or the repo is not append only, then allow the access
             (is_user_path || is_not_private_repo) && (is_not_modify_access || is_not_append_only)
-        }
+        }, |repo_acl| matches!(repo_acl.get(user), Some(user_access) if user_access >= &access))
     }
 }
 

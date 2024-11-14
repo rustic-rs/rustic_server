@@ -42,7 +42,7 @@ pub(crate) fn init_tracing() {
 
 /// When we initialize the global tracing subscriber, this must only happen once.
 /// During tests, each test will initialize, to make sure we have at least tracing once.
-/// This means that the init() call must be robust for this.
+/// This means that the `init()` call must be robust for this.
 /// Since we do not need this in production code, it is located in the test code.
 static TRACER: OnceLock<Mutex<usize>> = OnceLock::new();
 fn init_mutex() {

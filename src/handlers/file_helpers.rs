@@ -99,7 +99,7 @@ impl Drop for WriteOrDeleteFile {
 pub struct IteratorAdapter<I>(RefCell<I>);
 
 impl<I> IteratorAdapter<I> {
-    pub fn new(iterator: I) -> Self {
+    pub const fn new(iterator: I) -> Self {
         Self(RefCell::new(iterator))
     }
 }

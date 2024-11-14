@@ -76,13 +76,13 @@ impl ServeCmd {
         if !data_dir.exists() {
             debug!("Creating data directory: {:?}", data_dir);
 
-            std::fs::create_dir_all(&data_dir).map_err(|err| {
+            std::fs::create_dir_all(data_dir).map_err(|err| {
                 ErrorKind::GeneralStorageError
                     .context(format!("Could not create data directory: {}", err))
             })?;
         }
 
-        let storage = LocalStorage::try_new(&data_dir).map_err(|err| {
+        let storage = LocalStorage::try_new(data_dir).map_err(|err| {
             ErrorKind::GeneralStorageError.context(format!("Could not create storage: {}", err))
         })?;
 
@@ -108,7 +108,7 @@ impl ServeCmd {
 
         info!("[serve] Starting web server ...");
 
-        let _ = tokio::spawn(async move {
+        _ = tokio::spawn(async move {
             tokio::signal::ctrl_c().await.unwrap();
             info!("[serve] Shutting down ...");
             RUSTIC_SERVER_APP.shutdown(Shutdown::Graceful);

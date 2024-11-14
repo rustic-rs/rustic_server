@@ -84,7 +84,7 @@ impl Storage for LocalStorage {
                             ApiErrorKind::CreatingDirectoryFailed(format!(
                                 "Could not create directory: {err}"
                             ))
-                        })?
+                        })?;
                 }
                 Ok(())
             }
@@ -107,11 +107,10 @@ impl Storage for LocalStorage {
         path: &Path,
         tpe: Option<&str>,
     ) -> Box<dyn Iterator<Item = walkdir::DirEntry>> {
-        let path = if let Some(tpe) = tpe {
-            self.path.join(path).join(tpe)
-        } else {
-            self.path.join(path)
-        };
+        let path = tpe.map_or_else(
+            || self.path.join(path),
+            |tpe| self.path.join(path).join(tpe),
+        );
 
         let walker = WalkDir::new(path)
             .into_iter()
@@ -204,6 +203,6 @@ mod test {
         // path must not start with slash !! that will skip the self.path from Storage!
         let path = PathBuf::new().join("test_repo/");
         let c = storage.open_file(&path, "", Some("config")).await;
-        assert!(c.is_ok())
+        assert!(c.is_ok());
     }
 }

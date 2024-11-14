@@ -94,104 +94,100 @@ pub enum ApiErrorKind {
 impl IntoResponse for ApiErrorKind {
     fn into_response(self) -> Response {
         let response = match self {
-            ApiErrorKind::InvalidApiVersion(err) => (
+            Self::InvalidApiVersion(err) => (
                 StatusCode::BAD_REQUEST,
                 format!("Invalid API version: {err}"),
             ),
-            ApiErrorKind::InternalError(err) => (
+            Self::InternalError(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Internal server error: {}", err),
             ),
-            ApiErrorKind::BadRequest(err) => (
+            Self::BadRequest(err) => (
                 StatusCode::BAD_REQUEST,
                 format!("Internal server error: {}", err),
             ),
-            ApiErrorKind::FilenameNotAllowed(filename) => (
+            Self::FilenameNotAllowed(filename) => (
                 StatusCode::FORBIDDEN,
                 format!("filename {filename} not allowed"),
             ),
-            ApiErrorKind::AmbiguousPath(path) => (
+            Self::AmbiguousPath(path) => (
                 StatusCode::FORBIDDEN,
                 format!("path {path} is ambiguous with internal types and not allowed"),
             ),
-            ApiErrorKind::PathNotAllowed(path) => {
+            Self::PathNotAllowed(path) => {
                 (StatusCode::FORBIDDEN, format!("path {path} not allowed"))
             }
-            ApiErrorKind::NonUnicodePath(path) => (
+            Self::NonUnicodePath(path) => (
                 StatusCode::BAD_REQUEST,
                 format!("path {path} is not valid unicode"),
             ),
-            ApiErrorKind::InvalidPath(path) => {
+            Self::InvalidPath(path) => {
                 (StatusCode::BAD_REQUEST, format!("path {path} is not valid"))
             }
-            ApiErrorKind::CreatingDirectoryFailed(err) => (
+            Self::CreatingDirectoryFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error creating dir: {:?}", err),
             ),
-            ApiErrorKind::NotImplemented => (
+            Self::NotImplemented => (
                 StatusCode::NOT_IMPLEMENTED,
                 "not yet implemented".to_string(),
             ),
-            ApiErrorKind::FileNotFound(path) => {
-                (StatusCode::NOT_FOUND, format!("file not found: {path}"))
-            }
-            ApiErrorKind::GettingFileMetadataFailed(err) => (
+            Self::FileNotFound(path) => (StatusCode::NOT_FOUND, format!("file not found: {path}")),
+            Self::GettingFileMetadataFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error getting file metadata: {err}"),
             ),
-            ApiErrorKind::RangeNotValid => (StatusCode::BAD_REQUEST, "range not valid".to_string()),
-            ApiErrorKind::SeekingFileFailed => (
+            Self::RangeNotValid => (StatusCode::BAD_REQUEST, "range not valid".to_string()),
+            Self::SeekingFileFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error seeking file".to_string(),
             ),
-            ApiErrorKind::MultipartRangeNotImplemented => (
+            Self::MultipartRangeNotImplemented => (
                 StatusCode::NOT_IMPLEMENTED,
                 "multipart range not implemented".to_string(),
             ),
-            ApiErrorKind::ConversionToU64Failed => (
+            Self::ConversionToU64Failed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error converting length to u64".to_string(),
             ),
-            ApiErrorKind::OpeningFileFailed(err) => (
+            Self::OpeningFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error opening file: {err}"),
             ),
-            ApiErrorKind::WritingToFileFailed(err) => (
+            Self::WritingToFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error writing file: {err}"),
             ),
-            ApiErrorKind::FinalizingFileFailed(err) => (
+            Self::FinalizingFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error finalizing file: {err}"),
             ),
-            ApiErrorKind::GettingFileHandleFailed => (
+            Self::GettingFileHandleFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error getting file handle".to_string(),
             ),
-            ApiErrorKind::RemovingFileFailed(err) => (
+            Self::RemovingFileFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error removing file: {err}"),
             ),
-            ApiErrorKind::GeneralRange => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string())
-            }
-            ApiErrorKind::ReadingFromStreamFailed => (
+            Self::GeneralRange => (StatusCode::INTERNAL_SERVER_ERROR, "range error".to_string()),
+            Self::ReadingFromStreamFailed => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "error reading from stream".to_string(),
             ),
-            ApiErrorKind::RemovingRepositoryFailed(err) => (
+            Self::RemovingRepositoryFailed(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("error removing repository folder: {:?}", err),
             ),
-            ApiErrorKind::AuthenticationHeaderError => (
+            Self::AuthenticationHeaderError => (
                 StatusCode::FORBIDDEN,
                 "Bad authentication header".to_string(),
             ),
-            ApiErrorKind::UserAuthenticationError(err) => (
+            Self::UserAuthenticationError(err) => (
                 StatusCode::FORBIDDEN,
                 format!("Failed to authenticate user: {:?}", err),
             ),
-            ApiErrorKind::GeneralStorageError(err) => (
+            Self::GeneralStorageError(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Storage error: {:?}", err),
             ),
@@ -203,7 +199,7 @@ impl IntoResponse for ApiErrorKind {
 
 impl ErrorKind {
     /// Create an error context from this error
-    pub fn context(self, source: impl Into<BoxError>) -> Context<ErrorKind> {
+    pub fn context(self, source: impl Into<BoxError>) -> Context<Self> {
         Context::new(self, Some(source.into()))
     }
 }
@@ -240,7 +236,7 @@ impl From<ErrorKind> for Error {
 
 impl From<Context<ErrorKind>> for Error {
     fn from(context: Context<ErrorKind>) -> Self {
-        Error(Box::new(context))
+        Self(Box::new(context))
     }
 }
 

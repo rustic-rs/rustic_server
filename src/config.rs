@@ -1,4 +1,4 @@
-//! RusticServer Config
+//! `RusticServer` Config
 //!
 //! See instructions in `commands.rs` to specify the path to your
 //! application's configuration file and/or command-line options
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AppResult, ErrorKind};
 
-/// RusticServer Configuration
+/// `RusticServer` Configuration
 #[derive(Clone, Debug, Deserialize, Serialize, Default, Merge, Parser)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case", default)]
 pub struct RusticServerConfig {
@@ -78,7 +78,7 @@ pub struct LogSettings {
 }
 
 impl LogSettings {
-    pub fn is_disabled(&self) -> bool {
+    pub const fn is_disabled(&self) -> bool {
         self.log_file.is_none()
     }
 }
@@ -152,7 +152,7 @@ impl HtpasswdSettings {
         })
     }
 
-    pub fn is_disabled(&self) -> bool {
+    pub const fn is_disabled(&self) -> bool {
         self.disable_auth
     }
 }

@@ -59,12 +59,7 @@ impl Auth {
         let user = user.into();
         let passwd = passwd.into();
 
-        match &self.users {
-            Some(users) => {
-                matches!(users.get(&user), Some(passwd_data) if htpasswd_verify::Htpasswd::from(passwd_data.to_string().borrow()).check(user, passwd))
-            }
-            None => true,
-        }
+        self.users.as_ref().map_or(true, |users| matches!(users.get(&user), Some(passwd_data) if htpasswd_verify::Htpasswd::from(passwd_data.to_string().borrow()).check(user, passwd)))
     }
 }
 
@@ -90,7 +85,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
         return match auth_result {
             Ok(auth) => {
                 let AuthBasic((user, passw)) = auth;
-                let password = passw.unwrap_or_else(|| "".to_string());
+                let password = passw.unwrap_or_else(String::new);
                 if checker.verify(user.as_str(), password.as_str()) {
                     Ok(Self {
                         user,
@@ -101,11 +96,11 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
                 }
             }
             Err(_) => {
-                let user = "".to_string();
+                let user = String::new();
                 if checker.verify("", "") {
                     return Ok(Self {
                         user,
-                        _password: "".to_string().into(),
+                        _password: String::new().into(),
                     });
                 }
                 Err(ApiErrorKind::AuthenticationHeaderError)

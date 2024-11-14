@@ -50,7 +50,7 @@ impl Htpasswd {
         Self::default()
     }
 
-    pub fn from_file(pth: &PathBuf) -> AppResult<Htpasswd> {
+    pub fn from_file(pth: &PathBuf) -> AppResult<Self> {
         let mut c = CredentialMap::new();
 
         if pth.exists() {
@@ -70,7 +70,7 @@ impl Htpasswd {
                 });
         }
 
-        Ok(Htpasswd {
+        Ok(Self {
             path: pth.clone(),
             credentials: c,
         })
@@ -83,7 +83,7 @@ impl Htpasswd {
     pub fn create(&mut self, name: &str, pass: &str) -> AppResult<()> {
         let cred = Credential::new(name, pass);
 
-        let _ = self.insert(cred)?;
+        self.insert(cred)?;
 
         Ok(())
     }
@@ -165,14 +165,14 @@ impl Credential {
         let hash = md5_apr1_encode(pass, salt.as_str());
         let hash = format_hash(hash.as_str(), salt.as_str());
 
-        Credential {
+        Self {
             name: name.into(),
             hash,
         }
     }
 
     /// Returns a credential struct from a htpasswd file line
-    pub fn from_line(line: String) -> AppResult<Credential> {
+    pub fn from_line(line: String) -> AppResult<Self> {
         let split: Vec<&str> = line.split(':').collect();
 
         if split.len() != 2 {
@@ -184,7 +184,7 @@ impl Credential {
                 .into());
         }
 
-        Ok(Credential {
+        Ok(Self {
             name: split[0].to_string(),
             hash: split[1].to_string(),
         })
