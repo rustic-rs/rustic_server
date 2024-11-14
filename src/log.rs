@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use http_body_util::BodyExt;
+use tracing::Instrument;
 
 use crate::error::ApiErrorKind;
 
@@ -29,10 +30,10 @@ pub async fn print_request_response(
 
     tracing::debug!(headers = ?parts.headers, "[new request]");
 
-    let bytes = buffer_and_print(body).await?;
+    let bytes = buffer_and_print(body).instrument(span.clone()).await?;
     let req = Request::from_parts(parts, Body::from(bytes));
 
-    let res = next.run(req).await;
+    let res = next.run(req).instrument(span.clone()).await;
     let (parts, body) = res.into_parts();
 
     let span = tracing::span!(
@@ -44,7 +45,7 @@ pub async fn print_request_response(
 
     let _enter = span.enter();
 
-    let bytes = buffer_and_print(body).await?;
+    let bytes = buffer_and_print(body).instrument(span.clone()).await?;
     let res = Response::from_parts(parts, Body::from(bytes));
 
     Ok(res)
