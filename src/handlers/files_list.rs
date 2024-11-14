@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 
 use axum::{
     http::{
@@ -14,15 +14,47 @@ use serde_derive::{Deserialize, Serialize};
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
-    error::Result,
+    error::{ApiErrorKind, ApiResult},
     handlers::{access_check::check_auth_and_acl, file_helpers::IteratorAdapter},
     storage::STORAGE,
     typed_path::PathParts,
 };
 
-// FIXME: Make it an enum internally
-const API_V1: &str = "application/vnd.x.restic.rest.v1";
-const API_V2: &str = "application/vnd.x.restic.rest.v2";
+#[derive(Debug, Clone, Copy)]
+enum ApiVersionKind {
+    V1,
+    V2,
+}
+
+impl ApiVersionKind {
+    pub const fn to_static_str(self) -> &'static str {
+        match self {
+            Self::V1 => "application/vnd.x.restic.rest.v1",
+            Self::V2 => "application/vnd.x.restic.rest.v2",
+        }
+    }
+}
+
+impl std::fmt::Display for ApiVersionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::V1 => write!(f, "application/vnd.x.restic.rest.v1"),
+            Self::V2 => write!(f, "application/vnd.x.restic.rest.v2"),
+        }
+    }
+}
+
+impl FromStr for ApiVersionKind {
+    type Err = ApiErrorKind;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "application/vnd.x.restic.rest.v1" => Ok(Self::V1),
+            "application/vnd.x.restic.rest.v2" => Ok(Self::V2),
+            _ => Err(ApiErrorKind::InvalidApiVersion(s.to_string())),
+        }
+    }
+}
 
 /// List files
 /// Interface: GET {path}/{type}/
@@ -32,83 +64,107 @@ struct RepoPathEntry {
     size: u64,
 }
 
-pub(crate) async fn list_files<P: PathParts>(
+pub async fn list_files<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
     headers: HeaderMap,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let (path, tpe, _) = path.parts();
 
-    tracing::debug!("[list_files] path: {path:?}, tpe: {tpe:?}");
+    tracing::debug!(?path, "type" = ?tpe, "[list_files]");
+
     let path = path.unwrap_or_default();
+
     let path = Path::new(&path);
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let storage = STORAGE.get().unwrap();
+
     let read_dir = storage.read_dir(path, tpe.map(|f| f.into()));
 
     let mut res = match headers
         .get(header::ACCEPT)
         .and_then(|header| header.to_str().ok())
     {
-        Some(API_V2) => {
-            let read_dir_version = read_dir.map(|e| {
+        Some(version) if version == ApiVersionKind::V2.to_static_str() => {
+            let read_dir_version = read_dir.map(|entry| {
                 RepoPathEntry {
-                    name: e.file_name().to_str().unwrap().to_string(),
-                    size: e.metadata().unwrap().len(),
-                    // FIXME:  return Err(ErrorKind::GettingFileMetadataFailed.into());
+                    name: entry.file_name().to_str().unwrap().to_string(),
+                    size: entry.metadata().unwrap().len(),
+                    // FIXME:  return Err(WebErrorKind::GettingFileMetadataFailed.into());
                 }
             });
+
             let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();
-            tracing::debug!("[list_files::dir_content(V2)] {:?}", response.body());
-            response.headers_mut().insert(
+
+            tracing::debug!("[list_files::dir_content] Api V2 | {:?}", response.body());
+
+            let _ = response.headers_mut().insert(
                 header::CONTENT_TYPE,
-                header::HeaderValue::from_static(API_V2),
+                header::HeaderValue::from_static(ApiVersionKind::V2.to_static_str()),
             );
+
             let status = response.status_mut();
+
             *status = StatusCode::OK;
+
             response
         }
         _ => {
             let read_dir_version = read_dir.map(|e| e.file_name().to_str().unwrap().to_string());
+
             let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();
-            response.headers_mut().insert(
-                header::CONTENT_TYPE,
-                header::HeaderValue::from_static(API_V1),
+
+            tracing::debug!(
+                "[list_files::dir_content] Fallback to V1 | {:?}",
+                response.body()
             );
+
+            let _ = response.headers_mut().insert(
+                header::CONTENT_TYPE,
+                header::HeaderValue::from_static(ApiVersionKind::V1.to_static_str()),
+            );
+
             let status = response.status_mut();
+
             *status = StatusCode::OK;
+
             response
         }
     };
-    res.headers_mut()
+
+    let _ = res
+        .headers_mut()
         .insert(AUTHORIZATION, headers.get(AUTHORIZATION).unwrap().clone());
+
     Ok(res)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::log::print_request_response;
-    use crate::test_helpers::{basic_auth_header_value, init_test_environment};
-    use crate::{
-        handlers::files_list::{list_files, RepoPathEntry, API_V1, API_V2},
-        typed_path::RepositoryTpePath,
-    };
-    use axum::http::header::{ACCEPT, CONTENT_TYPE};
     use axum::{
         body::Body,
-        http::{Request, StatusCode},
+        http::{
+            header::{ACCEPT, CONTENT_TYPE},
+            Request, StatusCode,
+        },
+        middleware, Router,
     };
-    use axum::{middleware, Router};
-    use axum_extra::routing::{
-        RouterExt, // for `Router::typed_*`
-    };
+    use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
+    use crate::{
+        handlers::files_list::{list_files, ApiVersionKind, RepoPathEntry},
+        log::print_request_response,
+        test_helpers::{basic_auth_header_value, init_test_environment, server_config},
+        typed_path::RepositoryTpePath,
+    };
+
     #[tokio::test]
     async fn test_get_list_files_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // V1
         let app = Router::new()
@@ -116,11 +172,11 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
-            .uri("/test_repo/keys")
-            .header(ACCEPT, API_V1)
+            .uri("/test_repo/keys/")
+            .header(ACCEPT, ApiVersionKind::V1.to_static_str())
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -131,8 +187,9 @@ mod test {
 
         assert_eq!(
             resp.headers().get(CONTENT_TYPE).unwrap().to_str().unwrap(),
-            API_V1
+            ApiVersionKind::V1.to_static_str()
         );
+
         let b = resp
             .into_body()
             .collect()
@@ -140,13 +197,17 @@ mod test {
             .unwrap()
             .to_bytes()
             .to_vec();
+
         assert!(!b.is_empty());
+
         let body = std::str::from_utf8(&b).unwrap();
+
         let r: Vec<String> = serde_json::from_str(body).unwrap();
+
         let mut found = false;
 
         for rpe in r {
-            if rpe == "2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5" {
+            if rpe == "3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295" {
                 found = true;
                 break;
             }
@@ -159,11 +220,11 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let request = Request::builder()
-            .uri("/test_repo/keys")
-            .header(ACCEPT, API_V2)
+            .uri("/test_repo/keys/")
+            .header(ACCEPT, ApiVersionKind::V2.to_static_str())
             .header(
                 "Authorization",
-                basic_auth_header_value("test", Some("test_pw")),
+                basic_auth_header_value("restic", Some("restic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -174,7 +235,7 @@ mod test {
 
         assert_eq!(
             resp.headers().get(CONTENT_TYPE).unwrap().to_str().unwrap(),
-            API_V2
+            ApiVersionKind::V2.to_static_str()
         );
         let b = resp
             .into_body()
@@ -183,15 +244,18 @@ mod test {
             .unwrap()
             .to_bytes()
             .to_vec();
+
         let body = std::str::from_utf8(&b).unwrap();
+
         let r: Vec<RepoPathEntry> = serde_json::from_str(body).unwrap();
+
         assert!(!r.is_empty());
 
         let mut found = false;
 
         for rpe in r {
-            if rpe.name == "2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5" {
-                assert_eq!(rpe.size, 363);
+            if rpe.name == "3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295" {
+                assert_eq!(rpe.size, 460);
                 found = true;
                 break;
             }
@@ -200,7 +264,7 @@ mod test {
 
         // We may have more files, this does not work...
         // let rr = r.first().unwrap();
-        // assert_eq!( rr.name, "2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5");
+        // assert_eq!( rr.name, "3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295");
         // assert_eq!(rr.size, 363);
     }
 }

@@ -316,3 +316,117 @@ PowerShell:
 [Diagnostics.Process]::Start("mask", "lint").WaitForExit()
 [Diagnostics.Process]::Start("cargo", "test --all-features").WaitForExit()
 ```
+
+## test-restic
+
+> Run a restic test against the server
+
+Bash:
+
+```bash
+export RESTIC_REPOSITORY=rest:http://127.0.0.1:8000/ci_repo
+export RESTIC_PASSWORD=restic
+export RESTIC_REST_USERNAME=restic
+export RESTIC_REST_PASSWORD=restic
+restic init
+restic backup tests/fixtures/test_data/test_repo_source
+restic backup tests/fixtures/test_data/test_repo_source
+restic check
+restic forget --keep-last 1 --prune
+```
+
+PowerShell:
+
+```powershell
+$env:RESTIC_REPOSITORY = "rest:http://127.0.0.1:8000/ci_repo";
+$env:RESTIC_PASSWORD = "restic";
+$env:RESTIC_REST_USERNAME = "restic";
+$env:RESTIC_REST_PASSWORD = "restic";
+restic init
+restic backup tests/fixtures/test_data/test_repo_source
+restic backup tests/fixtures/test_data/test_repo_source
+restic check
+restic forget --keep-last 1 --prune
+```
+
+## test-server
+
+> Run our server for testing
+
+Bash:
+
+```bash
+cargo run -- serve -c tests/fixtures/test_data/rustic_server.toml -v
+```
+
+PowerShell:
+
+```powershell
+[Diagnostics.Process]::Start("cargo", "run -- serve -c tests/fixtures/test_data/rustic_server.toml -v").WaitForExit()
+```
+
+<!-- cargo run -- serve -c tests/fixtures/test_data/rustic_server.toml -v -->
+
+## test-restic-server
+
+> Run a restic server for testing
+
+Bash:
+
+```bash
+tests/fixtures/rest_server/rest-server.exe --path ./tests/generated/test_storage/ --htpasswd-file ./tests/fixtures/test_data/.htpasswd --log ./tests/fixtures/rest_server/response2.log
+```
+
+PowerShell:
+
+```powershell
+[Diagnostics.Process]::Start(".\\tests\\fixtures\\rest_server\\rest-server.exe", "--path .\\tests\\generated\\test_storage\\ --htpasswd-file .\\tests\\fixtures\\test_data\\.htpasswd --log .\\tests\\fixtures\\rest_server\\response2.log").WaitForExit()
+```
+
+## loop-test-server
+
+> Run our server for testing in a loop
+
+PowerShell:
+
+```powershell
+watchexec --stop-signal "CTRL+C" -r -w src -w tests -- "cargo run -- serve -c tests/fixtures/test_data/rustic_server.toml -v"
+```
+
+## hurl
+
+> Run a hurl test against the server
+
+Bash:
+
+```bash
+hurl -i tests/fixtures/hurl/endpoints.hurl
+```
+
+PowerShell:
+
+```powershell
+hurl -i tests/fixtures/hurl/endpoints.hurl
+```
+
+## debug-test (test)
+
+> Run a single test with debug output
+
+- test
+  - flags: -t, --test
+  - type: string
+  - desc: Only run the specified test target
+  - required
+
+Bash:
+
+```bash
+$env:RUST_LOG="debug"; cargo test --package rustic_server --lib -- $test --exact --nocapture --show-output
+```
+
+PowerShell:
+
+```powershell
+$env:RUST_LOG="debug"; cargo test --package rustic_server --lib -- $test --exact --nocapture --show-output
+```

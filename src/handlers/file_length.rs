@@ -1,12 +1,12 @@
 use std::path::Path;
 
 use axum::{http::header, response::IntoResponse};
-use axum_extra::headers::HeaderMap;
+// use axum_extra::headers::HeaderMap;
 
 use crate::{
     acl::AccessType,
     auth::AuthFromRequest,
-    error::{ErrorKind, Result},
+    error::{ApiErrorKind, ApiResult},
     handlers::access_check::check_auth_and_acl,
     storage::STORAGE,
     typed_path::PathParts,
@@ -14,68 +14,77 @@ use crate::{
 
 /// Length
 /// Interface: HEAD {path}/{type}/{name}
-pub(crate) async fn file_length<P: PathParts>(
+pub async fn file_length<P: PathParts>(
     path: P,
     auth: AuthFromRequest,
-) -> Result<impl IntoResponse> {
+) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
 
     tracing::debug!("[length] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
+
     let path_str = path.unwrap_or_default();
+
     let path = Path::new(&path_str);
-    check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
+
+    let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
 
     let tpe = if let Some(tpe) = tpe {
         tpe.into_str()
     } else {
-        return Err(ErrorKind::InternalError("tpe is not valid".to_string()));
+        return Err(ApiErrorKind::InternalError("tpe is not valid".to_string()));
     };
 
     let storage = STORAGE.get().unwrap();
-    let file = storage.filename(path, tpe, name.as_deref());
-    let res = if file.exists() {
-        let storage = STORAGE.get().unwrap();
-        let file = match storage.open_file(path, tpe, name.as_deref()).await {
-            Ok(file) => file,
-            Err(_) => {
-                return Err(ErrorKind::FileNotFound(path_str));
-            }
-        };
-        let length = match file.metadata().await {
-            Ok(meta) => meta.len(),
-            Err(err) => {
-                return Err(ErrorKind::GettingFileMetadataFailed(format!(
-                    "path: {path:?}, tpe: {tpe}, name: {name:?}, err: {err}",
-                )));
-            }
-        };
-        let mut headers = HeaderMap::new();
-        headers.insert(header::CONTENT_LENGTH, length.into());
-        Ok(headers)
-    } else {
-        Err(ErrorKind::FileNotFound(path_str))
-    };
 
-    res
+    let file = storage.filename(path, tpe, name.as_deref());
+
+    if file.exists() {
+        let storage = STORAGE.get().unwrap();
+
+        let file = storage
+            .open_file(path, tpe, name.as_deref())
+            .await
+            .map_err(|err| {
+                ApiErrorKind::OpeningFileFailed(format!("Could not open file: {err}"))
+            })?;
+
+        let length = file
+            .metadata()
+            .await
+            .map_err(|err| {
+                ApiErrorKind::GettingFileMetadataFailed(format!(
+                    "path: {path:?}, tpe: {tpe}, name: {name:?}, err: {err}"
+                ))
+            })?
+            .len()
+            .to_string();
+
+        Ok([(header::CONTENT_LENGTH, length)])
+    } else {
+        Err(ApiErrorKind::FileNotFound(path_str))
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::log::print_request_response;
-    use crate::test_helpers::{init_test_environment, request_uri_for_test};
-    use crate::{handlers::file_length::file_length, typed_path::RepositoryTpeNamePath};
-    use axum::http::StatusCode;
-    use axum::http::{header, Method};
-    use axum::{middleware, Router};
-    use axum_extra::routing::{
-        RouterExt, // for `Router::typed_*`
+    use axum::{
+        http::{header, Method, StatusCode},
+        middleware, Router,
     };
+    use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
+    use crate::{
+        handlers::file_length::file_length,
+        log::print_request_response,
+        test_helpers::{init_test_environment, request_uri_for_test, server_config},
+        typed_path::RepositoryTpeNamePath,
+    };
+
     #[tokio::test]
     async fn test_get_file_length_passes() {
-        init_test_environment();
+        init_test_environment(server_config());
 
         // ----------------------------------
         // File exists
@@ -85,8 +94,10 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri =
-            "/test_repo/keys/2e734da3fccb98724ece44efca027652ba7a335c224448a68772b41c0d9229d5";
+            "/test_repo/keys/3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295";
+
         let request = request_uri_for_test(uri, Method::HEAD);
+
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
@@ -97,7 +108,8 @@ mod test {
             .unwrap()
             .to_str()
             .unwrap();
-        assert_eq!(length, "363");
+
+        assert_eq!(length, "460");
 
         let b = resp
             .into_body()
@@ -106,6 +118,7 @@ mod test {
             .unwrap()
             .to_bytes()
             .to_vec();
+
         assert!(b.is_empty());
 
         // ----------------------------------
@@ -116,7 +129,9 @@ mod test {
             .layer(middleware::from_fn(print_request_response));
 
         let uri = "/test_repo/keys/__I_do_not_exist__";
+
         let request = request_uri_for_test(uri, Method::HEAD);
+
         let resp = app.oneshot(request).await.unwrap();
 
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -128,6 +143,7 @@ mod test {
             .unwrap()
             .to_bytes()
             .to_vec();
+
         assert!(b.is_empty());
     }
 }
