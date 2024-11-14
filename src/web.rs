@@ -30,16 +30,24 @@ use crate::{
     typed_path::{RepositoryConfigPath, RepositoryPath},
 };
 
-// TPE_LOCKS is defined, but outside the types[] array.
-// This allows us to loop over the types[] when generating "routes"
-pub(crate) const TPE_DATA: &str = "data";
-pub(crate) const TPE_KEYS: &str = "keys";
-pub(crate) const TPE_LOCKS: &str = "locks";
-pub(crate) const TPE_SNAPSHOTS: &str = "snapshots";
-pub(crate) const TPE_INDEX: &str = "index";
-pub(crate) const _TPE_CONFIG: &str = "config";
-pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TPE_INDEX];
+pub(crate) mod constants {
+    // TPE_CONFIG is defined, but outside the types[] array.
+    // This allows us to loop over the types[] when generating "routes"
 
+    pub(crate) const TPE_DATA: &str = "data";
+
+    pub(crate) const TPE_KEYS: &str = "keys";
+
+    pub(crate) const TPE_LOCKS: &str = "locks";
+
+    pub(crate) const TPE_SNAPSHOTS: &str = "snapshots";
+
+    pub(crate) const TPE_INDEX: &str = "index";
+
+    pub(crate) const _TPE_CONFIG: &str = "config";
+
+    pub(crate) const TYPES: [&str; 5] = [TPE_DATA, TPE_KEYS, TPE_LOCKS, TPE_SNAPSHOTS, TPE_INDEX];
+}
 /// Start the web server
 ///
 /// # Arguments
@@ -80,7 +88,7 @@ pub async fn start_web_server(
 
     // /:tpe  --> note: NO trailing slash
     // we loop here over explicit types, to prevent the conflict with paths "/:repo/"
-    for tpe in TYPES.into_iter() {
+    for tpe in constants::TYPES.into_iter() {
         let path = format!("/{}", &tpe);
         app = app.route(path.as_str(), get(list_files::<TpePath>));
     }
@@ -92,7 +100,7 @@ pub async fn start_web_server(
 
     // /:tpe/:name
     // we loop here over explicit types, to prevent conflict with paths "/:repo/:tpe"
-    for tpe in TYPES.into_iter() {
+    for tpe in constants::TYPES.into_iter() {
         let path = format!("/{}:name", &tpe);
         app = app
             .route(path.as_str(), head(file_length::<TpeNamePath>))

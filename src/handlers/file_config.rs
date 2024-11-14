@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use axum::{extract::Request, http::header, response::IntoResponse};
 use axum_extra::{headers::Range, TypedHeader};
+use axum_macros::debug_handler;
 use axum_range::{KnownSize, Ranged};
 
 use crate::typed_path::PathParts;
@@ -19,6 +20,7 @@ use crate::{
 
 /// has_config
 /// Interface: HEAD {repo}/config
+#[debug_handler]
 pub(crate) async fn has_config(
     RepositoryConfigPath { repo }: RepositoryConfigPath,
     AuthFromRequest { user, .. }: AuthFromRequest,

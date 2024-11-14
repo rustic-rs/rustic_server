@@ -4,7 +4,7 @@ use std::{
     result::Result,
 };
 
-use axum::{body::Bytes, extract::Request, response::IntoResponse, BoxError};
+use axum::{body::Bytes, extract::Request, http::StatusCode, response::IntoResponse, BoxError};
 use axum_extra::{headers::Range, TypedHeader};
 use axum_range::{KnownSize, Ranged};
 use futures::{Stream, TryStreamExt};
@@ -83,10 +83,12 @@ pub(crate) async fn get_file<P: PathParts>(
 ) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
 
-    tracing::debug!("[get_file] path: {path:?}, tpe: {tpe:?}, name: {name:?}");
+    tracing::debug!(?path, "type" = ?tpe, ?name, "[get_file]");
 
     let _ = check_name(tpe, name.as_deref())?;
+
     let path_str = path.unwrap_or_default();
+
     let path = Path::new(&path_str);
 
     let _ = check_auth_and_acl(auth.user, tpe, path, AccessType::Read)?;
@@ -98,13 +100,22 @@ pub(crate) async fn get_file<P: PathParts>(
     };
 
     let storage = STORAGE.get().unwrap();
+
     let file = storage.open_file(path, tpe, name.as_deref()).await?;
 
     let body = KnownSize::file(file)
         .await
         .map_err(|err| ApiErrorKind::GettingFileMetadataFailed(format!("{err:?}")))?;
+
     let range = range.map(|TypedHeader(range)| range);
-    Ok(Ranged::new(range, body).into_response())
+
+    let status_code = if range.is_some() {
+        StatusCode::PARTIAL_CONTENT
+    } else {
+        StatusCode::OK
+    };
+
+    Ok((status_code, Ranged::new(range, body)).into_response())
 }
 
 //==============================================================================

@@ -329,7 +329,6 @@ export RESTIC_PASSWORD=restic
 export RESTIC_REST_USERNAME=restic
 export RESTIC_REST_PASSWORD=restic
 
-
 restic init
 restic backup src
 ```
@@ -341,7 +340,7 @@ $env:RESTIC_REPOSITORY = "rest:http://127.0.0.1:8000/ci_repo";
 $env:RESTIC_PASSWORD = "restic";
 $env:RESTIC_REST_USERNAME = "restic";
 $env:RESTIC_REST_PASSWORD = "restic";
-restic init
+# restic init
 restic backup tests/fixtures/test_data/test_repo_source
 ```
 
@@ -362,3 +361,19 @@ PowerShell:
 
 ```
 <!-- cargo run -- serve -c tests/fixtures/test_data/rustic_server.toml -v -->
+
+## test-restic-server
+
+> Run a restic server for testing
+
+Bash:
+
+```bash
+tests/fixtures/rest_server/rest-server.exe --path ./tests/generated/test_storage/ --htpasswd-file ./tests/fixtures/test_data/.htpasswd --log ./tests/fixtures/rest_server/response2.log
+```
+
+PowerShell:
+
+```powershell
+[Diagnostics.Process]::Start(".\\tests\\fixtures\\rest_server\\rest-server.exe", "--path .\\tests\\generated\\test_storage\\ --htpasswd-file .\\tests\\fixtures\\test_data\\.htpasswd --log .\\tests\\fixtures\\rest_server\\response2.log").WaitForExit()
+```
