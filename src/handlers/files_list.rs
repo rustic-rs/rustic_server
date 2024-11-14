@@ -143,8 +143,6 @@ pub(crate) async fn list_files<P: PathParts>(
 
 #[cfg(test)]
 mod test {
-    use std::path::PathBuf;
-
     use axum::{
         body::Body,
         http::{

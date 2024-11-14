@@ -85,7 +85,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
 
         let auth_result = AuthBasic::from_request_parts(parts, state).await;
 
-        tracing::debug!(?auth_result, "[auth]");
+        tracing::debug!(?auth_result, "[AUTH]");
 
         return match auth_result {
             Ok(auth) => {

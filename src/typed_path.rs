@@ -67,9 +67,9 @@ impl PathParts for RepositoryConfigPath {
     }
 }
 
-// A type safe route with `"/:repo"` as its associated path.
+// A type safe route with `"/:repo/"` as its associated path.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/:repo")]
+#[typed_path("/:repo/")]
 pub struct RepositoryPath {
     pub repo: String,
 }
@@ -93,9 +93,9 @@ impl PathParts for TpePath {
     }
 }
 
-// A type safe route with `"/:repo/:tpe"` as its associated path.
+// A type safe route with `"/:repo/:tpe/"` as its associated path.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/:repo/:tpe")]
+#[typed_path("/:repo/:tpe/")]
 pub struct RepositoryTpePath {
     pub repo: String,
     pub tpe: TpeKind,

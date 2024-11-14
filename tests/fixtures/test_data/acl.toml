@@ -1,5 +1,6 @@
 [test_repo]
 restic = "Append"
+hurl = "Append"
 
 [repo_remove_me]
 restic = "Modify"
@@ -9,3 +10,4 @@ restic = "Modify"
 
 [ci_repo]
 restic = "Modify"
+hurl = "Modify"

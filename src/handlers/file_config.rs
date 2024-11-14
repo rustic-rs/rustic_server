@@ -101,6 +101,7 @@ pub(crate) async fn add_config<P: PathParts>(
 
 /// delete_config
 /// Interface: DELETE {repo}/config
+#[allow(dead_code)]
 pub(crate) async fn delete_config<P: PathParts>(
     path: P,
     auth: AuthFromRequest,

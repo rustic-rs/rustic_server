@@ -95,7 +95,6 @@ mod test {
     };
     use axum::{middleware, Router};
     use axum_extra::routing::RouterExt;
-    use std::env;
     use std::path::PathBuf;
     use tokio::fs;
     use tower::ServiceExt;

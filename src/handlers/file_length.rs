@@ -67,8 +67,6 @@ pub(crate) async fn file_length<P: PathParts>(
 
 #[cfg(test)]
 mod test {
-    use std::path::PathBuf;
-
     use axum::{
         http::{header, Method, StatusCode},
         middleware, Router,
