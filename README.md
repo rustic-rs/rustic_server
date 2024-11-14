@@ -15,20 +15,14 @@
 
 # ⚠️ This project is in early development and not yet ready for production use
 
-We just merged a first refactor to `axum` and are working on the next steps.
+We just merged a huge refactor to `axum` and are working on the next steps.
 
 There are a few things, we might still want to work on, namely:
 
-- checking what was going on with the
-  [typed routing](https://github.com/rustic-rs/rustic_server/commit/e41e85bfed8ea88e3147a1cd90b514486ce3fb62)
-
-- go through the tests and verify, that they are actually depicting the
-  [`restic` logic](https://restic.readthedocs.io/en/latest/100_references.html#rest-backend)
-  that we test our implementation against
-
 - check the ACL logic
-
 - improve the CLI
+- add more tests, especially integration tests with `restic` in CI
+- add more documentation
 
 For now, expect bugs, breaking changes, and a lot of refactoring.
 
