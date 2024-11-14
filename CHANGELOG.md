@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0](https://github.com/rustic-rs/rustic_server/compare/v0.1.1...v0.2.0) - 2024-11-14
+
+### Other
+
+- [**breaking**] move to axum - Part II ([#56](https://github.com/rustic-rs/rustic_server/pull/56))
+
 ## [0.1.1] - 2024-01-09
 
 ### Bug Fixes
