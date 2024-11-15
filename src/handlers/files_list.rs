@@ -158,7 +158,7 @@ mod test {
     use crate::{
         handlers::files_list::{list_files, ApiVersionKind, RepoPathEntry},
         log::print_request_response,
-        test_helpers::{basic_auth_header_value, init_test_environment, server_config},
+        testing::{basic_auth_header_value, init_test_environment, server_config},
         typed_path::RepositoryTpePath,
     };
 

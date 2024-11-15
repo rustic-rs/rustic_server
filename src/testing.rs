@@ -1,17 +1,23 @@
-use std::{path::PathBuf, sync::Mutex, sync::OnceLock};
+use std::{
+    path::PathBuf,
+    sync::{Mutex, OnceLock},
+};
 
 use axum::{
     body::Body,
     http::{HeaderValue, Method},
 };
 
+use tracing::debug;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
     acl::{init_acl, Acl},
     auth::{init_auth, Auth},
-    config::{AclSettings, HtpasswdSettings, RusticServerConfig, StorageSettings},
-    storage::{init_storage, LocalStorage},
+    config::{
+        default_data_dir, AclSettings, HtpasswdSettings, RusticServerConfig, StorageSettings,
+    },
+    storage::{init_storage, LocalStorage, Storage},
 };
 
 // ------------------------------------------------
@@ -62,8 +68,12 @@ fn init_mutex() {
 // test facility for creating a minimum test environment
 // ------------------------------------------------
 
+pub(crate) fn test_data_path() -> PathBuf {
+    PathBuf::from("tests/fixtures/test_data")
+}
+
 pub(crate) fn server_config() -> RusticServerConfig {
-    let server_config_path = PathBuf::from("tests/fixtures/test_data/rustic_server.toml");
+    let server_config_path = test_data_path().join("rustic_server.toml");
     RusticServerConfig::from_file(&server_config_path).unwrap()
 }
 
@@ -75,21 +85,28 @@ pub(crate) fn init_test_environment(server_config: RusticServerConfig) {
 }
 
 fn init_static_htpasswd(htpasswd_settings: HtpasswdSettings) {
-    let auth = Auth::from_config(&htpasswd_settings).unwrap();
+    let auth = Auth::from_config(&htpasswd_settings, test_data_path().join(".htpasswd")).unwrap();
+    debug!(?auth, "Loaded Auth.");
     init_auth(auth).unwrap();
 }
 
 fn init_static_auth(acl_settings: AclSettings) {
-    let acl = Acl::from_config(&acl_settings).unwrap();
+    let acl = Acl::from_config(&acl_settings.clone(), acl_settings.acl_path).unwrap();
+    debug!(?acl, "Loaded Acl.");
     init_acl(acl).unwrap();
 }
 
 fn init_static_storage(storage_settings: StorageSettings) {
-    let data_dir = storage_settings
-        .data_dir
-        .unwrap_or_else(|| PathBuf::from("tests/generate/test_storage/"));
+    let local_storage = LocalStorage::init(
+        storage_settings
+            .data_dir
+            .unwrap_or_else(default_data_dir)
+            .as_ref(),
+    )
+    .unwrap();
 
-    let local_storage = LocalStorage::try_new(&data_dir).unwrap();
+    debug!(?local_storage, "Loaded Storage.");
+
     init_storage(local_storage).unwrap();
 }
 

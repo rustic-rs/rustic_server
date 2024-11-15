@@ -207,7 +207,7 @@ mod test {
     use crate::{
         handlers::file_exchange::{add_file, delete_file, get_file},
         log::print_request_response,
-        test_helpers::{
+        testing::{
             basic_auth_header_value, init_test_environment, request_uri_for_test, server_config,
         },
         typed_path::RepositoryTpeNamePath,

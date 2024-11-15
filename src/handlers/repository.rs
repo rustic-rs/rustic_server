@@ -80,13 +80,11 @@ pub async fn delete_repository<P: PathParts>(
 #[cfg(test)]
 mod test {
     use crate::log::print_request_response;
-    use crate::test_helpers::{
-        basic_auth_header_value, init_test_environment, request_uri_for_test,
-    };
+    use crate::testing::{basic_auth_header_value, init_test_environment, request_uri_for_test};
     use crate::typed_path::RepositoryPath;
     use crate::{
         handlers::repository::{create_repository, delete_repository},
-        test_helpers::server_config,
+        testing::server_config,
     };
     use axum::http::Method;
     use axum::{
@@ -95,6 +93,7 @@ mod test {
     };
     use axum::{middleware, Router};
     use axum_extra::routing::RouterExt;
+    use pretty_assertions::assert_eq;
     use std::path::PathBuf;
     use tokio::fs;
     use tower::ServiceExt;

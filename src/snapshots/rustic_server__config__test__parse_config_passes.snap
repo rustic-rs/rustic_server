@@ -4,39 +4,44 @@ expression: config
 ---
 RusticServerConfig {
     server: ConnectionSettings {
-        listen: 127.0.0.1:8080,
+        listen: "127.0.0.1:8000",
     },
     storage: StorageSettings {
         data_dir: Some(
-            "tests/generated/test_storage/",
+            "./test_data/test_repos/",
         ),
-        quota: None,
+        quota: Some(
+            0,
+        ),
     },
     auth: HtpasswdSettings {
         disable_auth: false,
         htpasswd_file: Some(
-            "tests/fixtures/test_data/.htpasswd",
+            "/test_data/test_repo/.htpasswd",
         ),
     },
     acl: AclSettings {
-        disable_acl: false,
-        private_repos: true,
+        disable_acl: true,
         append_only: false,
         acl_path: Some(
-            "tests/fixtures/test_data/acl.toml",
+            "/test_data/test_repo/acl.toml",
         ),
     },
     tls: TlsSettings {
         disable_tls: false,
         tls_key: Some(
-            "tests/fixtures/test_data/certs/test.key",
+            "/test_data/test_repo/key.pem",
         ),
         tls_cert: Some(
-            "tests/fixtures/test_data/certs/test.crt",
+            "/test_data/test_repo/cert.pem",
         ),
     },
     log: LogSettings {
-        log_level: None,
-        log_file: None,
+        log_level: Some(
+            "info",
+        ),
+        log_file: Some(
+            "/test_data/test_repo/rustic.log",
+        ),
     },
 }

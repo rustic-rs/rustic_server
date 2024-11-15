@@ -212,7 +212,7 @@ mod test {
         let _ = htpasswd.update("backup-user", "its_me");
 
         assert_ron_snapshot!(htpasswd, {
-            ".credentials.*.hash" => "<redacted>",
+            ".credentials.*.hash" => "[hash]",
         });
 
         let auth = Auth::from(htpasswd);

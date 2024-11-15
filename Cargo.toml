@@ -41,14 +41,13 @@ eula = false
 abscissa_tokio = "0.8.0"
 anyhow = "1"
 async-trait = "0.1"
-# FIXME: Add "headers" feature to Axum?
 axum = { version = "0.7", features = ["tracing", "multipart", "http2"] }
 axum-auth = "0.7"
 axum-extra = { version = "0.9", features = ["typed-header", "query", "async-read-body", "typed-routing"] }
 axum-macros = "0.4"
 axum-range = "0.4"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 conflate = "0.3.1"
 displaydoc = "0.2"
 # enum_dispatch = "0.3.12"
@@ -91,11 +90,12 @@ base64 = "0.22"
 dircmp = "0.2"
 insta = { version = "1", features = ["redactions", "ron"] }
 once_cell = "1.2"
+predicates = "3.1.2"
 pretty_assertions = "1"
 rstest = "0.23"
-# reqwest = "0.11.18"
-# serial_test = "*"
 serde_json = "1"
+# reqwest = "0.11.18"
+serial_test = { version = "3.2.0", features = ["file_locks"] }
 tower = "0.5"
 
 # see: https://nnethercote.github.io/perf-book/build-configuration.html

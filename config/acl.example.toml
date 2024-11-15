@@ -1,7 +1,7 @@
-[default]
-alex = "Read"
-admin = "Modify"
+[default] # Default repository
+alex = "Read" # Alex can read
+admin = "Modify" # admin can modify, so has full access, even delete
 
-[alex]
-alex = "Modify"
-bob = "Append"
+[alex] # a repository named 'alex'
+alex = "Modify" # Alex can modify his own repository
+bob = "Append" # Bob can append to Alex's repository

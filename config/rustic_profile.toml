@@ -1,14 +1,14 @@
-# Adapt to your own configuration
+# Adapt to your own configuration, a full list of options can be found at:
+# https://github.com/rustic-rs/rustic/tree/main/config
 [global]
-log-level = "Info"
+log-level = "info"
 log-file = "~/rustic.log"
 
 [repository]
-repository = "rest:http://test:test_pw@localhost:8000/test_repo"
-password = "test_pw"
+repository = "rest:http://rustic:rustic@127.0.0.1:8000/ci_repo"
+password = "rustic"
 
 [backup]
 
-[[backup.sources]]
-source = "~/your_path/rustic_server/test_data"
-# git-ignore = true
+[[backup.snapshots]]
+sources = ["src"]

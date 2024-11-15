@@ -3,18 +3,19 @@ listen = "127.0.0.1:8000"
 
 [storage]
 data-dir = "./test_data/test_repos/"
+quota = 0
 
 [auth]
 disable-auth = false
 htpasswd-file = "/test_data/test_repo/.htpasswd"
 
 [acl]
+disable-acl = true
 acl-path = "/test_data/test_repo/acl.toml"
-private-repo = true
 append-only = false
 
 [tls]
-tls = true
+disable-tls = false
 tls-cert = "/test_data/test_repo/cert.pem"
 tls-key = "/test_data/test_repo/key.pem"
 

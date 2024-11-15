@@ -7,6 +7,7 @@ use tokio::fs::{create_dir_all, remove_dir_all, remove_file, File};
 use walkdir::WalkDir;
 
 use crate::{
+    config::default_data_dir,
     error::{ApiErrorKind, ApiResult, AppResult},
     handlers::file_helpers::WriteOrDeleteFile,
 };
@@ -22,6 +23,14 @@ pub(crate) fn init_storage(storage: impl Storage) -> AppResult<()> {
 #[async_trait::async_trait]
 //#[enum_dispatch(StorageEnum)]
 pub trait Storage: Send + Sync + 'static {
+    /// Initialize the storage
+    fn init(path: &Path) -> ApiResult<Self>
+    where
+        Self: Sized;
+
+    /// Returns the path of the storage
+    fn path(&self) -> &Path;
+
     async fn create_dir(&self, path: &Path, tpe: Option<&str>) -> ApiResult<()>;
 
     fn read_dir(
@@ -53,27 +62,26 @@ pub struct LocalStorage {
 
 impl Default for LocalStorage {
     fn default() -> Self {
-        #[cfg(target_os = "windows")]
-        return Self {
-            path: PathBuf::from(r"C:\tmp\rustic"),
-        };
-        #[cfg(not(target_os = "windows"))]
         Self {
-            path: PathBuf::from("/tmp/rustic"),
+            path: default_data_dir(),
         }
     }
 }
 
-impl LocalStorage {
-    pub fn try_new(path: &Path) -> AppResult<Self> {
+impl LocalStorage {}
+
+#[async_trait::async_trait]
+impl Storage for LocalStorage {
+    fn init(path: &Path) -> ApiResult<Self> {
         Ok(Self {
             path: path.to_path_buf(),
         })
     }
-}
 
-#[async_trait::async_trait]
-impl Storage for LocalStorage {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
     async fn create_dir(&self, path: &Path, tpe: Option<&str>) -> ApiResult<()> {
         match tpe {
             Some(tpe) if tpe == "data" => {
@@ -167,13 +175,13 @@ impl Storage for LocalStorage {
 
 #[cfg(test)]
 mod test {
-    use crate::storage::{init_storage, LocalStorage, STORAGE};
+    use crate::storage::{init_storage, LocalStorage, Storage, STORAGE};
     use std::path::PathBuf;
 
     #[test]
     fn test_file_access_passes() {
         let local_storage =
-            LocalStorage::try_new(&PathBuf::from("tests/generated/test_storage")).unwrap();
+            LocalStorage::init(&PathBuf::from("tests/generated/test_storage")).unwrap();
         init_storage(local_storage).unwrap();
 
         let storage = STORAGE.get().unwrap();
@@ -195,7 +203,7 @@ mod test {
     #[tokio::test]
     async fn test_config_access_passes() {
         let local_storage =
-            LocalStorage::try_new(&PathBuf::from("tests/generated/test_storage")).unwrap();
+            LocalStorage::init(&PathBuf::from("tests/generated/test_storage")).unwrap();
         init_storage(local_storage).unwrap();
 
         let storage = STORAGE.get().unwrap();

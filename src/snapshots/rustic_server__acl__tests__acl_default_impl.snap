@@ -1,0 +1,9 @@
+---
+source: src/acl.rs
+expression: acl
+---
+Acl {
+    private_repo: true,
+    append_only: true,
+    repos: {},
+}

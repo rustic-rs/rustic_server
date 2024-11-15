@@ -1,5 +1,5 @@
-# [server]
-# listen = "127.0.0.1:8000"
+[server]
+listen = "127.0.0.1:8080"
 
 [storage]
 data-dir = "tests/generated/test_storage/"
@@ -9,6 +9,11 @@ disable-auth = false
 htpasswd-file = "tests/fixtures/test_data/.htpasswd"
 
 [acl]
-acl-path = "tests/fixtures/test_data/acl.toml"
-private-repo = true
+disable-acl = false
 append-only = false
+acl-path = "tests/fixtures/test_data/acl.toml"
+
+[tls]
+disable-tls = true
+# tls-cert = "tests/fixtures/test_data/certs/test.crt"
+# tls-key = "tests/fixtures/test_data/certs/test.key"

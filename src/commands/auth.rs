@@ -210,3 +210,14 @@ fn print(arg: &PrintArg) -> Result<()> {
     println!("Done.");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn verify_auth() {
+        AuthCmd::command().debug_assert();
+    }
+}

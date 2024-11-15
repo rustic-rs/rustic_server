@@ -54,6 +54,7 @@ pub mod application;
 pub mod auth;
 pub mod commands;
 pub mod config;
+pub mod context;
 pub mod error;
 pub mod handlers;
 pub mod htpasswd;
@@ -68,4 +69,4 @@ pub mod typed_path;
 pub mod web;
 
 #[cfg(test)]
-pub mod test_helpers;
+pub mod testing;

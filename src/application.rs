@@ -1,12 +1,16 @@
 //! `RusticServer` Abscissa Application
 
 use crate::{commands::EntryPoint, config::RusticServerConfig};
+use abscissa_core::Config;
+use abscissa_core::FrameworkErrorKind::IoError;
 use abscissa_core::{
     application::{self, AppCell},
     config::{self, CfgCell},
+    path::AbsPathBuf,
     trace, Application, FrameworkError, StandardPaths,
 };
 use abscissa_tokio::TokioComponent;
+use std::path::Path;
 
 /// Application state
 pub static RUSTIC_SERVER_APP: AppCell<RusticServerApp> = AppCell::new();
@@ -78,6 +82,19 @@ impl Application for RusticServerApp {
         self.state.components_mut().after_config(&config)?;
         self.config.set_once(config);
         Ok(())
+    }
+
+    /// Load configuration from the given path.
+    ///
+    /// Returns an error if the configuration could not be loaded.
+    fn load_config(&mut self, path: &Path) -> Result<Self::Cfg, FrameworkError> {
+        let canonical_path = AbsPathBuf::canonicalize(path).map_err(|_err| {
+            FrameworkError::from(IoError.context(
+                "It seems like your configuration wasn't found! Please make sure it exists at the given location!"
+            ))
+        })?;
+
+        Self::Cfg::load_toml_file(canonical_path)
     }
 
     /// Get tracing configuration from command-line options

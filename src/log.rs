@@ -4,24 +4,15 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use axum_macros::debug_middleware;
 use http_body_util::BodyExt;
 
 use crate::error::ApiErrorKind;
 
+// Add the `#[debug_middleware]` attribute to the function to make debugging easier.
+// use axum_macros::debug_middleware;
+//
+// #[debug_middleware]
 /// Router middleware function to print additional information on the request and response.
-///
-/// # Usage
-///
-/// Add this middleware to the router to print the request and response information.
-///
-/// ```rust
-/// use axum::Router;
-///
-/// app = Router::new()
-///         .layer(middleware::from_fn(print_request_response))
-/// ```
-#[debug_middleware]
 pub async fn print_request_response(
     req: Request,
     next: Next,

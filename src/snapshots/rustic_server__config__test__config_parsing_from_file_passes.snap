@@ -4,7 +4,9 @@ expression: config
 ---
 RusticServerConfig {
     server: ConnectionSettings {
-        listen: 127.0.0.1:8080,
+        listen: Some(
+            127.0.0.1:8080,
+        ),
     },
     storage: StorageSettings {
         data_dir: Some(

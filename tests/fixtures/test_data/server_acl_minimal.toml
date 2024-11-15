@@ -1,0 +1,4 @@
+[acl]
+disable-acl = true
+acl-path = "/test_data/test_repo/acl.toml"
+append-only = false

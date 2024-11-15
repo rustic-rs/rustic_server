@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use axum::{middleware, Router};
 use axum_extra::routing::RouterExt;
 use axum_server::tls_rustls::RustlsConfig;
@@ -7,9 +5,9 @@ use tokio::net::TcpListener;
 use tracing::{info, level_filters::LevelFilter};
 
 use crate::{
-    acl::{init_acl, Acl},
-    auth::{init_auth, Auth},
-    config::LogSettings,
+    acl::init_acl,
+    auth::init_auth,
+    context::ServerRuntimeContext,
     error::{AppResult, ErrorKind},
     handlers::{
         file_config::{add_config, delete_config, get_config, has_config},
@@ -20,32 +18,27 @@ use crate::{
     },
     log::print_request_response,
     storage::{init_storage, Storage},
-    typed_path::{RepositoryTpeNamePath, RepositoryTpePath},
-};
-use crate::{
-    config::TlsSettings,
-    typed_path::{RepositoryConfigPath, RepositoryPath},
+    typed_path::{RepositoryConfigPath, RepositoryPath, RepositoryTpeNamePath, RepositoryTpePath},
 };
 
 /// Start the web server
 ///
 /// # Arguments
 ///
-/// * `acl` - The ACL configuration
-/// * `auth` - The Auth configuration
-/// * `storage` - The Storage configuration
-/// * `socket_address` - The socket address to bind to
-/// * `tls` - Enable TLS
-/// * `cert` - The certificate file
-/// * `key` - The key file
-pub async fn start_web_server(
-    acl: Acl,
-    auth: Auth,
-    storage: impl Storage,
-    socket_address: SocketAddr,
-    tls_opts: &TlsSettings,
-    _log_opts: &LogSettings,
-) -> AppResult<()> {
+/// * `runtime_ctx` - The server runtime context
+pub async fn start_web_server<S>(runtime_ctx: ServerRuntimeContext<S>) -> AppResult<()>
+where
+    S: Storage + Clone + std::fmt::Debug,
+{
+    let ServerRuntimeContext {
+        socket_address,
+        acl,
+        auth,
+        storage,
+        tls,
+        ..
+    } = runtime_ctx;
+
     init_acl(acl)?;
     init_auth(auth)?;
     init_storage(storage)?;
@@ -175,15 +168,26 @@ pub async fn start_web_server(
         _ => {}
     };
 
-    let TlsSettings {
-        tls,
-        tls_cert,
-        tls_key,
-    } = tls_opts;
+    info!("Starting web server ...");
 
-    // Start server with or without TLS
-    if !tls {
-        info!("[serve] Listening on: http://{}", socket_address);
+    if let Some(tls) = tls {
+        // Start server with or without TLS
+        let config = RustlsConfig::from_pem_file(tls.tls_cert, tls.tls_key)
+            .await
+        .map_err(|err|
+            ErrorKind::Io.context(
+                format!("Failed to load TLS certificate/key. Please make sure the paths are correct. `{err}`")
+            )
+        )?;
+
+        info!("[serve] Listening on: `https://{socket_address}`");
+
+        axum_server::bind_rustls(socket_address, config)
+            .serve(app.into_make_service())
+            .await
+            .expect("Failed to start server. Is the address already in use?");
+    } else {
+        info!("Listening on: `http://{socket_address}`");
 
         axum::serve(
             TcpListener::bind(socket_address)
@@ -193,23 +197,7 @@ pub async fn start_web_server(
         )
         .await
         .expect("Failed to start server. Is the address already in use?");
-    } else {
-        let (Some(cert), Some(key)) = (tls_cert.as_ref(), tls_key.as_ref()) else {
-            return Err(ErrorKind::MissingUserInput
-                .context("TLS certificate or key not specified".to_string())
-                .into());
-        };
+    };
 
-        let config = RustlsConfig::from_pem_file(cert, key)
-            .await
-            .expect("Failed to load TLS certificate/key. Please make sure the paths are correct.");
-
-        info!("[serve] Listening on: https://{}", socket_address);
-
-        axum_server::bind_rustls(socket_address, config)
-            .serve(app.into_make_service())
-            .await
-            .expect("Failed to start server. Is the address already in use?");
-    }
     Ok(())
 }

@@ -78,7 +78,7 @@ mod test {
     use crate::{
         handlers::file_length::file_length,
         log::print_request_response,
-        test_helpers::{init_test_environment, request_uri_for_test, server_config},
+        testing::{init_test_environment, request_uri_for_test, server_config},
         typed_path::RepositoryTpeNamePath,
     };
 

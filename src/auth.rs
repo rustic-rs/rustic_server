@@ -20,7 +20,7 @@ pub(crate) fn init_auth(auth: Auth) -> AppResult<()> {
     Ok(())
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Auth {
     users: Option<CredentialMap>,
 }
@@ -48,8 +48,7 @@ impl Auth {
         })
     }
 
-    pub fn from_config(settings: &HtpasswdSettings) -> AppResult<Self> {
-        let path = settings.htpasswd_file_or_default(&PathBuf::new());
+    pub fn from_config(settings: &HtpasswdSettings, path: PathBuf) -> AppResult<Self> {
         Self::from_file(settings.is_disabled(), &path)
     }
 
@@ -60,6 +59,10 @@ impl Auth {
         let passwd = passwd.into();
 
         self.users.as_ref().map_or(true, |users| matches!(users.get(&user), Some(passwd_data) if htpasswd_verify::Htpasswd::from(passwd_data.to_string().borrow()).check(user, passwd)))
+    }
+
+    pub const fn is_disabled(&self) -> bool {
+        self.users.is_none()
     }
 }
 
@@ -113,7 +116,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
 mod test {
     use super::*;
 
-    use crate::test_helpers::{basic_auth_header_value, init_test_environment, server_config};
+    use crate::testing::{basic_auth_header_value, init_test_environment, server_config};
 
     use anyhow::Result;
     use axum::{
@@ -179,7 +182,7 @@ mod test {
 
         let resp = app.oneshot(request).await.unwrap();
 
-        assert_eq!(resp.status().as_u16(), StatusCode::OK.as_u16());
+        assert_eq!(resp.status(), StatusCode::OK);
         let body = resp.into_parts().1;
         let byte_vec = body.into_data_stream().collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(byte_vec.to_vec()).unwrap();

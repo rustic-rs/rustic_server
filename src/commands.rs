@@ -17,7 +17,9 @@ use crate::{
     commands::{auth::AuthCmd, serve::ServeCmd},
     config::RusticServerConfig,
 };
-use abscissa_core::{config::Override, Command, Configurable, FrameworkError, Runnable};
+use abscissa_core::{
+    config::Override, tracing::info, Command, Configurable, FrameworkError, Runnable,
+};
 use clap::builder::{
     styling::{AnsiColor, Effects},
     Styles,
@@ -73,9 +75,12 @@ impl Runnable for EntryPoint {
 impl Configurable<RusticServerConfig> for EntryPoint {
     /// Location of the configuration file
     fn config_path(&self) -> Option<PathBuf> {
-        // Check if the config file exists, and if it does not, ignore it.
-        // If you'd like for a missing configuration file to be a hard error
-        // instead, always return `Some(CONFIG_FILE)` here.
+        // Early return if no config file was provided
+        if self.config.is_none() {
+            info!("No configuration file provided.");
+            return None;
+        }
+
         let filename = self
             .config
             .as_ref()
@@ -83,9 +88,14 @@ impl Configurable<RusticServerConfig> for EntryPoint {
             .unwrap_or_else(|| CONFIG_FILE.into());
 
         if filename.exists() {
+            // Check if the config file exists, and if it does not,
+            info!("Using configuration file: `{filename:?}`");
             Some(filename)
         } else {
-            None
+            info!("Provided configuration file not found. Trying default.");
+            // for a missing configuration file to be a hard error
+            // instead, always return `Some(CONFIG_FILE)` here.
+            Some(PathBuf::from(CONFIG_FILE))
         }
     }
 
