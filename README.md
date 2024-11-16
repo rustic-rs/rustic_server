@@ -15,19 +15,11 @@
 
 # ⚠️ This project is in early development and not yet ready for production use
 
-We just merged a huge refactor to `axum` and are working on the next steps.
-
-There are a few things, we might still want to work on, namely:
-
-- check the ACL logic
-- improve the CLI
-- add more tests, especially integration tests with `restic` in CI
-- add more documentation
-
 For now, expect bugs, breaking changes, and a lot of refactoring.
 
-Please feel free to contribute to this project, we are happy to help you get
-started. Join our [Discord](https://discord.gg/WRUWENZnzQ) and ask for help.
+Please feel free to contribute to this project, we are happy to help you getting
+started. Join our [Discord](https://discord.gg/WRUWENZnzQ) to get in touch with
+us.
 
 ## About
 
