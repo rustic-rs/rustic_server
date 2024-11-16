@@ -88,7 +88,7 @@ anyhow = "1"
 assert_cmd = "2"
 base64 = "0.22"
 dircmp = "0.2"
-insta = { version = "1", features = ["redactions", "ron"] }
+insta = { version = "1", features = ["redactions", "toml"] }
 once_cell = "1.2"
 predicates = "3.1.2"
 pretty_assertions = "1"

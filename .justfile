@@ -54,7 +54,7 @@ loop dir action:
     watchexec -w {{ dir }} -- "just {{ action }}"
 
 test: check lint
-    cargo test --workspace --all-features
+    cargo test --all-targets --all-features --workspace
 
 test-restic $RESTIC_REPOSITORY="rest:http://restic:restic@127.0.0.1:8080/ci_repo" $RESTIC_PASSWORD="restic":
     restic init

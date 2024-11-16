@@ -202,7 +202,7 @@ mod test {
     use crate::auth::Auth;
     use crate::htpasswd::Htpasswd;
     use anyhow::Result;
-    use insta::assert_ron_snapshot;
+    use insta::assert_toml_snapshot;
 
     #[test]
     fn test_htpasswd_passes() -> Result<()> {
@@ -211,7 +211,7 @@ mod test {
         let _ = htpasswd.update("Administrator", "stuff");
         let _ = htpasswd.update("backup-user", "its_me");
 
-        assert_ron_snapshot!(htpasswd, {
+        assert_toml_snapshot!(htpasswd, {
             ".credentials.*.hash" => "[hash]",
         });
 
