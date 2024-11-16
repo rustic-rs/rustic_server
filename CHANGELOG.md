@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0](https://github.com/rustic-rs/rustic_server/compare/v0.2.0...v0.3.0) - 2024-11-16
+
+### Added
+
+- add context module and update configuration files
+
+### Other
+
+- preparing the docs for another release
+- *(readme)* update readme for current state
+- some fixes applied to testing
+
 ## [0.2.0](https://github.com/rustic-rs/rustic_server/compare/v0.1.1...v0.2.0) - 2024-11-14
 
 ### Other

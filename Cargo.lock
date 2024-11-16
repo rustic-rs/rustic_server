@@ -2008,7 +2008,7 @@ dependencies = [
 
 [[package]]
 name = "rustic_server"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "abscissa_core",
  "abscissa_tokio",
