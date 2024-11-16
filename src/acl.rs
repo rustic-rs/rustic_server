@@ -267,7 +267,7 @@ mod tests {
         assert!(&acl.private_repo);
         assert!(!&acl.append_only);
         let access = acl.repos.get("test_repo").unwrap();
-        let access_type = access.get("restic").unwrap();
+        let access_type = access.get("rustic").unwrap();
         assert_eq!(access_type, &Append);
     }
 

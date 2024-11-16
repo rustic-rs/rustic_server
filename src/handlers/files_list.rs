@@ -176,7 +176,7 @@ mod test {
             .header(ACCEPT, ApiVersionKind::V1.to_static_str())
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -224,7 +224,7 @@ mod test {
             .header(ACCEPT, ApiVersionKind::V2.to_static_str())
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(Body::empty())
             .unwrap();

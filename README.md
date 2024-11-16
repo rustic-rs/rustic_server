@@ -23,7 +23,7 @@ us.
 
 ## About
 
-A REST server built in rust for use with rustic and restic.
+A REST server built in rust for use with rustic and rustic.
 
 Works pretty similar to [rest-server](https://github.com/restic/rest-server).
 Most features are already implemented.
@@ -40,23 +40,28 @@ Most features are already implemented.
 
 Yes, you can find them [here](https://rustic.cli.rs/docs/nightly_builds.html).
 
-## Additional feature
+## Installation
 
-Allows to give ACLs im TOML format, use option `--acl`
+You can install `rustic-server` using `cargo`:
 
-Example TOML file:
-
-```toml
-# default sets ACL for the repo without explicit path
-# (and for the repo under path "default", if exists)
-[default]
-alex = "Read"
-admin = "Modify"
-
-[alex]
-alex = "Modify"
-bob = "Append"
+```console
+cargo install rustic_server
 ```
+
+or you can download the binaries from the
+[releases page](https://github.com/rustic-rs/rustic_server/releases).
+
+## Usage
+
+After installing `rustic-server`, you can start the server with the following
+command:
+
+```console
+rustic-server serve
+```
+
+For more information, please refer to the
+[`rustic-server` usage documentation](https://github.com/rustic-rs/rustic_server/blob/main/USAGE.md).
 
 ## Contributing
 

@@ -10,7 +10,7 @@ RusticServerConfig {
     },
     storage: StorageSettings {
         data_dir: Some(
-            "C:\\Users\\dailyuse\\AppData\\Local\\Temp\\restic",
+            "C:\\Users\\dailyuse\\AppData\\Local\\Temp\\rustic",
         ),
         quota: None,
     },

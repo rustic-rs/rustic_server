@@ -1,0 +1,3 @@
+[repository]
+repository = "rest:http://rustic:rustic@localhost:8000/ci_repo"
+password = "rustic"

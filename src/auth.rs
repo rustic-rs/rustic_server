@@ -137,8 +137,8 @@ mod test {
 
     #[rstest]
     fn test_auth_passes(auth: Auth) -> Result<()> {
-        assert!(auth.verify("restic", "restic"));
-        assert!(!auth.verify("restic", "_restic"));
+        assert!(auth.verify("rustic", "rustic"));
+        assert!(!auth.verify("rustic", "_rustic"));
 
         Ok(())
     }
@@ -148,8 +148,8 @@ mod test {
         init_auth(auth).unwrap();
 
         let auth = AUTH.get().unwrap();
-        assert!(auth.verify("restic", "restic"));
-        assert!(!auth.verify("restic", "_restic"));
+        assert!(auth.verify("rustic", "rustic"));
+        assert!(!auth.verify("rustic", "_rustic"));
     }
 
     async fn format_auth_basic(AuthBasic((id, password)): AuthBasic) -> String {
@@ -201,7 +201,7 @@ mod test {
             .method(Method::GET)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -212,7 +212,7 @@ mod test {
         let body = resp.into_parts().1;
         let byte_vec = body.collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(byte_vec.to_vec()).unwrap();
-        assert_eq!(body_str, String::from("User = restic"));
+        assert_eq!(body_str, String::from("User = rustic"));
     }
 
     #[tokio::test]
@@ -229,7 +229,7 @@ mod test {
             .method(Method::GET)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("_restic")),
+                basic_auth_header_value("rustic", Some("_rustic")),
             )
             .body(Body::empty())
             .unwrap();

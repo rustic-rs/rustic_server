@@ -168,7 +168,7 @@ mod test {
             .method(Method::DELETE)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("__wrong_password__")),
+                basic_auth_header_value("rustic", Some("__wrong_password__")),
             )
             .body(Body::empty())
             .unwrap();

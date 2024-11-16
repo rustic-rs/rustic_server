@@ -116,7 +116,7 @@ pub struct StorageSettings {
     /// # Caution
     ///
     /// By default the server persists backup data in the OS temporary directory
-    /// (/tmp/restic on Linux/BSD and others, in %TEMP%\\restic in Windows, etc).
+    /// (/tmp/rustic on Linux/BSD and others, in %TEMP%\\rustic in Windows, etc).
     #[arg(long = "path", env = "RUSTIC_SERVER_DATA_DIR")]
     #[merge(strategy = overwrite_with_some)]
     pub data_dir: Option<PathBuf>,
@@ -129,7 +129,7 @@ pub struct StorageSettings {
 }
 
 pub(crate) fn default_data_dir() -> PathBuf {
-    std::env::temp_dir().join("restic")
+    std::env::temp_dir().join("rustic")
 }
 
 impl Default for StorageSettings {

@@ -163,7 +163,7 @@ mod test {
             .method(Method::HEAD)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -184,7 +184,7 @@ mod test {
             .method(Method::HEAD)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(Body::empty())
             .unwrap();
@@ -244,7 +244,7 @@ mod test {
             .method(Method::POST)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(body)
             .unwrap();

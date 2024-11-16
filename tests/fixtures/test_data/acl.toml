@@ -1,13 +1,17 @@
 [test_repo]
+rustic = "Append"
 restic = "Append"
 hurl = "Append"
 
 [repo_remove_me]
+rustic = "Modify"
 restic = "Modify"
 
 [repo_remove_me_2]
+rustic = "Modify"
 restic = "Modify"
 
 [ci_repo]
+rustic = "Modify"
 restic = "Modify"
 hurl = "Modify"

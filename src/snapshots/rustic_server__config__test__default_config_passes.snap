@@ -7,7 +7,7 @@ RusticServerConfig(
     listen: Some("127.0.0.1:8000"),
   ),
   storage: StorageSettings(
-    r#data-dir: Some("C:\\Users\\dailyuse\\AppData\\Local\\Temp\\restic"),
+    r#data-dir: Some("C:\\Users\\dailyuse\\AppData\\Local\\Temp\\rustic"),
   ),
   auth: HtpasswdSettings(
     r#disable-auth: false,

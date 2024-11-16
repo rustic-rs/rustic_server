@@ -259,7 +259,7 @@ mod test {
             .method(Method::POST)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(body)
             .unwrap();
@@ -285,7 +285,7 @@ mod test {
             .method(Method::DELETE)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(body)
             .unwrap();
@@ -333,7 +333,7 @@ mod test {
             .method(Method::POST)
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(body)
             .unwrap();
@@ -383,7 +383,7 @@ mod test {
             .header(header::RANGE, "bytes=6-12")
             .header(
                 "Authorization",
-                basic_auth_header_value("restic", Some("restic")),
+                basic_auth_header_value("rustic", Some("rustic")),
             )
             .body(Body::empty())
             .unwrap();

@@ -2,45 +2,28 @@
 
 The test data folder contains data required for testing the server.
 
-FIXME: Future move to a container to also allow rustic interfaces to be tested
-against the rustic server?
-
 ## Basic files for test access to a repository
 
-### `htpasswd`
+### `.htpasswd`
 
 File governing the access to the server. Without access all is rejected.
 
-htpasswd file has one entry:
+The `.htpasswd` file has three entries:
 
-- user: restic
-- password: restic
+- rustic:rustic
+- restic:restic
+- hurl:hurl
 
 ### `acl.toml`
 
 Definition which user from the HTACCESS file has what privileges on which
 repository.
 
-Most used seems to be the `test_repo` with members
-
-- user: restic
-- Access level: Read But there are 2 more in the file.
+Check [here](config/README.md) for more information.
 
 ### `rustic_server.toml`
 
-Server configuration file which allows the `rustic_server` to be started with
-only a pointer to this file. This file points to:
-
-- htpasswd file
-
-  **Note**: that the htpasswd file does not need to be a hidden file. Rustic
-  will use the file you point to.
-- acl.toml file
-- path to: repository (where all your backups are)
-- path to: https TLS certificate and key file
-- dns_hostname, and port to listen to
-
-This file allows a server to be started.
+Server configuration file.
 
 ### `rustic.toml`
 
@@ -56,11 +39,19 @@ following credentials:
 
 ```toml
 [repository]
-repository = "rest:http://test:test_pw@localhost:8000/test_repo"
-password = "test_pw"
+repository = "rest:http://rustic:rustic@localhost:8000/ci_repo"
+password = "rustic"
 ```
 
-## Repository
+### `certs` directory
 
-There are 2 folders with test data. One source folder, and a repository folder
-which should be the folder that contains the rustic backup of the source folder.
+Contains the test certificates for the server.
+
+## Source folder for Testing
+
+There is a source folder with test data.
+
+## Storage folder for Testing
+
+There is a storage folder with test data. It is used to store the data for the
+server. The data is stored in the `tests/generated/test_storage` directory.
