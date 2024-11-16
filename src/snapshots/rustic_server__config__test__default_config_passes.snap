@@ -2,24 +2,20 @@
 source: src/config.rs
 expression: config
 ---
-RusticServerConfig(
-  server: ConnectionSettings(
-    listen: Some("127.0.0.1:8000"),
-  ),
-  storage: StorageSettings(
-    r#data-dir: Some("C:\\Users\\dailyuse\\AppData\\Local\\Temp\\rustic"),
-  ),
-  auth: HtpasswdSettings(
-    r#disable-auth: false,
-  ),
-  acl: AclSettings(
-    r#disable-acl: false,
-    r#append-only: true,
-  ),
-  tls: TlsSettings(
-    r#disable-tls: true,
-    r#tls-key: None,
-    r#tls-cert: None,
-  ),
-  log: LogSettings(),
-)
+[server]
+listen = '127.0.0.1:8000'
+
+[storage]
+data-dir = 'C:\Users\dailyuse\AppData\Local\Temp\rustic'
+
+[auth]
+disable-auth = false
+
+[acl]
+disable-acl = false
+append-only = true
+
+[tls]
+disable-tls = true
+
+[log]

@@ -8,7 +8,7 @@ use axum_range::{KnownSize, Ranged};
 use crate::typed_path::PathParts;
 use crate::{
     acl::AccessType,
-    auth::AuthFromRequest,
+    auth::BasicAuthFromRequest,
     error::{ApiErrorKind, ApiResult},
     handlers::{
         access_check::check_auth_and_acl,
@@ -23,7 +23,7 @@ use crate::{
 #[debug_handler]
 pub async fn has_config(
     RepositoryConfigPath { repo }: RepositoryConfigPath,
-    AuthFromRequest { user, .. }: AuthFromRequest,
+    BasicAuthFromRequest { user, .. }: BasicAuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
 
@@ -57,7 +57,7 @@ pub async fn has_config(
 /// Interface: GET {repo}/config
 pub async fn get_config<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
     range: Option<TypedHeader<Range>>,
 ) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
@@ -85,7 +85,7 @@ pub async fn get_config<P: PathParts>(
 /// Interface: POST {repo}/config
 pub async fn add_config<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
     request: Request,
 ) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
@@ -104,7 +104,7 @@ pub async fn add_config<P: PathParts>(
 #[allow(dead_code)]
 pub async fn delete_config<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
     let tpe = TpeKind::Config;
     let repo = path.repo().unwrap();

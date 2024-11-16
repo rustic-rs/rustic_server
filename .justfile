@@ -21,21 +21,24 @@ set shell := ["bash", "-uc"]
 export RUST_BACKTRACE := "1"
 export RUST_LOG := ""
 
+build:
+    cargo build --all-features
+    cargo build -r --all-features
+
+b: build
+
 check:
     cargo check --no-default-features
     cargo check --all-features
 
+c: check
+
 ci:
     just loop . dev
 
-dev:
-    just format
-    just lint
-    just test
+dev: format lint test
 
-format:
-    just format-cargo
-    just format-dprint
+d: dev
 
 format-dprint:
     dprint fmt
@@ -43,7 +46,14 @@ format-dprint:
 format-cargo:
     cargo fmt --all
 
-inverse-deps *crate:
+format: format-cargo format-dprint
+
+fmt: format
+
+rev:
+    cargo insta review
+
+inverse-deps crate:
     cargo tree -e features -i {{ crate }}
 
 lint: check
@@ -55,6 +65,11 @@ loop dir action:
 
 test: check lint
     cargo test --all-targets --all-features --workspace
+
+test-ignored: check lint
+    cargo test --all-targets --all-features --workspace -- --ignored
+
+t: test test-ignored
 
 test-restic $RESTIC_REPOSITORY="rest:http://restic:restic@127.0.0.1:8080/ci_repo" $RESTIC_PASSWORD="restic":
     restic init

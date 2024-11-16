@@ -1,4 +1,4 @@
-use axum::{middleware, Router};
+use axum::{middleware, routing::get, Router};
 use axum_extra::routing::RouterExt;
 use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
@@ -14,6 +14,7 @@ use crate::{
         file_exchange::{add_file, delete_file, get_file},
         file_length::file_length,
         files_list::list_files,
+        health::{init_start_time, live_check},
         repository::{create_repository, delete_repository},
     },
     log::print_request_response,
@@ -39,11 +40,24 @@ where
         ..
     } = runtime_ctx;
 
+    init_start_time();
     init_acl(acl)?;
     init_auth(auth)?;
     init_storage(storage)?;
 
     let mut app = Router::new();
+
+    // /health/live
+    //
+    // Liveness probe. This is used to check if the server is running.
+    // Returns “200 OK” if the server is running.
+    app = app.route("/health/live", get(live_check));
+
+    // /health/ready
+    //
+    // Readiness probe. This is used to check if the server is ready to accept requests.
+    // Returns “200 OK” if the server is ready to accept requests.
+    // app = app.route("/health/ready", get(ready_check));
 
     // /:repo/:tpe/:name
     app = app
@@ -180,7 +194,7 @@ where
             )
         )?;
 
-        info!("[serve] Listening on: `https://{socket_address}`");
+        info!("Listening on: `https://{socket_address}`");
 
         axum_server::bind_rustls(socket_address, config)
             .serve(app.into_make_service())

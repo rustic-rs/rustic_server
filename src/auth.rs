@@ -12,7 +12,7 @@ use crate::{
     htpasswd::{CredentialMap, Htpasswd},
 };
 
-//Static storage of our credentials
+// Static storage of our credentials
 pub static AUTH: OnceLock<Auth> = OnceLock::new();
 
 pub(crate) fn init_auth(auth: Auth) -> AppResult<()> {
@@ -67,13 +67,13 @@ impl Auth {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct AuthFromRequest {
+pub struct BasicAuthFromRequest {
     pub(crate) user: String,
     pub(crate) _password: SecretString,
 }
 
 #[async_trait::async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for AuthFromRequest {
+impl<S: Send + Sync> FromRequestParts<S> for BasicAuthFromRequest {
     type Rejection = ApiErrorKind;
 
     // FIXME: We also have a configuration flag do run without authentication
@@ -156,7 +156,7 @@ mod test {
         format!("Got {} and {:?}", id, password)
     }
 
-    async fn format_handler_from_auth_request(auth: AuthFromRequest) -> String {
+    async fn format_handler_from_auth_request(auth: BasicAuthFromRequest) -> String {
         format!("User = {}", auth.user)
     }
 

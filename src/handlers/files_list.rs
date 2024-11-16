@@ -13,7 +13,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::{
     acl::AccessType,
-    auth::AuthFromRequest,
+    auth::BasicAuthFromRequest,
     error::{ApiErrorKind, ApiResult},
     handlers::{access_check::check_auth_and_acl, file_helpers::IteratorAdapter},
     storage::STORAGE,
@@ -66,7 +66,7 @@ struct RepoPathEntry {
 
 pub async fn list_files<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
     headers: HeaderMap,
 ) -> ApiResult<impl IntoResponse> {
     let (path, tpe, _) = path.parts();

@@ -378,7 +378,7 @@ mod test {
     fn test_default_config_passes() -> Result<()> {
         let config = RusticServerConfig::default();
         assert_toml_snapshot!(config, {
-            ".storage.data-dir" => "[directory]",
+            ".storage.data_dir" => "[directory]",
         });
 
         Ok(())

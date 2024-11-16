@@ -5,7 +5,7 @@ use axum::{http::header, response::IntoResponse};
 
 use crate::{
     acl::AccessType,
-    auth::AuthFromRequest,
+    auth::BasicAuthFromRequest,
     error::{ApiErrorKind, ApiResult},
     handlers::access_check::check_auth_and_acl,
     storage::STORAGE,
@@ -16,7 +16,7 @@ use crate::{
 /// Interface: HEAD {path}/{type}/{name}
 pub async fn file_length<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
 

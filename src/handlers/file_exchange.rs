@@ -14,7 +14,7 @@ use tokio_util::io::StreamReader;
 
 use crate::{
     acl::AccessType,
-    auth::AuthFromRequest,
+    auth::BasicAuthFromRequest,
     error::{ApiErrorKind, ApiResult},
     handlers::{access_check::check_auth_and_acl, file_helpers::Finalizer},
     storage::STORAGE,
@@ -27,7 +27,7 @@ use crate::{
 /// Future on ranges: <https://www.rfc-editor.org/rfc/rfc9110.html#name-partial-put>
 pub async fn add_file<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
     request: Request,
 ) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
@@ -50,7 +50,7 @@ pub async fn add_file<P: PathParts>(
 /// Interface: DELETE {path}/{type}/{name}
 pub async fn delete_file<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();
 
@@ -78,7 +78,7 @@ pub async fn delete_file<P: PathParts>(
 /// Interface: GET {path}/{type}/{name}
 pub async fn get_file<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
     range: Option<TypedHeader<Range>>,
 ) -> ApiResult<impl IntoResponse> {
     let (path, tpe, name) = path.parts();

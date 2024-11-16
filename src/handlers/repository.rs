@@ -4,7 +4,7 @@ use axum::{extract::Query, http::StatusCode, response::IntoResponse};
 use serde_derive::Deserialize;
 
 use crate::{
-    acl::AccessType, auth::AuthFromRequest, error::ApiResult,
+    acl::AccessType, auth::BasicAuthFromRequest, error::ApiResult,
     handlers::access_check::check_auth_and_acl, storage::STORAGE, typed_path::TpeKind,
 };
 
@@ -22,7 +22,7 @@ pub struct Create {
 
 pub async fn create_repository<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
     Query(params): Query<Create>,
 ) -> ApiResult<impl IntoResponse> {
     tracing::debug!(
@@ -62,7 +62,7 @@ pub async fn create_repository<P: PathParts>(
 // FIXME: The input path should at least NOT point to a file in any repository
 pub async fn delete_repository<P: PathParts>(
     path: P,
-    auth: AuthFromRequest,
+    auth: BasicAuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
     tracing::debug!(
         "[delete_repository] repository path: {}",

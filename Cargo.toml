@@ -41,12 +41,13 @@ eula = false
 abscissa_tokio = "0.8.0"
 anyhow = "1"
 async-trait = "0.1"
-axum = { version = "0.7", features = ["tracing", "multipart", "http2"] }
+axum = { version = "0.7", features = ["tracing", "multipart", "http2", "macros"] }
 axum-auth = "0.7"
-axum-extra = { version = "0.9", features = ["typed-header", "query", "async-read-body", "typed-routing"] }
+axum-extra = { version = "0.9", features = ["typed-header", "query", "async-read-body", "typed-routing", "erased-json"] }
 axum-macros = "0.4"
 axum-range = "0.4"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
+chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 conflate = "0.3.1"
 displaydoc = "0.2"
