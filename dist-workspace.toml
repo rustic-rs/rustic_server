@@ -23,3 +23,6 @@ install-path = "CARGO_HOME"
 install-updater = true
 # Extra static files to include in each App (path relative to this Cargo.toml's dir)
 include = ["./config", "./USAGE.md", "./LICENSE"]
+
+[dist.dependencies.chocolatey]
+nasm = '*' # Required for building `aws-lc-sys` on Windows
