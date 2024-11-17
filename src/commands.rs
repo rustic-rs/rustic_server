@@ -57,11 +57,11 @@ pub struct EntryPoint {
     cmd: RusticServerCmd,
 
     /// Enable verbose logging
-    #[arg(short, long, global = true)]
+    #[arg(short, long, global = true, env = "RUSTIC_SERVER_VERBOSE")]
     pub verbose: bool,
 
     /// Use the specified config file
-    #[arg(short, long, global = true)]
+    #[arg(short, long, global = true, env = "RUSTIC_SERVER_CONFIG_PATH")]
     pub config: Option<String>,
 }
 

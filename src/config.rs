@@ -158,7 +158,8 @@ pub struct TlsSettings {
         default_value = "true",
         help = "Enable TLS support",
         requires = "tls_key",
-        requires = "tls_cert"
+        requires = "tls_cert",
+        env = "RUSTIC_SERVER_DISABLE_TLS"
     )]
     #[serde(default = "default_true")]
     #[merge(strategy = conflate::bool::overwrite_true)]
@@ -196,7 +197,7 @@ impl Default for TlsSettings {
 #[group(id = "auth")]
 pub struct HtpasswdSettings {
     /// Disable .htpasswd authentication
-    #[arg(long = "no-auth")]
+    #[arg(long = "no-auth", env = "RUSTIC_SERVER_DISABLE_AUTH")]
     #[serde(default)]
     #[merge(strategy = conflate::bool::overwrite_false)]
     pub disable_auth: bool,
@@ -261,13 +262,13 @@ pub struct AclSettings {
     pub disable_acl: bool,
 
     /// Users can only access their private repositories
-    #[arg(long, default_value = "true")]
+    #[arg(long, default_value = "true", env = "RUSTIC_SERVER_PRIVATE_REPOS")]
     #[serde(skip)]
     #[merge(strategy = conflate::bool::overwrite_false)]
     pub private_repos: bool,
 
     /// Enable append only mode
-    #[arg(long)]
+    #[arg(long, env = "RUSTIC_SERVER_APPEND_ONLY")]
     #[merge(strategy = conflate::bool::overwrite_false)]
     pub append_only: bool,
 

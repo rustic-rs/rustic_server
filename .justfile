@@ -20,6 +20,7 @@ set shell := ["bash", "-uc"]
 
 export RUST_BACKTRACE := "1"
 export RUST_LOG := ""
+export CI := "1"
 
 build:
     cargo build --all-features
