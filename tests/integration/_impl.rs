@@ -27,7 +27,7 @@ impl AssertCmdExt for Command {
     fn test_mode_args(&mut self) -> &mut Self {
         self.timeout(Duration::from_secs(10)) // Set a timeout of 10 seconds
             .args(["-v"]) // Enable verbose logging
-            .env("RUSTIC_SERVER_CI_TEST", "1"); // Enable CI test mode
+            .env("CI", "1"); // Enable CI test mode
 
         self
     }

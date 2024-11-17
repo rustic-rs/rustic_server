@@ -74,8 +74,8 @@ impl ServeCmd {
         _ = tokio::spawn(async move {
             // If we're running in test mode, we want to shutdown after
             // 10 seconds automatically, if the environment variable
-            // `RUSTIC_SERVER_CI_TEST=1` is set.
-            if std::env::var("RUSTIC_SERVER_CI_TEST").is_ok() {
+            // `CI=1` is set.
+            if std::env::var("CI").is_ok() {
                 tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
                 info!("Shutting down gracefully ...");
                 RUSTIC_SERVER_APP.shutdown(Shutdown::Graceful);
