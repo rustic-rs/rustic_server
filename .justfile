@@ -94,3 +94,6 @@ hurl:
 
 dbg-test test_name $RUST_LOG="debug":
     cargo test --package rustic_server --lib -- {{ test_name }} --exact --nocapture --show-output
+
+build-docker version="0.4.0":
+    podman build . --build-arg RUSTIC_SERVER_VERSION=v{{ version }} --format docker --tag rustic_server:v{{ version }}

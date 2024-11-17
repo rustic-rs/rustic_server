@@ -13,10 +13,9 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
     touch /etc_files/group
 
 FROM scratch
-COPY --from=builder /usr/bin/wget /wget
 COPY --from=builder /rustic-server /
 COPY --from=builder /etc_files/ /etc/
-EXPOSE 8080
+EXPOSE 8000
 ENTRYPOINT ["/rustic-server"]
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD /wget -q --spider http://localhost:8080/health/live
+HEALTHCHECK --interval=90s --timeout=10s --retries=3 \
+  CMD /curl --fail -s http://localhost:8000/health/live || exit 1
