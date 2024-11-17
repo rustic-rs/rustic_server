@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0](https://github.com/rustic-rs/rustic_server/compare/v0.3.0...v0.4.0) - 2024-11-17
+
+### Added
+
+- read more cli options from environment variables
+- add /health route(s)
+
+### Other
+
+- set CI in test to run also locally in CI mode
+
 ## [0.3.0](https://github.com/rustic-rs/rustic_server/compare/v0.2.0...v0.3.0) - 2024-11-16
 
 ### Added

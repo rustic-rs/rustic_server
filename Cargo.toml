@@ -1,6 +1,6 @@
 [package]
 name = "rustic_server"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["the rustic-rs team"]
 categories = ["command-line-utilities"]
 edition = "2021"
