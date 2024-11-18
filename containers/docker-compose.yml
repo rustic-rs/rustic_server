@@ -1,0 +1,52 @@
+services:
+  rustic-server:
+    image: rustic-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        RUSTIC_SERVER_VERSION: "v0.4.0" # Replace with the actual version
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./volumes/config:/etc/rustic-server/config:ro
+      - ./volumes/certs:/etc/rustic-server/certs:ro
+      - ./volumes/data:/var/lib/rustic-server/data
+      - ./volumes/logs:/var/log/
+    environment:
+      - RUSTIC_SERVER_LISTEN=0.0.0.0:8000
+      - RUSTIC_SERVER_DATA_DIR=/var/lib/rustic-server/data
+      - RUSTIC_SERVER_QUOTA=0   # 0 means no quota
+      - RUSTIC_SERVER_VERBOSE=false
+    # - RUSTIC_SERVER_CONFIG_PATH=/etc/rustic-server/config/server.toml
+      - RUSTIC_SERVER_DISABLE_AUTH=false
+      - RUSTIC_SERVER_HTPASSWD_FILE=/var/lib/rustic-server/data/.htpasswd
+      - RUSTIC_SERVER_PRIVATE_REPOS=true
+      - RUSTIC_SERVER_APPEND_ONLY=false
+      - RUSTIC_SERVER_ACL_PATH=/etc/rustic-server/config/acl.toml
+      - RUSTIC_SERVER_DISABLE_TLS=false
+      - RUSTIC_SERVER_TLS_KEY=/etc/rustic-server/certs/server.key
+      - RUSTIC_SERVER_TLS_CERT=/etc/rustic-server/certs/server.crt
+      - RUSTIC_SERVER_LOG_FILE=/var/log/rustic-server.log
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "-s", "http://localhost:8000/health/live"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rustic-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    restart: unless-stopped
+
+networks:
+  rustic-network:
+    driver: bridge
