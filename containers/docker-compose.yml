@@ -18,7 +18,7 @@ services:
       - RUSTIC_SERVER_DATA_DIR=/var/lib/rustic-server/data
       - RUSTIC_SERVER_QUOTA=0   # 0 means no quota
       - RUSTIC_SERVER_VERBOSE=false
-      - RUSTIC_SERVER_CONFIG_PATH=
+    # - RUSTIC_SERVER_CONFIG_PATH=/etc/rustic-server/config/server.toml
       - RUSTIC_SERVER_DISABLE_AUTH=false
       - RUSTIC_SERVER_HTPASSWD_FILE=/var/lib/rustic-server/data/.htpasswd
       - RUSTIC_SERVER_PRIVATE_REPOS=true
@@ -45,6 +45,7 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
+    restart: unless-stopped
 
 networks:
   rustic-network:

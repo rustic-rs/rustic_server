@@ -97,3 +97,9 @@ dbg-test test_name $RUST_LOG="debug":
 
 build-docker version="0.4.0":
     podman build containers --build-arg RUSTIC_SERVER_VERSION=v{{ version }} --format docker --tag rustic_server:v{{ version }}
+
+server-up:
+    uv --directory containers run podman-compose -f docker-compose.yml up --detach
+
+server-down:
+    uv --directory containers run podman-compose -f docker-compose.yml down
