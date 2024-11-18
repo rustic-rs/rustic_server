@@ -67,11 +67,11 @@ jobs:
             target: aarch64-unknown-linux-gnu
             architecture: arm64
             use-cross: true
+          # Check because of Container images for rustic-rs
           - os: ubuntu-latest
             os-name: linux
             target: aarch64-unknown-linux-musl
             architecture: arm64
-            binary-postfix: ""
             use-cross: true
           - os: ubuntu-latest
             os-name: linux
