@@ -46,13 +46,6 @@ pub struct RusticServerConfig {
     pub log: LogSettings,
 }
 
-/// Overwrite the left value with the right value if the right value is `Some`.
-fn overwrite_with_some<T>(left: &mut Option<T>, right: Option<T>) {
-    if right.is_some() {
-        *left = right;
-    }
-}
-
 /// Overwrite the left value with the right value unconditionally.
 #[allow(dead_code)]
 fn overwrite_left<T>(left: &mut T, right: T) {
@@ -64,7 +57,7 @@ fn overwrite_left<T>(left: &mut T, right: T) {
 pub struct ConnectionSettings {
     /// IP address and port to bind to
     #[arg(long, env = "RUSTIC_SERVER_LISTEN")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub listen: Option<SocketAddr>,
 }
 
@@ -87,7 +80,7 @@ pub struct LogSettings {
     // We don't want to expose this to the CLI, as we use the global verbose flag there
     #[clap(skip)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub log_level: Option<String>,
 
     /// Write HTTP requests in the combined log format to the specified filename
@@ -96,7 +89,7 @@ pub struct LogSettings {
     /// If `None`, logging will be disabled or will use a default logging mechanism.
     #[arg(long = "log", env = "RUSTIC_SERVER_LOG_FILE")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub log_file: Option<PathBuf>,
 }
 
@@ -118,13 +111,13 @@ pub struct StorageSettings {
     /// By default the server persists backup data in the OS temporary directory
     /// (/tmp/rustic on Linux/BSD and others, in %TEMP%\\rustic in Windows, etc).
     #[arg(long = "path", env = "RUSTIC_SERVER_DATA_DIR")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub data_dir: Option<PathBuf>,
 
     /// Optional maximum size (quota) of a repository in bytes
     #[arg(long = "max-size", env = "RUSTIC_SERVER_QUOTA")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub quota: Option<usize>,
 }
 
@@ -167,12 +160,12 @@ pub struct TlsSettings {
 
     /// Optional path to the TLS key file
     #[arg(long, requires = "disable_tls", env = "RUSTIC_SERVER_TLS_KEY")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub tls_key: Option<PathBuf>,
 
     /// Optional path to the TLS certificate file
     #[arg(long, requires = "disable_tls", env = "RUSTIC_SERVER_TLS_CERT")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub tls_cert: Option<PathBuf>,
 }
 
@@ -205,7 +198,7 @@ pub struct HtpasswdSettings {
     /// Optional location of .htpasswd file (default: "<data directory>/.htpasswd")
     #[arg(long, env = "RUSTIC_SERVER_HTPASSWD_FILE")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub htpasswd_file: Option<PathBuf>,
 }
 
@@ -276,7 +269,7 @@ pub struct AclSettings {
     /// (default: "<data directory>/acl.toml")
     #[arg(long, requires = "private_repos", env = "RUSTIC_SERVER_ACL_PATH")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[merge(strategy = overwrite_with_some)]
+    #[merge(strategy = conflate::option::overwrite_with_some)]
     pub acl_path: Option<PathBuf>,
 }
 

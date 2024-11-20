@@ -49,7 +49,7 @@ axum-range = "0.4"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
-conflate = "0.3.1"
+conflate = "0.3.2"
 displaydoc = "0.2"
 # enum_dispatch = "0.3.12"
 futures = "0.3"
