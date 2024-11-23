@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1](https://github.com/rustic-rs/rustic_server/compare/v0.4.0...v0.4.1) - 2024-11-23
+
+### Added
+
+- update conflate dependency to version 0.3.2 and refactor merge strategies
+
+### Other
+
+- add workspace linting configuration
+
 ## [0.4.0](https://github.com/rustic-rs/rustic_server/compare/v0.3.0...v0.4.0) - 2024-11-17
 
 ### Added
