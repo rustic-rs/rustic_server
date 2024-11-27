@@ -9,13 +9,3 @@ pre-build = [
 passthrough = [
   "AWS_LC_SYS_PREBUILT_NASM=1",
 ]
-
-[target.x86_64-unknown-netbsd]
-pre-build = [
-  "cargo install --force --locked bindgen-cli",
-]
-
-[target.armv7-unknown-linux-gnueabihf]
-pre-build = [
-  "cargo install --force --locked bindgen-cli",
-]

@@ -8,7 +8,7 @@ cargo-dist-version = "0.25.1"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
-installers = ["shell", "powershell", "msi"]
+installers = ["shell", "powershell", "homebrew", "msi"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "aarch64-unknown-linux-musl", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "x86_64-pc-windows-msvc"]
 # Path that installers should place binaries in
@@ -19,9 +19,15 @@ install-updater = true
 include = ["./config", "./USAGE.md", "./LICENSE"]
 # Which actions to run on pull requests
 pr-run-mode = "upload"
+# A GitHub repo to push Homebrew formulas to
+tap = "rustic-rs/homebrew-tap"
+# Publish jobs to run in CI
+publish-jobs = ["homebrew"]
 
 [dist.dependencies.chocolatey]
 nasm = '*' # Required for building `aws-lc-sys` on Windows
 
 [dist.dependencies.apt]
 gcc-aarch64-linux-gnu = { version = '*', targets = ["aarch64-unknown-linux-gnu", "aarch64-unknown-linux-musl"] }
+musl-tools = { version = '*', targets = ["aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"] }
+musl-dev = { version = '*', targets = ["aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"] }
