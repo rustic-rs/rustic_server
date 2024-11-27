@@ -21,8 +21,6 @@ jobs:
       with:
         context: containers
         push: true
-        # cross-compiling arm64 is currently not working 
-        # platforms: linux/amd64,linux/arm64
-        platforms: linux/amd64
+        platforms: linux/amd64,linux/arm64
         tags: ghcr.io/rustic-rs/rustic_server:latest,ghcr.io/rustic-rs/rustic_server:${{ github.ref_name }}
         build-args: RUSTIC_SERVER_VERSION=${{ github.ref_name }}
