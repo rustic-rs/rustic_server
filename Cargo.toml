@@ -46,7 +46,7 @@ axum-auth = "0.7"
 axum-extra = { version = "0.9", features = ["typed-header", "query", "async-read-body", "typed-routing", "erased-json"] }
 axum-macros = "0.4"
 axum-range = "0.4"
-axum-server = { version = "0.7", features = ["tls-rustls"] }
+axum-server = { version = "0.7", features = ["tls-rustls-no-provider"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 conflate = "0.3.2"
@@ -80,7 +80,7 @@ version = "0.8.1"
 
 [dependencies.rustls]
 version = "0.23.16"
-features = ["logging", "std", "tls12"]
+features = ["logging", "std", "ring", "tls12"]
 default-features = false
 
 [dev-dependencies]
