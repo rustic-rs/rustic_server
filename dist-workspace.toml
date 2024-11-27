@@ -30,3 +30,4 @@ nasm = '*' # Required for building `aws-lc-sys` on Windows
 [dist.dependencies.apt]
 gcc-aarch64-linux-gnu = { version = '*', targets = ["aarch64-unknown-linux-gnu", "aarch64-unknown-linux-musl"] }
 musl-tools = { version = '*', targets = ["aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"] }
+musl-dev = { version = '*', targets = ["aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"] }
