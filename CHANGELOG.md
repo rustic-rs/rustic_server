@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.3](https://github.com/rustic-rs/rustic_server/compare/v0.4.2...v0.4.3) - 2024-11-27
+
+### Added
+
+- enhance cross-check workflow with additional target configurations and enable cross-compilation for specific platforms ([#70](https://github.com/rustic-rs/rustic_server/pull/70))
+
 ## [0.4.2](https://github.com/rustic-rs/rustic_server/compare/v0.4.1...v0.4.2) - 2024-11-26
 
 ### Other
