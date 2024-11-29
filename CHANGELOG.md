@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.4](https://github.com/rustic-rs/rustic_server/compare/v0.4.3...v0.4.4) - 2024-11-29
+
+### Other
+
+- add targets ([#72](https://github.com/rustic-rs/rustic_server/pull/72))
+
 ## [0.4.3](https://github.com/rustic-rs/rustic_server/compare/v0.4.2...v0.4.3) - 2024-11-27
 
 ### Added
