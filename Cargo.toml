@@ -173,6 +173,7 @@ unused_comparisons = "warn"
 unused_parens = "warn"
 while_true = "warn"
 unreachable_pub = "allow"
+non-local-definitions = "allow"
 
 [workspace.lints.clippy]
 redundant_pub_crate = "allow"
