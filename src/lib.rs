@@ -4,6 +4,8 @@
 //!
 //! [Abscissa]: https://github.com/iqlusioninc/abscissa
 
+#![allow(non_local_definitions)]
+
 pub mod acl;
 pub mod application;
 pub mod auth;
