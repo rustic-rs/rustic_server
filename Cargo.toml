@@ -16,7 +16,7 @@ include = [
 keywords = ["backup", "restic", "cli", "server"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/rustic-rs/rustic_server"
-rust-version = "1.70.0"
+rust-version = "1.74.0"
 description = """
 rustic server - a REST server built in rust to use with rustic and restic.
 """
