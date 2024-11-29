@@ -71,21 +71,16 @@ jobs:
             target: aarch64-unknown-linux-musl
             architecture: arm64
             use-cross: true
-          - os: ubuntu-latest
-            os-name: linux
-            target: i686-unknown-linux-gnu
-            architecture: i686
-            use-cross: true
-          - os: ubuntu-latest
-            os-name: netbsd
-            target: x86_64-unknown-netbsd
-            architecture: x86_64
-            use-cross: true
-          - os: ubuntu-latest
-            os-name: linux
-            target: armv7-unknown-linux-gnueabihf
-            architecture: armv7
-            use-cross: true
+          # - os: ubuntu-latest
+          #   os-name: linux
+          #   target: i686-unknown-linux-gnu
+          #   architecture: i686
+          #   use-cross: true
+          # - os: ubuntu-latest
+          #   os-name: linux
+          #   target: armv7-unknown-linux-gnueabihf
+          #   architecture: armv7
+          #   use-cross: true
 
     steps:
       - name: Checkout repository

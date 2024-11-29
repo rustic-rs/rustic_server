@@ -31,13 +31,12 @@ jobs:
             architecture: x86_64
             binary-postfix: ".exe"
             use-cross: false
-          # Disabled for now, as aws-lc-sys needs bindgen-cli for manual build with CMake in cross
-          # - os: windows-latest
-          #   os-name: windows
-          #   target: x86_64-pc-windows-gnu
-          #   architecture: x86_64
-          #   binary-postfix: ".exe"
-          #   use-cross: false
+          - os: windows-latest
+            os-name: windows
+            target: x86_64-pc-windows-gnu
+            architecture: x86_64
+            binary-postfix: ".exe"
+            use-cross: false
           - os: macos-13
             os-name: macos
             target: x86_64-apple-darwin
@@ -74,21 +73,12 @@ jobs:
             architecture: arm64
             binary-postfix: ""
             use-cross: true
-          - os: ubuntu-latest
-            os-name: linux
-            target: i686-unknown-linux-gnu
-            architecture: i686
-            binary-postfix: ""
-            use-cross: true
-          # TODO!: This needs a fix, linking `execinfo` fails
-          # + Disabled for now, as aws-lc-sys needs bindgen-cli for manual build with CMake in cross
           # - os: ubuntu-latest
-          #   os-name: netbsd
-          #   target: x86_64-unknown-netbsd
-          #   architecture: x86_64
+          #   os-name: linux
+          #   target: i686-unknown-linux-gnu
+          #   architecture: i686
           #   binary-postfix: ""
           #   use-cross: true
-          # Disabled for now, as aws-lc-sys needs bindgen-cli for manual build with CMake in cross
           # - os: ubuntu-latest
           #   os-name: linux
           #   target: armv7-unknown-linux-gnueabihf
