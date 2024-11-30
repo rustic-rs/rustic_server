@@ -74,7 +74,7 @@ jobs:
           - os: ubuntu-latest
             os-name: linux
             target: i686-unknown-linux-gnu
-            architecture: i686
+            architecture: i386
             use-cross: true
           # - os: ubuntu-latest
           #   os-name: linux
