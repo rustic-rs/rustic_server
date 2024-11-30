@@ -73,12 +73,12 @@ jobs:
             architecture: arm64
             binary-postfix: ""
             use-cross: true
-          # - os: ubuntu-latest
-          #   os-name: linux
-          #   target: i686-unknown-linux-gnu
-          #   architecture: i686
-          #   binary-postfix: ""
-          #   use-cross: true
+          - os: ubuntu-latest
+            os-name: linux
+            target: i686-unknown-linux-gnu
+            architecture: i386
+            binary-postfix: ""
+            use-cross: true
           # - os: ubuntu-latest
           #   os-name: linux
           #   target: armv7-unknown-linux-gnueabihf
