@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.5](https://github.com/rustic-rs/rustic_server/compare/v0.4.4...v0.4.5) - 2024-12-02
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.4.4](https://github.com/rustic-rs/rustic_server/compare/v0.4.3...v0.4.4) - 2024-11-29
 
 ### Other
