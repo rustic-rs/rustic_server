@@ -134,9 +134,11 @@ pub async fn list_files<P: PathParts>(
         }
     };
 
-    let _ = res
-        .headers_mut()
-        .insert(AUTHORIZATION, headers.get(AUTHORIZATION).unwrap().clone());
+    if let Some(auth_val) = headers.get(AUTHORIZATION) {
+        let _ = res
+            .headers_mut()
+            .insert(AUTHORIZATION, auth_val.clone());
+    }
 
     Ok(res)
 }
