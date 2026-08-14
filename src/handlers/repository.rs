@@ -25,11 +25,9 @@ pub async fn create_repository<P: PathParts>(
     auth: BasicAuthFromRequest,
     Query(params): Query<Create>,
 ) -> ApiResult<impl IntoResponse> {
-    tracing::debug!(
-        "[create_repository] repository path: {}",
-        path.repo().unwrap()
-    );
-    let path = PathBuf::new().join(path.repo().unwrap());
+    let repo = path.repo().unwrap();
+    tracing::debug!("[create_repository] repository path: {repo}");
+    let path = PathBuf::new().join(repo);
     let _ = check_auth_and_acl(auth.user, None, &path, AccessType::Append)?;
 
     let storage = STORAGE.get().unwrap();
@@ -64,11 +62,9 @@ pub async fn delete_repository<P: PathParts>(
     path: P,
     auth: BasicAuthFromRequest,
 ) -> ApiResult<impl IntoResponse> {
-    tracing::debug!(
-        "[delete_repository] repository path: {}",
-        &path.repo().unwrap()
-    );
-    let path = PathBuf::new().join(path.repo().unwrap());
+    let repo = path.repo().unwrap();
+    tracing::debug!("[delete_repository] repository path: {repo}");
+    let path = PathBuf::new().join(repo);
     let _ = check_auth_and_acl(auth.user, None, &path, AccessType::Modify)?;
 
     let storage = STORAGE.get().unwrap();
@@ -87,11 +83,11 @@ mod test {
         testing::server_config,
     };
     use axum::http::Method;
+    use axum::{Router, middleware};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
-    use axum::{middleware, Router};
     use axum_extra::routing::RouterExt;
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
