@@ -1,0 +1,22 @@
+---
+source: src/config.rs
+assertion_line: 374
+expression: config
+---
+[server]
+listen = '127.0.0.1:8000'
+
+[storage]
+data-dir = '/tmp/rustic'
+
+[auth]
+disable-auth = false
+
+[acl]
+disable-acl = false
+append-only = true
+
+[tls]
+disable-tls = true
+
+[log]

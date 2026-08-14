@@ -54,9 +54,8 @@ displaydoc = "0.2"
 # enum_dispatch = "0.3.12"
 futures = "0.3"
 futures-util = "0.3"
-htpasswd-verify = "0.3"
+htauth = "0.1.2"
 http-body-util = "0.1"
-rand = "0.10"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_derive = "1"
 strum = { version = "0.28", features = ["derive"] }
