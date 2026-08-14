@@ -59,7 +59,7 @@ where
     // Returns “200 OK” if the server is ready to accept requests.
     // app = app.route("/health/ready", get(ready_check));
 
-    // /:repo/:tpe/:name
+    // /{repo}/{tpe}/{name}
     app = app
         // Returns “200 OK” if the blob with the given name and type is stored in the repository,
         // “404 not found” otherwise. If the blob exists, the HTTP header Content-Length
@@ -82,7 +82,7 @@ where
         // the repository, an HTTP error otherwise.
         .typed_delete(delete_file::<RepositoryTpeNamePath>);
 
-    // /:repo/config
+    // /{repo}/config
     app = app
         // Returns “200 OK” if the repository has a configuration, an HTTP error otherwise.
         .typed_head(has_config)
@@ -100,7 +100,7 @@ where
         // to allow for the deletion of the configuration file during testing.
         .typed_delete(delete_config::<RepositoryConfigPath>);
 
-    // /:repo/:tpe/
+    // /{repo}/{tpe}/
     // # API version 1
     //
     // Returns a JSON array containing the names of all the blobs stored for a given type, example:
@@ -139,7 +139,7 @@ where
     // ]
     app = app.typed_get(list_files::<RepositoryTpePath>);
 
-    // /:repo/ --> note: trailing slash
+    // /{repo}/ --> note: trailing slash
     app = app
         // This request is used to initially create a new repository.
         // The server responds with “200 OK” if the repository structure was created
@@ -153,10 +153,10 @@ where
 
     // TODO: This is not reflected in the API documentation?
     // TODO: Decide if we want to keep this or not!
-    // // /:tpe/:name
-    // // we loop here over explicit types, to prevent conflict with paths "/:repo/:tpe"
+    // // /{tpe}/{name}
+    // // we loop here over explicit types, to prevent conflict with paths "/{repo}/{tpe}"
     // for tpe in constants::TYPES.into_iter() {
-    //     let path = format!("/{}:name", &tpe);
+    //     let path = format!("/{}{{name}}", &tpe);
     //     app = app
     //         .route(path.as_str(), head(file_length::<TpeNamePath>))
     //         .route(path.as_str(), get(get_file::<TpeNamePath>))
@@ -164,8 +164,8 @@ where
     //         .route(path.as_str(), delete(delete_file::<TpeNamePath>));
     // }
     //
-    // /:tpe  --> note: NO trailing slash
-    // we loop here over explicit types, to prevent the conflict with paths "/:repo/"
+    // /{tpe}  --> note: NO trailing slash
+    // we loop here over explicit types, to prevent the conflict with paths "/{repo}/"
     // for tpe in constants::TYPES.into_iter() {
     //     let path = format!("/{}", &tpe);
     //     app = app.route(path.as_str(), get(list_files::<TpePath>));

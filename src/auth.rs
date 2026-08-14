@@ -72,7 +72,6 @@ pub struct BasicAuthFromRequest {
     pub(crate) _password: SecretString,
 }
 
-#[async_trait::async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for BasicAuthFromRequest {
     type Rejection = ApiErrorKind;
 
