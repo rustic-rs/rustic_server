@@ -1,13 +1,6 @@
 use std::{path::Path, str::FromStr};
 
-use axum::{
-    Json,
-    http::{
-        StatusCode,
-        header::{self, AUTHORIZATION},
-    },
-    response::IntoResponse,
-};
+use axum::{Json, http::StatusCode, http::header, response::IntoResponse};
 use axum_extra::headers::HeaderMap;
 use serde_derive::{Deserialize, Serialize};
 
@@ -83,7 +76,7 @@ pub async fn list_files<P: PathParts>(
 
     let read_dir = storage.read_dir(path, tpe.map(|f| f.into()));
 
-    let mut res = match headers
+    let res = match headers
         .get(header::ACCEPT)
         .and_then(|header| header.to_str().ok())
     {
@@ -134,10 +127,6 @@ pub async fn list_files<P: PathParts>(
         }
     };
 
-    let _ = res
-        .headers_mut()
-        .insert(AUTHORIZATION, headers.get(AUTHORIZATION).unwrap().clone());
-
     Ok(res)
 }
 
@@ -148,7 +137,7 @@ mod test {
         body::Body,
         http::{
             Request, StatusCode,
-            header::{ACCEPT, CONTENT_TYPE},
+            header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
         },
         middleware,
     };
@@ -267,5 +256,32 @@ mod test {
         // let rr = r.first().unwrap();
         // assert_eq!( rr.name, "3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295");
         // assert_eq!(rr.size, 363);
+    }
+
+    /// The response must not carry the request's `Authorization` header back.
+    ///
+    /// Reflecting it served no purpose and sent the client's credentials back
+    /// through every proxy on the way. Reading it also panicked whenever there
+    /// was no header to reflect, which is what happens under `--no-auth`.
+    #[tokio::test]
+    async fn test_list_files_does_not_echo_credentials_passes() {
+        init_test_environment(server_config());
+
+        let app = Router::new().typed_get(list_files::<RepositoryTpePath>);
+
+        let request = Request::builder()
+            .uri("/test_repo/keys/")
+            .header(ACCEPT, ApiVersionKind::V2.to_static_str())
+            .header(
+                AUTHORIZATION,
+                basic_auth_header_value("rustic", Some("rustic")),
+            )
+            .body(Body::empty())
+            .unwrap();
+
+        let resp = app.oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(resp.headers().get(AUTHORIZATION).is_none());
     }
 }
