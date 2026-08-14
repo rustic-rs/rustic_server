@@ -7,7 +7,7 @@ use std::{
 };
 
 use htpasswd_verify::md5::{format_hash, md5_apr1_encode};
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use rand::{distr::Alphanumeric, rng, RngExt};
 use serde::Serialize;
 
 use crate::error::{ApiErrorKind, ApiResult, AppResult, ErrorKind};
@@ -157,8 +157,8 @@ pub struct Credential {
 
 impl Credential {
     pub fn new(name: &str, pass: &str) -> Self {
-        let salt: String = thread_rng()
-            .sample_iter(&Alphanumeric)
+        let salt: String = rng()
+            .sample_iter(Alphanumeric)
             .take(constants::SALT_LEN)
             .map(char::from)
             .collect();
