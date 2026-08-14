@@ -38,7 +38,7 @@ license = false
 eula = false
 
 [dependencies]
-abscissa_tokio = "0.8.0"
+abscissa_tokio = "0.9.0"
 anyhow = "1"
 async-trait = "0.1"
 axum = { version = "0.7", features = ["tracing", "multipart", "http2", "macros"] }
@@ -70,7 +70,7 @@ uuid = { version = "1.24.0", features = ["v4"] }
 walkdir = "2"
 
 [dependencies.abscissa_core]
-version = "0.8.1"
+version = "0.9.0"
 # optional: use `gimli` to capture backtraces
 # see https://github.com/rust-lang/backtrace-rs/issues/189
 # features = ["gimli-backtrace"]
@@ -81,7 +81,7 @@ features = ["logging", "std", "ring", "tls12"]
 default-features = false
 
 [dev-dependencies]
-abscissa_core = { version = "0.8.1", features = ["testing"] }
+abscissa_core = { version = "0.9.0", features = ["testing"] }
 anyhow = "1"
 assert_cmd = "2"
 base64 = "0.23"
