@@ -136,10 +136,10 @@ mod test {
 
     use anyhow::Result;
     use axum::{
+        Router,
         body::Body,
         http::{Method, Request, StatusCode},
         routing::get,
-        Router,
     };
     use http_body_util::BodyExt;
     use rstest::{fixture, rstest};

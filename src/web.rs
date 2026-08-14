@@ -1,4 +1,4 @@
-use axum::{middleware, routing::get, Router};
+use axum::{Router, middleware, routing::get};
 use axum_extra::routing::RouterExt;
 use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
@@ -18,7 +18,7 @@ use crate::{
         repository::{create_repository, delete_repository},
     },
     log::print_request_response,
-    storage::{init_storage, Storage},
+    storage::{Storage, init_storage},
     typed_path::{RepositoryConfigPath, RepositoryPath, RepositoryTpeNamePath, RepositoryTpePath},
 };
 

@@ -1,12 +1,12 @@
 use std::{path::Path, str::FromStr};
 
 use axum::{
+    Json,
     http::{
-        header::{self, AUTHORIZATION},
         StatusCode,
+        header::{self, AUTHORIZATION},
     },
     response::IntoResponse,
-    Json,
 };
 use axum_extra::headers::HeaderMap;
 use serde_derive::{Deserialize, Serialize};
@@ -144,19 +144,20 @@ pub async fn list_files<P: PathParts>(
 #[cfg(test)]
 mod test {
     use axum::{
+        Router,
         body::Body,
         http::{
-            header::{ACCEPT, CONTENT_TYPE},
             Request, StatusCode,
+            header::{ACCEPT, CONTENT_TYPE},
         },
-        middleware, Router,
+        middleware,
     };
     use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
     use crate::{
-        handlers::files_list::{list_files, ApiVersionKind, RepoPathEntry},
+        handlers::files_list::{ApiVersionKind, RepoPathEntry, list_files},
         log::print_request_response,
         testing::{basic_auth_header_value, init_test_environment, server_config},
         typed_path::RepositoryTpePath,

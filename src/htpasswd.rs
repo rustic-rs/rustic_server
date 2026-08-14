@@ -1,12 +1,12 @@
 use std::{
-    collections::{btree_map::Entry, BTreeMap},
+    collections::{BTreeMap, btree_map::Entry},
     fmt::{Display, Formatter},
     fs::{self, read_to_string},
     io::Write,
     path::PathBuf,
 };
 
-use htauth::{hash_password, HashAlgorithm};
+use htauth::{HashAlgorithm, hash_password};
 use serde::Serialize;
 
 use crate::error::{ApiErrorKind, ApiResult, AppResult, ErrorKind};

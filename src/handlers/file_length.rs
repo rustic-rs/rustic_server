@@ -68,8 +68,9 @@ pub async fn file_length<P: PathParts>(
 #[cfg(test)]
 mod test {
     use axum::{
-        http::{header, Method, StatusCode},
-        middleware, Router,
+        Router,
+        http::{Method, StatusCode, header},
+        middleware,
     };
     use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
