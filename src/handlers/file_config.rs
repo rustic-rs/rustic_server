@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use axum::{extract::Request, http::header, response::IntoResponse};
-use axum_extra::{headers::Range, TypedHeader};
+use axum_extra::{TypedHeader, headers::Range};
 use axum_macros::debug_handler;
 use axum_range::{KnownSize, Ranged};
 
@@ -139,9 +139,10 @@ mod test {
     use std::{fs, path::PathBuf};
 
     use axum::{
+        Router,
         body::Body,
         http::{Method, Request, StatusCode},
-        middleware, Router,
+        middleware,
     };
     use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;

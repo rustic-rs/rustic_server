@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use tokio::fs::{create_dir_all, remove_dir_all, remove_file, File};
+use tokio::fs::{File, create_dir_all, remove_dir_all, remove_file};
 use walkdir::WalkDir;
 
 use crate::{
@@ -163,11 +163,9 @@ impl Storage for LocalStorage {
     }
 
     async fn remove_repository(&self, path: &Path) -> ApiResult<()> {
-        tracing::debug!(
-            "Deleting repository: {}",
-            self.path.join(path).to_string_lossy()
-        );
-        remove_dir_all(self.path.join(path)).await.map_err(|err| {
+        let repo_path = self.path.join(path);
+        tracing::debug!("Deleting repository: {}", repo_path.to_string_lossy());
+        remove_dir_all(&repo_path).await.map_err(|err| {
             ApiErrorKind::RemovingRepositoryFailed(format!("Could not remove repository: {err}"))
         })
     }
@@ -175,7 +173,7 @@ impl Storage for LocalStorage {
 
 #[cfg(test)]
 mod test {
-    use crate::storage::{init_storage, LocalStorage, Storage, STORAGE};
+    use crate::storage::{LocalStorage, STORAGE, Storage, init_storage};
     use std::path::PathBuf;
 
     #[test]

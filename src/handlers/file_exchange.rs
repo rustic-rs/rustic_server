@@ -4,8 +4,8 @@ use std::{
     result::Result,
 };
 
-use axum::{body::Bytes, extract::Request, http::StatusCode, response::IntoResponse, BoxError};
-use axum_extra::{headers::Range, TypedHeader};
+use axum::{BoxError, body::Bytes, extract::Request, http::StatusCode, response::IntoResponse};
+use axum_extra::{TypedHeader, headers::Range};
 use axum_range::{KnownSize, Ranged};
 use futures::{Stream, TryStreamExt};
 use futures_util::pin_mut;
@@ -155,7 +155,7 @@ where
     E: Into<BoxError>,
 {
     // Convert the stream into an `AsyncRead`.
-    let body_with_io_error = stream.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+    let body_with_io_error = stream.map_err(|err| io::Error::other(err));
     let body_reader = StreamReader::new(body_with_io_error);
     pin_mut!(body_reader);
     let byte_count = match tokio::io::copy(&mut body_reader, &mut write_stream).await {
@@ -187,10 +187,12 @@ fn check_string_sha256(name: &str) -> bool {
     true
 }
 
-pub fn check_name(
-    tpe: impl Into<Option<TpeKind>>,
+pub fn check_name<T: Into<Option<TpeKind>>>(
+    tpe: T,
     name: Option<&str>,
-) -> ApiResult<impl IntoResponse> {
+    // `use<T>` keeps the response from capturing the lifetime of `name`, which
+    // edition 2024 would otherwise do implicitly.
+) -> ApiResult<impl IntoResponse + use<T>> {
     let tpe = tpe.into();
 
     match (tpe, name) {
@@ -216,9 +218,10 @@ mod test {
     use std::{fs, path::PathBuf};
 
     use axum::{
+        Router,
         body::Body,
-        http::{header, Method, Request, StatusCode},
-        middleware, Router,
+        http::{Method, Request, StatusCode, header},
+        middleware,
     };
     use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;

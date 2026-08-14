@@ -1,13 +1,6 @@
 use std::{path::Path, str::FromStr};
 
-use axum::{
-    http::{
-        header::{self, AUTHORIZATION},
-        StatusCode,
-    },
-    response::IntoResponse,
-    Json,
-};
+use axum::{Json, http::StatusCode, http::header, response::IntoResponse};
 use axum_extra::headers::HeaderMap;
 use serde_derive::{Deserialize, Serialize};
 
@@ -64,6 +57,24 @@ struct RepoPathEntry {
     size: u64,
 }
 
+/// Returns the file name of `entry`, or `None` if it is not valid unicode.
+///
+/// Every object we store is named after a hex digest, so a name we cannot decode
+/// was not written through the API. It is skipped instead of failing the whole
+/// listing, which would make the repository unusable.
+fn entry_name(entry: &walkdir::DirEntry) -> Option<String> {
+    match entry.file_name().to_str() {
+        Some(name) => Some(name.to_string()),
+        None => {
+            tracing::warn!(
+                path = ?entry.path(),
+                "[list_files] skipping file whose name is not valid unicode",
+            );
+            None
+        }
+    }
+}
+
 pub async fn list_files<P: PathParts>(
     path: P,
     auth: BasicAuthFromRequest,
@@ -83,17 +94,30 @@ pub async fn list_files<P: PathParts>(
 
     let read_dir = storage.read_dir(path, tpe.map(|f| f.into()));
 
-    let mut res = match headers
+    let res = match headers
         .get(header::ACCEPT)
         .and_then(|header| header.to_str().ok())
     {
         Some(version) if version == ApiVersionKind::V2.to_static_str() => {
-            let read_dir_version = read_dir.map(|entry| {
-                RepoPathEntry {
-                    name: entry.file_name().to_str().unwrap().to_string(),
-                    size: entry.metadata().unwrap().len(),
-                    // FIXME:  return Err(WebErrorKind::GettingFileMetadataFailed.into());
-                }
+            let read_dir_version = read_dir.filter_map(|entry| {
+                let name = entry_name(&entry)?;
+
+                let size = match entry.metadata() {
+                    Ok(metadata) => metadata.len(),
+                    // The entry can disappear between walking the directory and
+                    // asking for its size, for instance because another client
+                    // is pruning. Leaving it out of the listing is correct.
+                    Err(err) => {
+                        tracing::debug!(
+                            path = ?entry.path(),
+                            %err,
+                            "[list_files] skipping entry whose metadata is gone",
+                        );
+                        return None;
+                    }
+                };
+
+                Some(RepoPathEntry { name, size })
             });
 
             let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();
@@ -112,7 +136,7 @@ pub async fn list_files<P: PathParts>(
             response
         }
         _ => {
-            let read_dir_version = read_dir.map(|e| e.file_name().to_str().unwrap().to_string());
+            let read_dir_version = read_dir.filter_map(|entry| entry_name(&entry));
 
             let mut response = Json(&IteratorAdapter::new(read_dir_version)).into_response();
 
@@ -134,29 +158,26 @@ pub async fn list_files<P: PathParts>(
         }
     };
 
-    let _ = res
-        .headers_mut()
-        .insert(AUTHORIZATION, headers.get(AUTHORIZATION).unwrap().clone());
-
     Ok(res)
 }
 
 #[cfg(test)]
 mod test {
     use axum::{
+        Router,
         body::Body,
         http::{
-            header::{ACCEPT, CONTENT_TYPE},
             Request, StatusCode,
+            header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
         },
-        middleware, Router,
+        middleware,
     };
     use axum_extra::routing::RouterExt; // for `Router::typed_*`
     use http_body_util::BodyExt;
     use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
 
     use crate::{
-        handlers::files_list::{list_files, ApiVersionKind, RepoPathEntry},
+        handlers::files_list::{ApiVersionKind, RepoPathEntry, list_files},
         log::print_request_response,
         testing::{basic_auth_header_value, init_test_environment, server_config},
         typed_path::RepositoryTpePath,
@@ -266,5 +287,79 @@ mod test {
         // let rr = r.first().unwrap();
         // assert_eq!( rr.name, "3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295");
         // assert_eq!(rr.size, 363);
+    }
+
+    /// The response must not carry the request's `Authorization` header back.
+    ///
+    /// Reflecting it served no purpose and sent the client's credentials back
+    /// through every proxy on the way. Reading it also panicked whenever there
+    /// was no header to reflect, which is what happens under `--no-auth`.
+    #[tokio::test]
+    async fn test_list_files_does_not_echo_credentials_passes() {
+        init_test_environment(server_config());
+
+        let app = Router::new().typed_get(list_files::<RepositoryTpePath>);
+
+        let request = Request::builder()
+            .uri("/test_repo/keys/")
+            .header(ACCEPT, ApiVersionKind::V2.to_static_str())
+            .header(
+                AUTHORIZATION,
+                basic_auth_header_value("rustic", Some("rustic")),
+            )
+            .body(Body::empty())
+            .unwrap();
+
+        let resp = app.oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(resp.headers().get(AUTHORIZATION).is_none());
+    }
+
+    /// A file whose name is not valid unicode must be skipped, not crash the
+    /// listing. Such a name cannot have been written through the API, but it can
+    /// reach the directory by other means.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_list_files_skips_non_unicode_name_passes() {
+        use std::{ffi::OsStr, fs, os::unix::ffi::OsStrExt, path::PathBuf};
+
+        init_test_environment(server_config());
+
+        let dir = PathBuf::from("tests/generated/test_storage/test_repo/keys");
+        fs::create_dir_all(&dir).unwrap();
+
+        // 0xff can never appear in valid UTF-8
+        let bogus = dir.join(OsStr::from_bytes(&[0xff, b'a', b'b']));
+        fs::write(&bogus, b"x").unwrap();
+
+        let app = Router::new().typed_get(list_files::<RepositoryTpePath>);
+
+        let request = Request::builder()
+            .uri("/test_repo/keys/")
+            .header(ACCEPT, ApiVersionKind::V2.to_static_str())
+            .header(
+                "Authorization",
+                basic_auth_header_value("rustic", Some("rustic")),
+            )
+            .body(Body::empty())
+            .unwrap();
+
+        let resp = app.oneshot(request).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let b = resp.into_body().collect().await.unwrap().to_bytes();
+        let entries: Vec<RepoPathEntry> = serde_json::from_slice(&b).unwrap();
+
+        // the well-known fixture is still listed, the undecodable name is not
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.name
+                    == "3f918b737a2b9f72f044d06d6009eb34e0e8d06668209be3ce86e5c18dac0295")
+        );
+
+        fs::remove_file(&bogus).unwrap();
     }
 }
