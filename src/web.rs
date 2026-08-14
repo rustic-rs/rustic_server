@@ -175,8 +175,10 @@ where
     // TODO: Use LogSettings here, this should be set from the cli by `--log`
     // TODO: and then needs to go to a file
     // e.g. log_opts.is_disabled() or other checks
+    // The middleware only emits `debug!` records, so installing it at a coarser
+    // level would cost a UUID per request and print nothing.
     match LevelFilter::current() {
-        LevelFilter::TRACE | LevelFilter::DEBUG | LevelFilter::INFO => {
+        LevelFilter::TRACE | LevelFilter::DEBUG => {
             app = app.layer(middleware::from_fn(print_request_response));
         }
         _ => {}

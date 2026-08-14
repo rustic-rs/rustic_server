@@ -1,71 +1,36 @@
-use axum::{
-    body::{Body, Bytes},
-    extract::Request,
-    middleware::Next,
-    response::{IntoResponse, Response},
-};
-use http_body_util::BodyExt;
-
-use crate::error::ApiErrorKind;
+use axum::{extract::Request, middleware::Next, response::Response};
 
 // Add the `#[debug_middleware]` attribute to the function to make debugging easier.
 // use axum_macros::debug_middleware;
 //
 // #[debug_middleware]
 /// Router middleware function to print additional information on the request and response.
-pub async fn print_request_response(
-    req: Request,
-    next: Next,
-) -> Result<impl IntoResponse, ApiErrorKind> {
-    let (parts, body) = req.into_parts();
+///
+/// # Note
+///
+/// Request and response bodies are deliberately *not* logged. They carry pack,
+/// index and key files, which are encrypted blobs of arbitrary size, so logging
+/// them would mean holding a whole file in memory for every request in flight
+/// only to find out it is not printable text.
+pub async fn print_request_response(req: Request, next: Next) -> Response {
     let uuid = uuid::Uuid::new_v4();
 
     tracing::debug!(
         id = %uuid,
-        method = %parts.method,
-        uri = %parts.uri,
+        method = %req.method(),
+        uri = %req.uri(),
+        headers = ?req.headers(),
         "[REQUEST]",
     );
 
-    tracing::debug!(id = %uuid, headers = ?parts.headers, "[HEADERS]");
-
-    let bytes = buffer_and_print(&uuid, body).await?;
-
-    let req = Request::from_parts(parts, Body::from(bytes));
-
     let res = next.run(req).await;
-    let (parts, body) = res.into_parts();
 
     tracing::debug!(
         id = %uuid,
-        headers = ?parts.headers,
-        status = %parts.status,
+        status = %res.status(),
+        headers = ?res.headers(),
         "[RESPONSE]",
     );
 
-    let bytes = buffer_and_print(&uuid, body).await?;
-    let res = Response::from_parts(parts, Body::from(bytes));
-
-    Ok(res)
-}
-
-async fn buffer_and_print<B>(uuid: &uuid::Uuid, body: B) -> Result<Bytes, ApiErrorKind>
-where
-    B: axum::body::HttpBody<Data = Bytes> + Send,
-    B::Error: std::fmt::Display,
-{
-    let bytes = match body.collect().await {
-        Ok(collected) => collected.to_bytes(),
-        Err(err) => {
-            return Err(ApiErrorKind::BadRequest(format!(
-                "failed to read body: {err}"
-            )));
-        }
-    };
-
-    if let Ok(body) = std::str::from_utf8(&bytes) {
-        tracing::debug!(id = %uuid, body = %body, "[BODY]");
-    }
-
-    Ok(bytes)
+    res
 }
