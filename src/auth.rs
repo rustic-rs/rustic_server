@@ -84,7 +84,7 @@ impl<S: Send + Sync> FromRequestParts<S> for BasicAuthFromRequest {
 
         tracing::debug!(?auth_result, "[AUTH]");
 
-        return match auth_result {
+        match auth_result {
             Ok(auth) => {
                 let AuthBasic((user, passw)) = auth;
                 let password = passw.unwrap_or_else(String::new);
@@ -107,7 +107,7 @@ impl<S: Send + Sync> FromRequestParts<S> for BasicAuthFromRequest {
                 }
                 Err(ApiErrorKind::AuthenticationHeaderError)
             }
-        };
+        }
     }
 }
 

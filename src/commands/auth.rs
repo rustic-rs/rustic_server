@@ -132,7 +132,7 @@ fn check(path: &PathBuf) -> Result<()> {
         {
             bail!(
                 "Failed to create empty server configuration file: {} due to {}",
-                &path.to_string_lossy(),
+                path.to_string_lossy(),
                 err
             );
         };

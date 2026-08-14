@@ -47,12 +47,12 @@ pub async fn create_repository<P: PathParts>(
 
             Ok((
                 StatusCode::OK,
-                format!("Called create_files with path {:?}", &path),
+                format!("Called create_files with path {path:?}"),
             ))
         }
         false => Ok((
             StatusCode::OK,
-            format!("Called create_files with path {:?}, create=false", &path),
+            format!("Called create_files with path {path:?}, create=false"),
         )),
     }
 }

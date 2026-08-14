@@ -155,7 +155,7 @@ where
     E: Into<BoxError>,
 {
     // Convert the stream into an `AsyncRead`.
-    let body_with_io_error = stream.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+    let body_with_io_error = stream.map_err(|err| io::Error::other(err));
     let body_reader = StreamReader::new(body_with_io_error);
     pin_mut!(body_reader);
     let byte_count = match tokio::io::copy(&mut body_reader, &mut write_stream).await {

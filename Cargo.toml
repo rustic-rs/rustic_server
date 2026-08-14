@@ -147,7 +147,7 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 trivial_casts = "warn"
 unused_lifetimes = "warn"
 unused_qualifications = "warn"
-bad_style = "warn"
+bad_style = { level = "warn", priority = -1 }
 dead_code = "allow" # TODO: "warn"
 improper_ctypes = "warn"
 missing_copy_implementations = "warn"

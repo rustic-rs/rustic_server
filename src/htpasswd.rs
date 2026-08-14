@@ -137,7 +137,7 @@ impl Htpasswd {
                 ))
             })?;
 
-        for (_n, c) in self.credentials.iter() {
+        for c in self.credentials.values() {
             let _e = file.write(c.to_string().as_bytes()).map_err(|err| {
                 ApiErrorKind::WritingToFileFailed(format!(
                     "Could not write to htpasswd file: {} at {:?}",
