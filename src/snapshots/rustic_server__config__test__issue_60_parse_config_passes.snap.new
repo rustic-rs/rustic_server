@@ -1,0 +1,37 @@
+---
+source: src/config.rs
+assertion_line: 443
+expression: config
+---
+RusticServerConfig {
+    server: ConnectionSettings {
+        listen: Some(
+            127.0.0.1:8000,
+        ),
+    },
+    storage: StorageSettings {
+        data_dir: Some(
+            "/tmp/rustic",
+        ),
+        quota: None,
+    },
+    auth: HtpasswdSettings {
+        disable_auth: false,
+        htpasswd_file: None,
+    },
+    acl: AclSettings {
+        disable_acl: true,
+        private_repos: true,
+        append_only: false,
+        acl_path: None,
+    },
+    tls: TlsSettings {
+        disable_tls: true,
+        tls_key: None,
+        tls_cert: None,
+    },
+    log: LogSettings {
+        log_level: None,
+        log_file: None,
+    },
+}

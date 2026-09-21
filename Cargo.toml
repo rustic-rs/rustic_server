@@ -3,7 +3,7 @@ name = "rustic_server"
 version = "0.4.4"
 authors = ["the rustic-rs team"]
 categories = ["command-line-utilities"]
-edition = "2021"
+edition = "2024"
 homepage = "https://rustic.cli.rs/"
 include = [
   "src/**/*",
@@ -16,7 +16,7 @@ include = [
 keywords = ["backup", "restic", "cli", "server"]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/rustic-rs/rustic_server"
-rust-version = "1.74.0"
+rust-version = "1.88.0"
 description = """
 rustic server - a REST server built in rust to use with rustic and restic.
 """
@@ -38,65 +38,59 @@ license = false
 eula = false
 
 [dependencies]
-abscissa_tokio = "0.8.0"
+abscissa_tokio = "0.9.0"
 anyhow = "1"
 async-trait = "0.1"
-axum = { version = "0.7", features = ["tracing", "multipart", "http2", "macros"] }
-axum-auth = "0.7"
-axum-extra = { version = "0.9", features = ["typed-header", "query", "async-read-body", "typed-routing", "erased-json"] }
-axum-macros = "0.4"
-axum-range = "0.4"
-axum-server = { version = "0.7", features = ["tls-rustls-no-provider"] }
-chrono = { version = "0.4.38", features = ["serde"] }
+axum = { version = "0.8", features = ["tracing", "multipart", "http2", "macros"] }
+axum-auth = "0.8"
+axum-extra = { version = "0.12", features = ["typed-header", "query", "async-read-body", "typed-routing", "erased-json"] }
+axum-macros = "0.5"
+axum-range = "1"
+axum-server = { version = "0.8", features = ["tls-rustls-no-provider"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 conflate = "0.3.3"
 displaydoc = "0.2"
 # enum_dispatch = "0.3.12"
 futures = "0.3"
 futures-util = "0.3"
-htpasswd-verify = "0.3"
+htauth = "0.1.2"
 http-body-util = "0.1"
-http-range = "0.1"
-inquire = "0.7"
-pin-project = "1"
-rand = "0.8"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_derive = "1"
-strum = { version = "0.26", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io", "io-util"] }
-toml = "0.8"
+toml = "1.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = { version = "1.11.0", features = ["v4"] }
+uuid = { version = "1.24.0", features = ["v4"] }
 walkdir = "2"
 
 [dependencies.abscissa_core]
-version = "0.8.1"
+version = "0.9.0"
 # optional: use `gimli` to capture backtraces
 # see https://github.com/rust-lang/backtrace-rs/issues/189
 # features = ["gimli-backtrace"]
 
 [dependencies.rustls]
-version = "0.23.17"
+version = "0.23.43"
 features = ["logging", "std", "ring", "tls12"]
 default-features = false
 
 [dev-dependencies]
-abscissa_core = { version = "0.8.1", features = ["testing"] }
+abscissa_core = { version = "0.9.0", features = ["testing"] }
 anyhow = "1"
 assert_cmd = "2"
-base64 = "0.22"
-dircmp = "0.2"
+base64 = "0.23"
 insta = { version = "1", features = ["redactions", "toml"] }
-once_cell = "1.20"
 predicates = "3.1.2"
 pretty_assertions = "1"
-rstest = "0.23"
+rstest = "0.26"
 serde_json = "1"
 # reqwest = "0.11.18"
-serial_test = { version = "3.2.0", features = ["file_locks"] }
+serial_test = { version = "4.0.1", features = ["file_locks"] }
 tower = "0.5"
 
 # see: https://nnethercote.github.io/perf-book/build-configuration.html
@@ -152,7 +146,7 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 trivial_casts = "warn"
 unused_lifetimes = "warn"
 unused_qualifications = "warn"
-bad_style = "warn"
+bad_style = { level = "warn", priority = -1 }
 dead_code = "allow" # TODO: "warn"
 improper_ctypes = "warn"
 missing_copy_implementations = "warn"
