@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.5](https://github.com/rustic-rs/rustic_server/compare/v0.4.4...v0.4.5) - 2026-09-21
+
+### Other
+
+- Only add authorization header when it is set ([#83](https://github.com/rustic-rs/rustic_server/pull/83))
+
 ## [0.4.4](https://github.com/rustic-rs/rustic_server/compare/v0.4.3...v0.4.4) - 2024-11-29
 
 ### Other
