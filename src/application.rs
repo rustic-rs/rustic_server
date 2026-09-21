@@ -4,10 +4,11 @@ use crate::{commands::EntryPoint, config::RusticServerConfig};
 use abscissa_core::Config;
 use abscissa_core::FrameworkErrorKind::IoError;
 use abscissa_core::{
+    Application, FrameworkError, StandardPaths,
     application::{self, AppCell},
     config::{self, CfgCell},
     path::AbsPathBuf,
-    trace, Application, FrameworkError, StandardPaths,
+    trace,
 };
 use abscissa_tokio::TokioComponent;
 use std::path::Path;

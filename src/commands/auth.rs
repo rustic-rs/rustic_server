@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 
-use abscissa_core::{status_err, Application, Command, Runnable, Shutdown};
-use anyhow::{bail, Result};
+use abscissa_core::{Application, Command, Runnable, Shutdown, status_err};
+use anyhow::{Result, bail};
 use clap::{Args, Parser, Subcommand};
 
 use crate::{htpasswd::Htpasswd, prelude::RUSTIC_SERVER_APP};
@@ -132,7 +132,7 @@ fn check(path: &PathBuf) -> Result<()> {
         {
             bail!(
                 "Failed to create empty server configuration file: {} due to {}",
-                &path.to_string_lossy(),
+                path.to_string_lossy(),
                 err
             );
         };
