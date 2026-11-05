@@ -1,20 +1,22 @@
 use std::{
-    collections::{btree_map::Entry, BTreeMap},
+    collections::{BTreeMap, btree_map::Entry},
     fmt::{Display, Formatter},
     fs::{self, read_to_string},
     io::Write,
     path::PathBuf,
 };
 
-use htpasswd_verify::md5::{format_hash, md5_apr1_encode};
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use htauth::{HashAlgorithm, hash_password};
 use serde::Serialize;
 
 use crate::error::{ApiErrorKind, ApiResult, AppResult, ErrorKind};
 
-pub mod constants {
-    pub(super) const SALT_LEN: usize = 8;
-}
+/// Algorithm used for credentials created by us.
+///
+/// `APR1-MD5` is what Apache's `htpasswd` produces by default and what this
+/// server has always written, so we keep it for compatibility. Verification is
+/// not restricted to it: any algorithm [`htauth`] understands is accepted.
+const HASH_ALGORITHM: HashAlgorithm = HashAlgorithm::Apr1Md5;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct CredentialMap(BTreeMap<String, Credential>);
@@ -81,7 +83,7 @@ impl Htpasswd {
     }
 
     pub fn create(&mut self, name: &str, pass: &str) -> AppResult<()> {
-        let cred = Credential::new(name, pass);
+        let cred = Credential::new(name, pass)?;
 
         self.insert(cred)?;
 
@@ -93,7 +95,7 @@ impl Htpasswd {
     }
 
     pub fn update(&mut self, name: &str, pass: &str) -> AppResult<()> {
-        let cred = Credential::new(name, pass);
+        let cred = Credential::new(name, pass)?;
 
         let _ = self
             .credentials
@@ -137,7 +139,7 @@ impl Htpasswd {
                 ))
             })?;
 
-        for (_n, c) in self.credentials.iter() {
+        for c in self.credentials.values() {
             let _e = file.write(c.to_string().as_bytes()).map_err(|err| {
                 ApiErrorKind::WritingToFileFailed(format!(
                     "Could not write to htpasswd file: {} at {:?}",
@@ -156,19 +158,20 @@ pub struct Credential {
 }
 
 impl Credential {
-    pub fn new(name: &str, pass: &str) -> Self {
-        let salt: String = thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(constants::SALT_LEN)
-            .map(char::from)
-            .collect();
-        let hash = md5_apr1_encode(pass, salt.as_str());
-        let hash = format_hash(hash.as_str(), salt.as_str());
+    pub fn new(name: &str, pass: &str) -> AppResult<Self> {
+        let hash = hash_password(pass, HASH_ALGORITHM).map_err(|err| {
+            ErrorKind::Io.context(format!("Could not hash the password for `{name}`: {err}"))
+        })?;
 
-        Self {
+        Ok(Self {
             name: name.into(),
             hash,
-        }
+        })
+    }
+
+    /// The stored password hash in htpasswd format
+    pub(crate) fn hash(&self) -> &str {
+        &self.hash
     }
 
     /// Returns a credential struct from a htpasswd file line

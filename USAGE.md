@@ -31,9 +31,10 @@ using a `.htpasswd` file to specify users. By default, the server looks for this
 file at the root of the persistence directory, but this can be changed using the
 `--htpasswd-file` option. You can create such a file by executing the following
 command (note that you need the `htpasswd` program from Apache's http-tools). In
-order to append new user to the file, just omit the `-c` argument. Only bcrypt
-and SHA encryption methods are supported, so use -B (very secure) or -s
-(insecure by today's standards) when adding/changing passwords.
+order to append new user to the file, just omit the `-c` argument. The supported
+hashing methods are bcrypt (`-B`), SHA-256 crypt (`-2`), SHA-512 crypt (`-5`)
+and APR1-MD5 (`-m`). Use `-B` unless you have a reason not to; the SHA1 (`-s`)
+and `crypt(3)` (`-d`) methods are broken and are not accepted.
 
 ```sh
 htpasswd -B -c .htpasswd username
