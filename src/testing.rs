@@ -12,12 +12,12 @@ use tracing::debug;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
-    acl::{init_acl, Acl},
-    auth::{init_auth, Auth},
+    acl::{Acl, init_acl},
+    auth::{Auth, init_auth},
     config::{
-        default_data_dir, AclSettings, HtpasswdSettings, RusticServerConfig, StorageSettings,
+        AclSettings, HtpasswdSettings, RusticServerConfig, StorageSettings, default_data_dir,
     },
-    storage::{init_storage, LocalStorage, Storage},
+    storage::{LocalStorage, Storage, init_storage},
 };
 
 // ------------------------------------------------

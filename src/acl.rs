@@ -254,8 +254,6 @@ mod tests {
     use crate::testing::server_config;
     use rstest::rstest;
 
-    use std::env;
-
     #[rstest]
     fn test_static_acl_access_passes() {
         let acl = server_config().acl;

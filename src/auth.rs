@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, path::PathBuf};
+use std::path::PathBuf;
 
 use abscissa_core::SecretString;
 use axum::{extract::FromRequestParts, http::request::Parts};
@@ -58,7 +58,23 @@ impl Auth {
         let user = user.into();
         let passwd = passwd.into();
 
-        self.users.as_ref().map_or(true, |users| matches!(users.get(&user), Some(passwd_data) if htpasswd_verify::Htpasswd::from(passwd_data.to_string().borrow()).check(user, passwd)))
+        let Some(users) = self.users.as_ref() else {
+            return true;
+        };
+
+        let Some(credential) = users.get(&user) else {
+            return false;
+        };
+
+        match htauth::verify_password(&passwd, credential.hash()) {
+            Ok(verified) => verified,
+            Err(err) => {
+                // An unsupported or malformed hash must never authenticate the
+                // user, but it is worth telling the operator about it.
+                tracing::warn!(%user, %err, "[AUTH] could not verify the stored hash");
+                false
+            }
+        }
     }
 
     pub const fn is_disabled(&self) -> bool {
@@ -72,7 +88,6 @@ pub struct BasicAuthFromRequest {
     pub(crate) _password: SecretString,
 }
 
-#[async_trait::async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for BasicAuthFromRequest {
     type Rejection = ApiErrorKind;
 
@@ -85,7 +100,7 @@ impl<S: Send + Sync> FromRequestParts<S> for BasicAuthFromRequest {
 
         tracing::debug!(?auth_result, "[AUTH]");
 
-        return match auth_result {
+        match auth_result {
             Ok(auth) => {
                 let AuthBasic((user, passw)) = auth;
                 let password = passw.unwrap_or_else(String::new);
@@ -108,7 +123,7 @@ impl<S: Send + Sync> FromRequestParts<S> for BasicAuthFromRequest {
                 }
                 Err(ApiErrorKind::AuthenticationHeaderError)
             }
-        };
+        }
     }
 }
 
@@ -116,14 +131,15 @@ impl<S: Send + Sync> FromRequestParts<S> for BasicAuthFromRequest {
 mod test {
     use super::*;
 
+    use crate::htpasswd::Credential;
     use crate::testing::{basic_auth_header_value, init_test_environment, server_config};
 
     use anyhow::Result;
     use axum::{
+        Router,
         body::Body,
         http::{Method, Request, StatusCode},
         routing::get,
-        Router,
     };
     use http_body_util::BodyExt;
     use rstest::{fixture, rstest};
@@ -141,6 +157,27 @@ mod test {
         assert!(!auth.verify("rustic", "_rustic"));
 
         Ok(())
+    }
+
+    /// Hashes we cannot verify must be rejected, never accepted.
+    ///
+    /// `{SHA}` and the DES based `crypt(3)` are no longer supported, and a
+    /// truncated hash cannot be verified either.
+    #[rstest]
+    #[case("{SHA}W6ph5Mm5Pz8GgiULbPgzG37mj9g=")]
+    #[case("aWmMhCH/tzWEg")]
+    #[case("$apr1$truncated")]
+    #[case("")]
+    fn test_unverifiable_hash_is_rejected(#[case] hash: &str) {
+        let mut credentials = CredentialMap::new();
+        let _ = credentials.insert(
+            "rustic".to_string(),
+            Credential::from_line(format!("rustic:{hash}")).unwrap(),
+        );
+
+        let auth = Auth::from(credentials);
+
+        assert!(!auth.verify("rustic", "password"));
     }
 
     #[rstest]

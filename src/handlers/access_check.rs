@@ -7,17 +7,19 @@ use tracing::debug;
 use strum::VariantNames;
 
 use crate::{
-    acl::{AccessType, AclChecker, ACL},
+    acl::{ACL, AccessType, AclChecker},
     error::{ApiErrorKind, ApiResult},
     typed_path::TpeKind,
 };
 
-pub fn check_auth_and_acl(
+pub fn check_auth_and_acl<T: Into<Option<TpeKind>>>(
     user: String,
-    tpe: impl Into<Option<TpeKind>>,
+    tpe: T,
     path: &Path,
     access_type: AccessType,
-) -> ApiResult<impl IntoResponse> {
+    // `use<T>` keeps the response from capturing the lifetime of `path`, which
+    // edition 2024 would otherwise do implicitly.
+) -> ApiResult<impl IntoResponse + use<T>> {
     let tpe = tpe.into();
 
     // don't allow paths that includes any of the defined types

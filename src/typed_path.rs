@@ -54,9 +54,9 @@ impl TpeKind {
     }
 }
 
-// A type safe route with `"/:repo/config"` as its associated path.
+// A type safe route with `"/{repo}/config"` as its associated path.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/:repo/config")]
+#[typed_path("/{repo}/config")]
 pub struct RepositoryConfigPath {
     pub repo: String,
 }
@@ -67,9 +67,9 @@ impl PathParts for RepositoryConfigPath {
     }
 }
 
-// A type safe route with `"/:repo/"` as its associated path.
+// A type safe route with `"/{repo}/"` as its associated path.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/:repo/")]
+#[typed_path("/{repo}/")]
 pub struct RepositoryPath {
     pub repo: String,
 }
@@ -80,9 +80,9 @@ impl PathParts for RepositoryPath {
     }
 }
 
-// A type safe route with `"/:tpe"` as its associated path.
+// A type safe route with `"/{tpe}"` as its associated path.
 #[derive(TypedPath, Deserialize, Debug, Copy, Clone)]
-#[typed_path("/:tpe")]
+#[typed_path("/{tpe}")]
 pub struct TpePath {
     pub tpe: TpeKind,
 }
@@ -93,9 +93,9 @@ impl PathParts for TpePath {
     }
 }
 
-// A type safe route with `"/:repo/:tpe/"` as its associated path.
+// A type safe route with `"/{repo}/{tpe}/"` as its associated path.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/:repo/:tpe/")]
+#[typed_path("/{repo}/{tpe}/")]
 pub struct RepositoryTpePath {
     pub repo: String,
     pub tpe: TpeKind,
@@ -111,9 +111,9 @@ impl PathParts for RepositoryTpePath {
     }
 }
 
-// A type safe route with `"/:tpe/:name"` as its associated path.
+// A type safe route with `"/{tpe}/{name}"` as its associated path.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/:tpe/:name")]
+#[typed_path("/{tpe}/{name}")]
 pub struct TpeNamePath {
     pub tpe: TpeKind,
     pub name: String,
@@ -129,9 +129,9 @@ impl PathParts for TpeNamePath {
     }
 }
 
-// A type safe route with `"/:repo/:tpe/:name"` as its associated path.
+// A type safe route with `"/{repo}/{tpe}/{name}"` as its associated path.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/:repo/:tpe/:name")]
+#[typed_path("/{repo}/{tpe}/{name}")]
 pub struct RepositoryTpeNamePath {
     pub repo: String,
     pub tpe: TpeKind,
