@@ -107,10 +107,7 @@ fn read_toml(file_path: &PathBuf) -> AppResult<BTreeMap<String, RepoAcl>> {
             err, file_path
         ))
     })?;
-    // make the contents static in memory
-    let s = Box::leak(s.into_boxed_str());
-
-    let mut repos: BTreeMap<String, RepoAcl> = toml::from_str(s)
+    let mut repos: BTreeMap<String, RepoAcl> = toml::from_str(&s)
         .map_err(|err| ErrorKind::Config.context(format!("Could not parse TOML: {}", err)))?;
 
     // copy key "default" into ""
@@ -253,8 +250,6 @@ mod tests {
     use super::*;
     use crate::testing::server_config;
     use rstest::rstest;
-
-    use std::env;
 
     #[rstest]
     fn test_static_acl_access_passes() {

@@ -13,8 +13,8 @@ use crate::{
     acl::Acl,
     auth::Auth,
     config::{
-        default_data_dir, default_socket_address, AclSettings, HtpasswdSettings, LogSettings,
-        RusticServerConfig, TlsSettings,
+        AclSettings, HtpasswdSettings, LogSettings, RusticServerConfig, TlsSettings,
+        default_data_dir, default_socket_address,
     },
     error::{AppResult, ErrorKind},
     storage::Storage,
@@ -119,7 +119,9 @@ where
     fn auth(htpasswd_settings: HtpasswdSettings, data_dir: PathBuf) -> AppResult<Auth> {
         let auth = if htpasswd_settings.is_disabled() {
             info!("Authentication is disabled.");
-            warn!("This allows anyone to push to your repositories. This should be considered insecure and is not recommended for production use.");
+            warn!(
+                "This allows anyone to push to your repositories. This should be considered insecure and is not recommended for production use."
+            );
             Auth::default()
         } else {
             info!(

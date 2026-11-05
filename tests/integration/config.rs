@@ -64,7 +64,7 @@ impl ConfigFile {
         let filename_prefix = app_name.to_string_lossy().to_string();
 
         for n in 0..FILE_CREATE_ATTEMPTS {
-            let filename = format!("{}-{}.toml", &filename_prefix, n);
+            let filename = format!("{filename_prefix}-{n}.toml");
             let path = env::temp_dir().join(filename);
 
             match OpenOptions::new().write(true).create_new(true).open(&path) {
